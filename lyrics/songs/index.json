@@ -1,0 +1,8 @@
+{
+  "title": "歌詞集",
+  "songs": [
+    "sample-ja.json",
+    "sample-en.json",
+    "sample-zh.json"
+  ]
+}

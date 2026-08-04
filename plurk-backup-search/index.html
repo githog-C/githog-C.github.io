@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plurk Backup ── 全文檢索</title>
+<style id="app-style">
+/* Plurk backup full-text search - single-file build for GitHub Pages.
+   The backup's own static/backup.css is injected at runtime, BEFORE this
+   block, so everything here wins and the dark theme survives. */
+:root{
+  --bg:#202020; --surface:#2b2b2b; --surface2:#343434; --chip:#2f2f33;
+  --line:#3a3a3a; --accent:#FF574D; --t1:#f0f0f0; --t2:#c8c8c8; --t3:#9b9b9b;
+  --t4:#9f9f9f; --link:#7fa6ff; --cal:#2F2F33;
+}
+*,body{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t1);overflow:hidden;
+  font:13px/18px 'Lucida Grande','Lucida Sans Unicode',Tahoma,Verdana,
+       'Noto Sans TC','Microsoft JhengHei',sans-serif}
+a{color:var(--accent);text-decoration:none}
+.clearfix:after{content:'';display:block;height:0;clear:both}
+
+*{scrollbar-color:#3a3a3a #202020;scrollbar-width:thin}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#202020}
+::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:6px;border:2px solid #202020}
+::-webkit-scrollbar-thumb:hover{background:#4a4a4a}
+
+/* ===== shell ===== */
+#shell{display:flex;flex-direction:column;height:100vh}
+/* position:static and the calendar background undo backup.css, which pulls the
+   bar out of flow and paints the calendar panel white */
+#top-bar{position:static;flex:0 0 auto;height:46px;line-height:46px;
+  background:var(--accent);color:#fff;display:flex;align-items:center;
+  justify-content:space-between;padding:0 18px}
+#top-bar #title{font-size:14px;font-weight:700}
+#top-bar #bar-right{display:flex;align-items:center;gap:12px}
+#top-bar #acct{display:flex;align-items:center;font-size:12px;font-weight:700}
+#top-bar #acct img{width:30px;height:30px;border-radius:50%;margin-right:8px}
+#top-bar #lang{background:rgba(255,255,255,.15);color:#fff;font:inherit;font-size:12px;
+  font-weight:700;line-height:1;padding:6px 10px;border:1px solid rgba(255,255,255,.55);
+  border-radius:5px;cursor:pointer;white-space:nowrap}
+#top-bar #lang:hover{background:rgba(255,255,255,.32)}
+
+/* ===== intro ===== */
+#intro{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;
+  align-items:flex-start;justify-content:center;padding:40px 16px}
+.intro-box{width:100%;max-width:660px;background:var(--surface);border-radius:12px;
+  padding:32px 34px 28px;line-height:1.85}
+.intro-box h1{font-size:20px;font-weight:700;margin-bottom:14px;color:var(--t1)}
+.intro-box p{color:var(--t2);font-size:13.5px;margin-bottom:14px}
+.intro-box ol{color:var(--t2);font-size:13.5px;margin:0 0 18px 20px}
+.intro-box ol li{margin-bottom:5px}
+.intro-box code{background:#1a1a1a;border:1px solid var(--line);border-radius:4px;
+  padding:1px 5px;font-family:Consolas,Monaco,monospace;font-size:12.5px;color:var(--t1)}
+.pick{margin:22px 0 16px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.btn-primary{background:var(--accent);color:#fff;border:0;font-size:14px;font-weight:700;
+  padding:12px 22px;border-radius:7px;cursor:pointer;display:inline-block}
+.btn-primary:hover{opacity:.9}
+.note{color:var(--t3);font-size:12.5px;border-left:3px solid var(--line);padding-left:12px}
+.note b{color:var(--t2)}
+#progress{margin:18px 0 4px}
+#progress .bar{height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden}
+#progress .bar i{display:block;height:100%;width:0;background:var(--accent);
+  transition:width .15s linear}
+#progress .ptext{color:var(--t3);font-size:12px;margin-top:7px}
+#err{color:#ffb4ae;background:rgba(255,87,77,.1);border:1px solid rgba(255,87,77,.35);
+  border-radius:6px;padding:10px 12px;font-size:13px;margin:16px 0 0}
+.foot-links{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+  color:var(--t3);font-size:12.5px}
+.foot-links a{color:var(--link)}
+
+/* ===== control panel ===== */
+#panel{width:94%;max-width:1680px;margin:12px auto 0;background:var(--surface);
+  border-radius:10px;padding:12px 16px}
+#panel .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#panel .row+.row{margin-top:10px}
+#q{flex:1;min-width:220px;background:#1a1a1a;border:1px solid var(--line);
+  color:var(--t1);font-size:14px;padding:9px 12px;border-radius:6px;outline:none}
+#q:focus{border-color:var(--accent)}
+#panel button{background:var(--accent);color:#fff;border:0;font-size:13px;
+  font-weight:700;padding:9px 16px;border-radius:6px;cursor:pointer}
+#panel button#clear{background:var(--chip);color:var(--t2)}
+#panel button:hover{opacity:.9}
+.filters{font-size:13px;color:var(--t2)}
+.filters label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.filters input[type=checkbox]{accent-color:var(--accent)}
+.filters select{background:#1a1a1a;border:1px solid var(--line);color:var(--t1);
+  border-radius:5px;padding:5px 6px;font-size:12px;max-width:260px}
+.filters .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+#stat{width:94%;max-width:1680px;margin:8px auto 0;color:var(--t3);font-size:12px}
+#stat b{color:var(--accent)}
+
+/* ===== main ===== */
+#body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#main{flex:1 1 auto;min-height:0;display:flex;gap:10px;width:94%;max-width:1680px;
+  margin:6px auto 0}
+#footer{flex:0 0 auto;background:var(--surface);color:var(--t3);font-size:12px;
+  text-align:center;padding:8px 0;border-top:1px solid var(--line)}
+#footer b{color:var(--t2)}
+
+#left-holder{flex:0 0 232px;float:none;overflow-y:auto;background:var(--cal);border-radius:10px}
+#cal-head{display:flex;align-items:center;justify-content:space-between;position:sticky;
+  top:0;z-index:5;background:var(--cal);padding:12px 12px 8px;font-size:13px;
+  font-weight:700;color:var(--t2);border-bottom:1px solid var(--line)}
+#cal-head button{background:#3a3a40;color:var(--t2);border:0;font-size:11px;
+  padding:4px 8px;border-radius:5px;cursor:pointer}
+#cal-head button:hover{background:var(--surface2);color:var(--t1)}
+#cal-head button.active{background:var(--accent);color:#fff}
+#calendar{background:transparent;border-radius:0;
+  font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;padding:8px 0 14px 12px}
+#calendar .year-holder{padding-top:4px}
+#calendar .year{font-size:18px;line-height:26px;font-weight:700;padding:2px 8px 3px 2px;
+  color:var(--t1);cursor:pointer;border-radius:5px;display:inline-block}
+#calendar .year:hover{background:var(--surface2)}
+#calendar .year.current{color:var(--accent)}
+#calendar .month-holder{padding-bottom:4px}
+#calendar .month{float:left;font-size:20px;background:#9B9B9B;border-radius:6px;
+  margin:0 6px 6px 0;line-height:28px;color:#2F2F33;width:56px;text-align:center;
+  padding:4px 0;cursor:pointer;position:relative}
+#calendar .month .plurks-count{display:block;height:14px;font-size:11px;font-weight:400;
+  line-height:14px;padding:0 4px;transform:scale(.8);opacity:.9}
+#calendar .month:hover{background:#B3B3B3}
+#calendar .month.current{background:var(--accent)!important;color:#fff!important}
+
+/* ===== results ===== */
+#right-holder{flex:1 1 auto;min-width:0;overflow-y:auto;overflow-x:hidden;padding-right:2px}
+.plurk{background:var(--surface);color:var(--t1);margin-bottom:8px;max-width:100%;
+  padding:16px 20px;word-wrap:break-word;border-radius:10px;position:relative;cursor:pointer}
+.plurk:hover{background:var(--surface2)}
+.plurk .user{margin:0;font-size:14px;white-space:nowrap}
+.plurk .content{clear:both;padding:8px 0;color:var(--t1);font-size:1.25em;line-height:1.5em;
+  position:relative}
+.plurk .name{font-weight:700}
+.plurk .info{position:absolute;top:8px;right:10px;font-size:12px}
+.plurk .info .time{color:var(--t4)}
+.plurk .kind{font-size:11px;font-weight:700;border-radius:3px;padding:1px 6px;
+  margin-right:6px;vertical-align:middle}
+.plurk .kind.p{background:var(--accent);color:#fff}
+.plurk .kind.r{background:var(--chip);color:var(--t3)}
+.plurk .manager{float:right;padding:3px 0 4px;margin-top:4px}
+.plurk .manager>*{display:inline-block;margin-left:12px;color:var(--t4);border-radius:3px;
+  padding:2px 5px 3px}
+.plurk .manager>*:hover{background:var(--surface2)}
+.qualifier{padding:0 3px;color:#fff;margin:0 3px 0 4px;border-radius:3px}
+a.ex_link{color:var(--link)}
+a.meta{color:var(--link);background:rgba(127,166,255,.06);
+  border:1px solid rgba(127,166,255,.18);display:block;margin:1px 4px 4px 0;padding:2px 4px}
+a.meta img{border-radius:2px;float:left;height:48px;margin:0 6px 0 0;max-width:80px}
+a.meta:hover{background:rgba(127,166,255,.12);border:1px solid rgba(127,166,255,.28)}
+a.pictureservices{border-color:var(--line);background:#1a1a1a;display:inline-block;
+  max-width:200px;padding:2px;vertical-align:text-top;border:1px solid var(--line);
+  border-radius:2px;margin:1px 2px 4px 0;cursor:pointer}
+a.pictureservices img{display:block;height:48px;max-width:200px}
+.emoticon,.emoticon_my,.emo_campaign,.emoticons_campaign{vertical-align:top}
+mark{background:#ffd23f;color:#202020;border-radius:2px;padding:0 1px}
+#more{text-align:center;margin:6px 0 16px}
+#more button{background:var(--surface);color:var(--t2);border:1px solid var(--line);
+  font-size:13px;padding:10px 22px;border-radius:6px;cursor:pointer}
+#more button:hover{background:var(--surface2);color:var(--t1)}
+.empty{color:var(--t3);text-align:center;padding:64px 16px;font-size:14px;line-height:1.8}
+
+/* ===== popups ===== */
+.popwindow{position:fixed;z-index:999;left:0;top:0;width:100%;height:100%}
+.popwindow-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#000;
+  opacity:.6;z-index:0}
+.popwindow-holder{position:absolute;z-index:1}
+#popplurk .popwindow-holder{width:620px;max-width:94%;height:86%;top:7%;left:50%;
+  margin-left:-310px;background:var(--surface);border-radius:10px;display:flex;
+  flex-direction:column;overflow:hidden}
+#pop-close{position:absolute;right:8px;top:6px;z-index:3;cursor:pointer;color:var(--t2);
+  font-size:22px;line-height:26px;width:28px;height:28px;text-align:center;border-radius:50%}
+#pop-close:hover{background:var(--surface2);color:var(--t1)}
+#pop-title{flex:0 0 auto;font-size:12px;font-weight:700;color:var(--t3);
+  padding:10px 40px 8px 14px;border-bottom:1px solid var(--line)}
+#pop-head{flex:0 0 auto;max-height:42%;overflow-y:auto;padding:6px 12px;
+  border-bottom:2px solid var(--line)}
+#pop-resp{flex:1 1 auto;overflow-y:auto;padding:6px 12px}
+#popplurk .plurk{background:var(--surface)!important;border-radius:6px;margin:0 0 6px;
+  padding:10px 12px;cursor:default;transition:box-shadow .2s}
+#popplurk .response{background:#262626!important}
+#popplurk .plurk .content{font-size:1em}
+#popplurk .response.hit{box-shadow:inset 0 0 0 2px var(--accent);background:#33291a!important}
+#popimage .popwindow-holder{width:90%;height:90%;top:5%;left:5%;background:transparent;
+  text-align:center;display:flex;align-items:center;justify-content:center}
+#popimage-img{max-width:100%;max-height:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="shell">
+  <div id="top-bar">
+    <div id="title" data-i18n="app_title">Plurk Backup ── 全文檢索</div>
+    <div id="bar-right">
+      <div id="acct"></div>
+      <button id="lang" type="button" title="Language / 語言" data-i18n="lang_btn">EN</button>
+    </div>
+  </div>
+
+  <!-- ===== intro / loader ===== -->
+  <div id="intro">
+    <div class="intro-box">
+      <h1 data-i18n="intro_h">在瀏覽器裡全文檢索你的噗浪備份</h1>
+      <p data-i18n="intro_p1"></p>
+      <ol>
+        <li data-i18n="intro_s1"></li>
+        <li data-i18n="intro_s2"></li>
+        <li data-i18n="intro_s3"></li>
+      </ol>
+      <div class="pick">
+        <label class="btn-primary">
+          <span data-i18n="intro_pick">選擇備份資料夾</span>
+          <input type="file" id="pick" webkitdirectory directory multiple hidden>
+        </label>
+      </div>
+      <p class="note" data-i18n-html="intro_privacy"></p>
+      <div id="progress" hidden>
+        <div class="bar"><i></i></div>
+        <div class="ptext"></div>
+      </div>
+      <div id="err" hidden></div>
+      <div class="foot-links" data-i18n-html="intro_foot"></div>
+    </div>
+  </div>
+
+  <!-- ===== search app ===== -->
+  <div id="body" hidden>
+    <div id="panel">
+      <div class="row">
+        <input id="q" type="search" data-i18n-ph="q_ph">
+        <button id="go" data-i18n="btn_search">搜尋</button>
+        <button id="clear" data-i18n="btn_clear">清除</button>
+      </div>
+      <div class="row filters">
+        <label><input type="checkbox" class="fk" value="p" checked><span data-i18n="f_plurk"></span></label>
+        <label><input type="checkbox" class="fk" value="r" checked><span data-i18n="f_resp"></span></label>
+        <span class="sep"></span>
+        <label><input type="checkbox" class="fa" value="1" checked><span data-i18n="f_me"></span></label>
+        <label><input type="checkbox" class="fa" value="0" checked><span data-i18n="f_others"></span></label>
+        <span class="sep"></span>
+        <span data-i18n="f_hashtag">Hashtag</span>
+        <select id="tag"></select>
+      </div>
+    </div>
+    <div id="stat"></div>
+    <div id="main">
+      <div id="left-holder">
+        <div id="cal-head">
+          <span data-i18n="cal_head"></span>
+          <button id="cal-clear" data-i18n="cal_all"></button>
+        </div>
+        <div id="calendar"></div>
+      </div>
+      <div id="right-holder">
+        <div id="results"></div>
+        <div id="more" hidden><button id="moreBtn"></button></div>
+      </div>
+    </div>
+    <div id="footer"></div>
+  </div>
+</div>
+
+<div id="popplurk" class="popwindow" hidden>
+  <div class="popwindow-overlay"></div>
+  <div class="popwindow-holder">
+    <div id="pop-close">&times;</div>
+    <div id="pop-title"></div>
+    <div id="pop-head"></div>
+    <div id="pop-resp"></div>
+  </div>
+</div>
+
+<div id="popimage" class="popwindow" hidden>
+  <div class="popwindow-overlay"></div>
+  <div class="popwindow-holder"><img id="popimage-img" alt=""></div>
+</div>
+
+<script>
+/* Plurk backup full-text search - runs entirely in the browser.
+   The backup folder is read with the local file picker; nothing is uploaded
+   anywhere. The index that build_index.py produces offline is built here in
+   JavaScript instead, so no Python step is needed for the online version.
+
+   Plurk's English wording follows https://www.plurk.com/help/en/plurk and
+   /help/en/timeline: a post is a "plurk", an answer to it is a "reply". */
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+  // ---- i18n --------------------------------------------------------------
+  var LANG_KEY = 'plurk_search_lang';
+  var ZIP = 'plurk-backup-search.zip';
+  var I18N = {
+    zh: {
+      html_lang: 'zh-Hant',
+      app_title: 'Plurk Backup ── 全文檢索',
+      lang_btn: 'EN',
+      intro_h: '在瀏覽器裡全文檢索你的噗浪備份',
+      intro_p1: '把噗浪個人備份整包讀進瀏覽器，離線建立索引後即可全文檢索。'
+              + '需要 Chrome、Edge 或其他支援資料夾選取的瀏覽器。',
+      intro_s1: '在噗浪申請並下載個人備份，解壓縮成一個資料夾（裡面有 index.html 與 data/）。',
+      intro_s2: '按下方按鈕，選擇「解壓縮後的那個資料夾」本身，不是裡面的 data/。',
+      intro_s3: '瀏覽器讀取並建立索引後，就會進入檢索畫面。',
+      intro_pick: '選擇備份資料夾',
+      intro_privacy: '<b>資料不會離開你的電腦。</b>這是純靜態網頁，'
+                   + '所有讀取與索引都在你的瀏覽器內完成，沒有伺服器、沒有上傳、沒有紀錄。'
+                   + '關閉分頁後就什麼都不留（只有介面語言偏好會存在瀏覽器裡）。',
+      intro_foot: '備份較大時建立索引需要數十秒，屬正常現象。'
+                + '想改用離線版本（Python 產生索引檔、日後開啟更快），'
+                + '可下載 <a href="' + ZIP + '" download>' + ZIP + '</a>。',
+      err_notbackup: '選到的資料夾裡找不到 data/user.js，看起來不是噗浪備份的根目錄。'
+                   + '請選擇解壓縮後、與 index.html 同一層的那個資料夾。',
+      err_read: '讀取失敗：',
+      p_reading: '讀取中',
+      p_plurks: '讀取噗首',
+      p_resp: '讀取回應',
+      p_build: '建立索引⋯⋯',
+      q_ph: '輸入關鍵字（以空白分隔可多詞 AND 搜尋；字首加 - 為排除）',
+      btn_search: '搜尋',
+      btn_clear: '清除',
+      f_plurk: '噗首',
+      f_resp: '回應',
+      f_me: '本人',
+      f_others: '他人',
+      f_hashtag: 'Hashtag',
+      cal_head: '年月篩選',
+      cal_all: '全部期間',
+      kind_p: '噗首',
+      kind_r: '回應',
+      badge_others: '他人',
+      owner_fallback: '本人',
+      tag_all: function (n) { return '全部 hashtag (' + n + ')'; },
+      open_plurk: function (b) { return ' 開原噗 p/' + b; },
+      more: function (s, t) { return '載入更多（已顯示 ' + s + ' / ' + t + '）'; },
+      empty_start: '輸入關鍵字，或從左欄選擇年月，開始檢索。<br>（未設定任何條件時不顯示結果）',
+      empty_none: '沒有符合條件的結果',
+      stat_idle: function (t, np, nr) {
+        return '目前未設定條件 ── 全部 ' + t + ' 筆（噗首 ' + np + '、回應 ' + nr + '）';
+      },
+      stat_hit: function (n, sc, t) {
+        return '符合 <b>' + n + '</b> 筆 ' + sc + '（全部 ' + t + ' 筆）';
+      },
+      scope_all: '｜全範圍',
+      scope_sel: function (v) { return '｜範圍 ' + v; },
+      footer: function (d, np, nr, t, tg) {
+        return '備份於 <b>' + d + '</b>　｜　噗首 <b>' + np + '</b>　回應 <b>' + nr
+             + '</b>　｜　索引 <b>' + t + '</b> 筆　｜　hashtag <b>' + tg + '</b> 個';
+      },
+      pop_title: function (b, n) { return 'p/' + b + '　共 ' + n + ' 則回應'; },
+      pop_nohead: '（此回應的噗首未在備份中）',
+      pop_noresp: '此噗沒有備份到回應'
+    },
+    en: {
+      html_lang: 'en',
+      app_title: 'Plurk Backup ── Full-text Search',
+      lang_btn: '中文',
+      intro_h: 'Full-text search your Plurk backup, in the browser',
+      intro_p1: 'Load your Plurk backup export into the browser, build an index locally, '
+              + 'and search the whole thing. Needs Chrome, Edge or another browser that '
+              + 'supports picking a folder.',
+      intro_s1: 'Request and download your personal backup from Plurk, then unzip it '
+              + '(the folder holds index.html and data/).',
+      intro_s2: 'Press the button below and pick that unzipped folder itself, not the '
+              + 'data/ folder inside it.',
+      intro_s3: 'Once the browser has read it and built the index, the search view opens.',
+      intro_pick: 'Choose backup folder',
+      intro_privacy: '<b>Nothing leaves your computer.</b> This is a plain static page: '
+                   + 'reading and indexing happen entirely in your browser. No server, '
+                   + 'no upload, no logging. Close the tab and nothing remains (only the '
+                   + 'interface language preference is kept in the browser).',
+      intro_foot: 'Indexing a large backup can take tens of seconds - that is normal. '
+                + 'For the offline version (index built once by Python, faster to reopen), '
+                + 'download <a href="' + ZIP + '" download>' + ZIP + '</a>.',
+      err_notbackup: 'No data/user.js was found in the folder you picked, so it does not '
+                   + 'look like the root of a Plurk backup. Pick the unzipped folder that '
+                   + 'sits next to index.html.',
+      err_read: 'Could not read the backup: ',
+      p_reading: 'Reading',
+      p_plurks: 'Reading plurks',
+      p_resp: 'Reading replies',
+      p_build: 'Building the index...',
+      q_ph: 'Enter keywords (space-separated terms are ANDed; prefix - to exclude)',
+      btn_search: 'Search',
+      btn_clear: 'Clear',
+      f_plurk: 'Plurks',
+      f_resp: 'Replies',
+      f_me: 'Me',
+      f_others: 'Others',
+      f_hashtag: 'Hashtag',
+      cal_head: 'Year / month',
+      cal_all: 'All dates',
+      kind_p: 'Plurk',
+      kind_r: 'Reply',
+      badge_others: 'Others',
+      owner_fallback: 'Me',
+      tag_all: function (n) { return 'All hashtags (' + n + ')'; },
+      open_plurk: function (b) { return ' Open p/' + b + ' on Plurk'; },
+      more: function (s, t) { return 'Load more (showing ' + s + ' / ' + t + ')'; },
+      empty_start: 'Enter a keyword, or pick a year / month on the left, to start searching.'
+                 + '<br>(Nothing is listed until at least one condition is set.)',
+      empty_none: 'No matching results',
+      stat_idle: function (t, np, nr) {
+        return 'No conditions set ── ' + t + ' records in total (plurks ' + np
+             + ', replies ' + nr + ')';
+      },
+      stat_hit: function (n, sc, t) {
+        return '<b>' + n + '</b> matches ' + sc + ' (of ' + t + ' records)';
+      },
+      scope_all: '｜ all dates',
+      scope_sel: function (v) { return '｜ range ' + v; },
+      footer: function (d, np, nr, t, tg) {
+        return 'Backed up on <b>' + d + '</b>　｜　plurks <b>' + np + '</b>　replies <b>'
+             + nr + '</b>　｜　index <b>' + t + '</b> records　｜　hashtags <b>' + tg + '</b>';
+      },
+      pop_title: function (b, n) { return 'p/' + b + '　' + n + ' replies'; },
+      pop_nohead: '(The plurk this reply belongs to is not in the backup.)',
+      pop_noresp: 'No replies were backed up for this plurk'
+    }
+  };
+  var lang = 'zh';
+  try {
+    var sv = window.localStorage && window.localStorage.getItem(LANG_KEY);
+    if (sv && I18N[sv]) lang = sv;
+  } catch (e) { /* private mode */ }
+  function L() { return I18N[lang]; }
+
+  // ---- state -------------------------------------------------------------
+  var DATA = [], U = {}, INFO = {};
+  var HAS_OWNER_NAME = false;
+  var PAGE = 200;
+  var shown = 0, matched = [], terms = [], negs = [];
+  var idle = true, ready = false;
+  var sel = null, byBase = {}, NP = 0, NR = 0;
+  var TAGS = [], TAGCOUNT = {};
+  var openedThread = null;
+
+  function ownerName() { return U.display_name || U.nick_name || L().owner_fallback; }
+
+  // ---- helpers -----------------------------------------------------------
+  function stripHtml(h) {
+    return h.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ');
+  }
+  function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function comma(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function fmtDate(s) {
+    var d = new Date(s);
+    return isNaN(d) ? (s || '')
+      : d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+  }
+  // matches build_index.py: RFC-2822 timestamp rendered in UTC
+  function ts(s) {
+    var d = new Date(s);
+    if (isNaN(d)) return s;
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate())
+         + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+  }
+  function avatarUrl(u) {
+    return u && u.id && u.avatar
+      ? 'https://avatars.plurk.com/' + u.id + '-medium' + u.avatar + '.gif'
+      : 'https://www.plurk.com/static/default_big.jpg';
+  }
+  function highlight(html) {
+    if (!terms.length) return html;
+    var rx = new RegExp('(' + terms.map(reEsc).join('|') + ')', 'gi');
+    return html.split(/(<[^>]+>)/).map(function (seg) {
+      return seg.charAt(0) === '<' ? seg : seg.replace(rx, '<mark>$1</mark>');
+    }).join('');
+  }
+  function authorName(r) { return r.j === 1 ? ownerName() : (r.au || '?'); }
+  function authorColor(r) { return r.j === 1 ? (U.name_color || '') : (r.nc || ''); }
+  function blob(r) {
+    if (r._s === undefined) {
+      var urls = (r.c.match(/https?:\/\/[^\s"'<>]+/g) || []).join(' ');
+      var who = r.j === 1 ? (HAS_OWNER_NAME ? ownerName() : '') : (r.au || '');
+      r._s = (stripHtml(r.c) + ' ' + urls + ' ' + who + ' '
+              + (r.h ? r.h.join(' ') : '')).toLowerCase();
+    }
+    if (r.j === 1 && !HAS_OWNER_NAME) return r._s + ' ' + ownerName().toLowerCase();
+    return r._s;
+  }
+
+  // ---- loading the backup ------------------------------------------------
+  function parseAssign(text) {
+    var body = text.slice(text.indexOf('=') + 1).trim();
+    if (body.charAt(body.length - 1) === ';') body = body.slice(0, -1).trim();
+    return JSON.parse(body);
+  }
+  function fixhtml(s) {
+    return String(s || '')
+      .split('<a ').join('<a target="_blank" ')
+      .split('src="/static/emoticons/').join('src="https://www.plurk.com/static/emoticons/');
+  }
+  function tagsOf(html) {
+    var out = [], seen = {}, rx = /<span class="hashtag">(#[^<]+)<\/span>/g, m;
+    while ((m = rx.exec(html || ''))) {
+      if (!seen[m[1]]) { seen[m[1]] = 1; out.push(m[1]); }
+    }
+    return out;
+  }
+  function normPath(f) { return (f.webkitRelativePath || f.name).replace(/\\/g, '/'); }
+
+  var $prog = $('#progress'), $bar = $('#progress .bar i'), $ptext = $('#progress .ptext');
+  function progress(label, done, total) {
+    $prog.hidden = false;
+    $bar.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+    $ptext.textContent = label + (total ? '　' + comma(done) + ' / ' + comma(total) : '');
+  }
+  function breathe() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+  async function loadBackup(fileList) {
+    var files = Array.prototype.slice.call(fileList);
+    var userFile = null, i;
+    for (i = 0; i < files.length; i++) {
+      if (normPath(files[i]).slice(-12) === 'data/user.js') { userFile = files[i]; break; }
+    }
+    if (!userFile) throw new Error(L().err_notbackup);
+    var prefix = normPath(userFile).slice(0, -12);           // ".../" up to data/
+    var at = function (rel) {
+      for (var k = 0; k < files.length; k++) {
+        if (normPath(files[k]) === prefix + rel) return files[k];
+      }
+      return null;
+    };
+    var under = function (dir) {
+      return files.filter(function (f) {
+        var p = normPath(f);
+        return p.indexOf(prefix + dir) === 0 && p.slice(-3) === '.js';
+      }).sort(function (a, b) { return normPath(a) < normPath(b) ? -1 : 1; });
+    };
+
+    progress(L().p_reading, 0, 0);
+    U = parseAssign(await userFile.text());
+    HAS_OWNER_NAME = !!(U.display_name || U.nick_name);
+    var infoFile = at('data/info.js');
+    INFO = infoFile ? parseAssign(await infoFile.text()) : {};
+
+    // the backup's own stylesheet, injected ahead of ours so the dark theme wins
+    var cssFile = at('static/backup.css');
+    if (cssFile) {
+      var css = await cssFile.text();
+      var iconFile = at('static/icons.png');
+      if (iconFile) {
+        var icon = await new Promise(function (res) {
+          var fr = new FileReader();
+          fr.onload = function () { res(fr.result); };
+          fr.onerror = function () { res(null); };
+          fr.readAsDataURL(iconFile);
+        });
+        if (icon) css = css.split('url(icons.png)').join('url(' + icon + ')');
+      }
+      var st = document.createElement('style');
+      st.textContent = css;
+      document.head.insertBefore(st, $('#app-style'));
+    }
+
+    var recs = [], ownerId = U.id;
+
+    var pf = under('data/plurks/');
+    for (i = 0; i < pf.length; i++) {
+      var arr = parseAssign(await pf[i].text());
+      for (var a = 0; a < arr.length; a++) {
+        var p = arr[a];
+        recs.push({
+          k: 'p', b: p.base_id, t: ts(p.posted),
+          q: p.translate_qualifier || '', qz: p.qualifier || '', j: 1,
+          c: fixhtml(p.content), h: tagsOf(p.content), rc: p.response_count || 0
+        });
+      }
+      if (i % 8 === 0) { progress(L().p_plurks, i + 1, pf.length); await breathe(); }
+    }
+    progress(L().p_plurks, pf.length, pf.length);
+
+    var rf = under('data/responses/');
+    for (i = 0; i < rf.length; i++) {
+      var txt = await rf[i].text();
+      var m = /^BackupData\.responses\["([^"]+)"\]=/.exec(txt);
+      if (m) {
+        var bid = m[1], list = parseAssign(txt);
+        for (var b = 0; b < list.length; b++) {
+          var r = list[b], u = r.user || {};
+          var own = u.id === ownerId ? 1 : 0;
+          var rec = {
+            k: 'r', b: bid, t: ts(r.posted),
+            q: r.translate_qualifier || '', qz: r.qualifier || '', j: own,
+            c: fixhtml(r.content), h: tagsOf(r.content)
+          };
+          if (!own) {
+            rec.au = u.display_name || u.nick_name || '?';
+            if (u.name_color) rec.nc = u.name_color;
+          }
+          recs.push(rec);
+        }
+      }
+      if (i % 40 === 0) { progress(L().p_resp, i + 1, rf.length); await breathe(); }
+    }
+    progress(L().p_resp, rf.length, rf.length);
+
+    progress(L().p_build, 0, 0);
+    await breathe();
+    recs.sort(function (x, y) { return x.t < y.t ? 1 : (x.t > y.t ? -1 : 0); });
+    DATA = recs;
+    indexData();
+  }
+
+  function indexData() {
+    var tagCount = {};
+    byBase = {}; NP = 0; NR = 0;
+    for (var i = 0; i < DATA.length; i++) {
+      var r = DATA[i];
+      r._gi = i;
+      if (r.k === 'p') NP++; else NR++;
+      if (!byBase[r.b]) byBase[r.b] = { p: null, r: [] };
+      if (r.k === 'p') byBase[r.b].p = r; else byBase[r.b].r.push(r);
+      var h = r.h;
+      if (h) for (var j = 0; j < h.length; j++) tagCount[h[j]] = (tagCount[h[j]] || 0) + 1;
+    }
+    TAGCOUNT = tagCount;
+    TAGS = Object.keys(tagCount).sort(function (a, b) { return tagCount[b] - tagCount[a]; });
+  }
+
+  // ---- query -------------------------------------------------------------
+  function parseQuery(raw) {
+    terms = []; negs = [];
+    if (!raw) return;
+    var parts = raw.split(/\s+/);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (!p) continue;
+      if (p.charAt(0) === '-') { if (p.length > 1) negs.push(p.slice(1)); }
+      else terms.push(p);
+    }
+  }
+  function dateOk(r) {
+    if (!sel) return true;
+    return sel.type === 'year' ? r.t.slice(0, 4) === sel.v : r.t.slice(0, 7) === sel.v;
+  }
+
+  function run() {
+    if (!ready) return;
+    parseQuery($('#q').value.trim().toLowerCase());
+    var tag = $('#tag').value;
+    var kinds = $$('.fk:checked').map(function (e) { return e.value; });
+    var authors = $$('.fa:checked').map(function (e) { return e.value; });
+
+    if (!(terms.length || negs.length || sel !== null || tag !== '')) {
+      idle = true; matched = []; shown = 0;
+      $('#results').innerHTML = '<div class="empty">' + L().empty_start + '</div>';
+      $('#more').hidden = true;
+      $('#stat').innerHTML = L().stat_idle(comma(DATA.length), comma(NP), comma(NR));
+      return;
+    }
+    idle = false;
+
+    var res = [];
+    for (var i = 0; i < DATA.length; i++) {
+      var r = DATA[i];
+      if (kinds.indexOf(r.k) === -1) continue;
+      if (authors.indexOf(String(r.j)) === -1) continue;
+      if (!dateOk(r)) continue;
+      if (tag && (!r.h || r.h.indexOf(tag) === -1)) continue;
+      if (terms.length || negs.length) {
+        var s = blob(r), ok = true, t;
+        for (t = 0; t < terms.length; t++) {
+          if (s.indexOf(terms[t]) === -1) { ok = false; break; }
+        }
+        if (ok) for (t = 0; t < negs.length; t++) {
+          if (s.indexOf(negs[t]) !== -1) { ok = false; break; }
+        }
+        if (!ok) continue;
+      }
+      res.push(r);
+    }
+    matched = res; shown = 0;
+    $('#results').innerHTML = '';
+    $('#right-holder').scrollTop = 0;
+    renderMore();
+    updateStat();
+  }
+
+  // ---- rendering ---------------------------------------------------------
+  function itemHtml(r, isResp) {
+    var color = authorColor(r);
+    var kindLabel = r.k === 'p' ? L().kind_p : L().kind_r;
+    var name = '<a target="_blank" href="https://www.plurk.com/p/' + r.b + '" class="name"'
+             + (color ? ' style="color:#' + esc(color) + '"' : '') + '>'
+             + esc(authorName(r)) + '</a>';
+    var qual = (r.q && /^[a-z]+$/.test(r.qz))
+             ? '<span class="qualifier q_' + r.qz + '">' + esc(r.q) + '</span>' : '';
+    var who = r.j === 1 ? ''
+            : '<span class="kind r" style="background:#444">' + L().badge_others + '</span>';
+    var manager = isResp ? '' :
+      '<div class="manager"><a target="_blank" href="https://www.plurk.com/p/' + r.b
+      + '" class="open-plink"><i class="cmp-outlink"></i><span>' + L().open_plurk(r.b)
+      + '</span></a></div>';
+    return '<div class="plurk ' + (isResp ? 'response ' : '') + 'clearfix" data-gi="'
+      + (r._gi != null ? r._gi : '') + '">'
+      + '<div class="user"><span class="kind ' + r.k + '">' + kindLabel + '</span>'
+      + who + name + qual + '</div>'
+      + '<div class="content">' + highlight(r.c) + '</div>'
+      + manager
+      + '<div class="info"><span class="time">' + r.t + '</span></div></div>';
+  }
+
+  function renderMore() {
+    if (!matched.length) {
+      $('#results').innerHTML = '<div class="empty">' + L().empty_none + '</div>';
+      $('#more').hidden = true; return;
+    }
+    var end = Math.min(shown + PAGE, matched.length), html = '';
+    for (var i = shown; i < end; i++) html += itemHtml(matched[i], false);
+    $('#results').insertAdjacentHTML('beforeend', html);
+    shown = end;
+    $('#more').hidden = shown >= matched.length;
+    $('#moreBtn').textContent = L().more(comma(shown), comma(matched.length));
+  }
+
+  function updateStat() {
+    var scope = sel ? L().scope_sel(sel.v) : L().scope_all;
+    $('#stat').innerHTML = L().stat_hit(comma(matched.length), scope, comma(DATA.length));
+  }
+
+  // ---- thread popup ------------------------------------------------------
+  function openThread(bid, src) {
+    openedThread = { bid: bid, src: src };
+    var t = byBase[bid], $h = $('#pop-head'), $r = $('#pop-resp');
+    if (t && t.p) $h.innerHTML = itemHtml(t.p, false);
+    else $h.innerHTML = '<div class="plurk"><div class="content">' + L().pop_nohead
+      + '</div><div class="manager"><a target="_blank" href="https://www.plurk.com/p/'
+      + bid + '" class="open-plink"><i class="cmp-outlink"></i><span>'
+      + L().open_plurk(bid) + '</span></a></div></div>';
+    var rs = (t ? t.r : []).slice().sort(function (a, b) { return a.t < b.t ? -1 : 1; });
+    if (rs.length) {
+      var html = '';
+      for (var i = 0; i < rs.length; i++) html += itemHtml(rs[i], true);
+      $r.innerHTML = html;
+    } else {
+      $r.innerHTML = '<div class="empty" style="padding:24px">' + L().pop_noresp + '</div>';
+    }
+    $('#pop-title').textContent = L().pop_title(bid, rs.length);
+    $('#popplurk').hidden = false;
+
+    if (src && src.k === 'r' && src._gi != null) {
+      var hit = $r.querySelector('.response[data-gi="' + src._gi + '"]');
+      if (hit) setTimeout(function () {
+        hit.scrollIntoView({ block: 'center' });
+        hit.classList.add('hit');
+        setTimeout(function () { hit.classList.remove('hit'); }, 2200);
+      }, 0);
+    } else {
+      $r.scrollTop = 0;
+    }
+  }
+  function closePop(id) {
+    $('#' + id).hidden = true;
+    if (id === 'popplurk') openedThread = null;
+  }
+
+  // ---- calendar ----------------------------------------------------------
+  function buildCalendar() {
+    var ymCount = {}, yCount = {}, i;
+    for (i = 0; i < DATA.length; i++) {
+      if (DATA[i].k !== 'p') continue;
+      var ym = DATA[i].t.slice(0, 7), y = ym.slice(0, 4);
+      ymCount[ym] = (ymCount[ym] || 0) + 1;
+      yCount[y] = (yCount[y] || 0) + 1;
+    }
+    var years = Object.keys(yCount).sort(function (a, b) { return b - a; }), html = '';
+    for (var yi = 0; yi < years.length; yi++) {
+      var yy = years[yi];
+      html += '<div class="year-holder"><div class="year" data-year="' + yy + '">' + yy
+            + ' <span style="font-size:12px;font-weight:400;opacity:.7">(' + yCount[yy]
+            + ')</span></div><div class="month-holder clearfix">';
+      var months = [];
+      for (var m = 1; m <= 12; m++) {
+        var k = yy + '-' + (m < 10 ? '0' : '') + m;
+        if (ymCount[k]) months.push([m, k, ymCount[k]]);
+      }
+      months.sort(function (a, b) { return b[0] - a[0]; });
+      for (var mi = 0; mi < months.length; mi++)
+        html += '<div class="month" data-ym="' + months[mi][1] + '">' + months[mi][0]
+              + '<span class="plurks-count">' + months[mi][2] + '</span></div>';
+      html += '</div></div>';
+    }
+    $('#calendar').innerHTML = html;
+  }
+  function refreshSelHighlight() {
+    var cur = $('#calendar .current');
+    if (cur) cur.classList.remove('current');
+    $('#cal-clear').classList.toggle('active', sel === null);
+    if (!sel) return;
+    var el = sel.type === 'year'
+      ? $('#calendar .year[data-year="' + sel.v + '"]')
+      : $('#calendar .month[data-ym="' + sel.v + '"]');
+    if (el) el.classList.add('current');
+  }
+
+  // ---- language ----------------------------------------------------------
+  function buildTagOptions() {
+    var keep = $('#tag').value;
+    var opts = '<option value="">' + L().tag_all(TAGS.length) + '</option>';
+    for (var k = 0; k < TAGS.length; k++)
+      opts += '<option value="' + esc(TAGS[k]) + '">' + esc(TAGS[k]) + ' ('
+            + TAGCOUNT[TAGS[k]] + ')</option>';
+    $('#tag').innerHTML = opts;
+    if (keep) $('#tag').value = keep;
+  }
+  function buildFooter() {
+    $('#footer').innerHTML = L().footer(fmtDate(INFO.backup_date), comma(NP), comma(NR),
+                                        comma(DATA.length), TAGS.length);
+  }
+  function buildAcct() {
+    if (!ready) { $('#acct').innerHTML = ''; return; }
+    $('#acct').innerHTML = '<img src="' + avatarUrl(U) + '" alt=""><span>'
+      + esc(ownerName()) + (U.nick_name ? ' @' + esc(U.nick_name) : '') + '</span>';
+  }
+  function relayout() {
+    if (idle) { run(); return; }
+    var keep = shown, top = $('#right-holder').scrollTop;
+    $('#results').innerHTML = ''; shown = 0;
+    if (!matched.length) renderMore();
+    else while (shown < keep) renderMore();
+    updateStat();
+    $('#right-holder').scrollTop = top;
+  }
+  function applyLang() {
+    var d = L();
+    document.documentElement.lang = d.html_lang;
+    document.title = d.app_title;
+    $$('[data-i18n]').forEach(function (el) {
+      var v = d[el.getAttribute('data-i18n')];
+      if (typeof v === 'string') el.textContent = v;
+    });
+    $$('[data-i18n-html]').forEach(function (el) {
+      var v = d[el.getAttribute('data-i18n-html')];
+      if (typeof v === 'string') el.innerHTML = v;
+    });
+    $$('[data-i18n-ph]').forEach(function (el) {
+      var v = d[el.getAttribute('data-i18n-ph')];
+      if (typeof v === 'string') el.placeholder = v;
+    });
+    if (!ready) return;
+    buildAcct(); buildTagOptions(); buildFooter(); relayout();
+    if (openedThread) openThread(openedThread.bid, openedThread.src);
+  }
+  function setLang(v) {
+    if (!I18N[v] || v === lang) return;
+    lang = v;
+    try { window.localStorage && window.localStorage.setItem(LANG_KEY, v); } catch (e) {}
+    applyLang();
+  }
+
+  // ---- wiring ------------------------------------------------------------
+  $('#lang').addEventListener('click', function () { setLang(lang === 'zh' ? 'en' : 'zh'); });
+
+  $('#pick').addEventListener('change', function (e) {
+    var fl = e.target.files;
+    if (!fl || !fl.length) return;
+    $('#err').hidden = true;
+    loadBackup(fl).then(function () {
+      ready = true;
+      $('#intro').hidden = true;
+      $('#body').hidden = false;
+      buildAcct(); buildTagOptions(); buildFooter();
+      buildCalendar(); refreshSelHighlight();
+      run();
+    }).catch(function (ex) {
+      $prog.hidden = true;
+      $('#err').hidden = false;
+      $('#err').textContent = (ex && ex.message === L().err_notbackup)
+        ? ex.message : L().err_read + (ex && ex.message ? ex.message : ex);
+    });
+  });
+
+  var timer;
+  $('#q').addEventListener('input', function () {
+    clearTimeout(timer); timer = setTimeout(run, 180);
+  });
+  $('#q').addEventListener('keydown', function (e) {
+    if (e.which === 13) { clearTimeout(timer); run(); }
+  });
+  $('#go').addEventListener('click', run);
+  $('#clear').addEventListener('click', function () {
+    $('#q').value = ''; $('#tag').value = '';
+    $$('.fk,.fa').forEach(function (c) { c.checked = true; });
+    sel = null; refreshSelHighlight(); run();
+  });
+  $$('.fk,.fa').forEach(function (c) { c.addEventListener('change', run); });
+  $('#tag').addEventListener('change', run);
+  $('#moreBtn').addEventListener('click', renderMore);
+
+  $('#calendar').addEventListener('click', function (e) {
+    var mo = e.target.closest('.month'), yr = e.target.closest('.year');
+    if (mo) {
+      var ym = mo.getAttribute('data-ym');
+      sel = (sel && sel.type === 'month' && sel.v === ym) ? null : { type: 'month', v: ym };
+    } else if (yr) {
+      var y = yr.getAttribute('data-year');
+      sel = (sel && sel.type === 'year' && sel.v === y) ? null : { type: 'year', v: y };
+    } else return;
+    refreshSelHighlight(); run();
+  });
+  $('#cal-clear').addEventListener('click', function () {
+    sel = null; refreshSelHighlight(); run();
+  });
+
+  $('#results').addEventListener('click', function (e) {
+    if (e.target.closest('a')) return;
+    var card = e.target.closest('.plurk');
+    if (!card) return;
+    var r = DATA[card.getAttribute('data-gi')];
+    if (r) openThread(r.b + '', r);
+  });
+  document.addEventListener('click', function (e) {
+    var pic = e.target.closest('a.pictureservices');
+    if (!pic) return;
+    e.preventDefault();
+    $('#popimage-img').src = pic.getAttribute('href');
+    $('#popimage').hidden = false;
+  });
+  $('#popplurk').querySelector('.popwindow-overlay')
+    .addEventListener('click', function () { closePop('popplurk'); });
+  $('#pop-close').addEventListener('click', function () { closePop('popplurk'); });
+  $('#popimage').addEventListener('click', function () { closePop('popimage'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.which === 27) { closePop('popimage'); closePop('popplurk'); }
+  });
+
+  applyLang();
+})();
+</script>
+</body>
+</html>

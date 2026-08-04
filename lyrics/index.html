@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>歌詞集</title>
+<meta name="description" content="以 GitHub Pages 發佈、JSON 檔維護的歌詞網站：YouTube 同步播放、點按歌詞跳轉、日文漢字讀音（ruby）、羅馬字與繁體中文翻譯。">
+<style>
+/* ══════════════ 設計基調：墨夜與泥金 ══════════════
+   深墨藍的夜色底、暖白文字、泥金（gilt）點色；
+   標題以明體（serif）承載詞章氣質，內文用黑體維持可讀性。 */
+:root{
+  --bg:#12131a;
+  --panel:#191b23;
+  --panel-2:#20222d;
+  --line:#2a2d3a;
+  --ink:#eae7de;
+  --ink-2:#bab7c3;
+  --dim:#82808f;
+  --accent:#d9a648;
+  --accent-ink:#f3ddad;
+  --accent-soft:rgba(217,166,72,.13);
+  --radius:12px;
+  --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-ja:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic","Meiryo",var(--font-sans);
+  --font-display:"Noto Serif TC","Songti TC","Source Han Serif TC","PMingLiU",serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}  /* 確保 hidden 屬性優先於任何 display 設定 */
+html,body{height:100%}
+body{
+  margin:0;
+  height:100vh;height:100dvh;   /* 版面鎖定於視窗高度，頁面本身不捲動 */
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  background:var(--bg);color:var(--ink);
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft);color:var(--accent-ink)}
+
+/* ────────────── 頁首 ────────────── */
+header{
+  flex:0 0 auto;
+  display:flex;align-items:center;gap:16px;
+  padding:10px 22px;
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+}
+.brand{
+  font-family:var(--font-display);
+  font-size:1.12rem;letter-spacing:.22em;
+  color:var(--ink);text-decoration:none;white-space:nowrap;
+}
+.brand:hover{color:var(--accent-ink)}
+#songSelect{
+  max-width:min(380px,42vw);
+  background:var(--panel-2);color:var(--ink-2);
+  border:1px solid var(--line);border-radius:8px;
+  padding:6px 10px;font:inherit;font-size:.88rem;
+  text-overflow:ellipsis;
+}
+#songSelect:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.toggles{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tg{
+  background:var(--panel-2);color:var(--dim);
+  border:1px solid var(--line);border-radius:999px;
+  padding:4px 13px;font:inherit;font-size:.8rem;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.tg.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.tg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 字體大小：AA 按鈕與彈出滑桿 */
+.fs-wrap{position:relative}
+.fs-pop{
+  position:absolute;top:calc(100% + 10px);right:0;z-index:10;
+  display:flex;align-items:center;gap:10px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.45);
+}
+.fs-pop input[type=range]{width:180px;accent-color:var(--accent)}
+#fsVal{
+  color:var(--ink-2);font-size:.78rem;min-width:42px;text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ────────────── 主區域 ────────────── */
+main{flex:1 1 auto;min-height:0;display:flex}
+
+/* 錯誤訊息橫幅（頁首下方） */
+.err{
+  flex:0 0 auto;
+  background:rgba(184,72,64,.12);border:1px solid rgba(184,72,64,.45);
+  color:#e8b1ab;border-radius:10px;padding:12px 16px;margin:10px 22px 0;
+  font-size:.86rem;line-height:1.7;white-space:pre-line;
+}
+
+/* 播放區：左影片、右歌詞 */
+#stage{display:flex;min-height:0;flex:1;min-width:0}
+.video-col{
+  flex:0 0 58%;min-width:0;
+  display:flex;flex-direction:column;gap:14px;
+  padding:22px;overflow:hidden;
+}
+.video-box{
+  position:relative;flex:0 0 auto;
+  width:100%;
+  max-width:calc((100dvh - 250px) * 16 / 9); /* 保證影片＋資訊列不撐破視窗高度 */
+  aspect-ratio:16/9;
+  margin:0 auto;
+  background:#000;border-radius:var(--radius);overflow:hidden;
+  border:1px solid var(--line);
+}
+#yt,.video-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.yt-msg{
+  position:absolute;inset:0;z-index:2;
+  display:flex;align-items:center;justify-content:center;
+  padding:24px;text-align:center;
+  background:var(--panel);color:var(--dim);
+  font-size:.9rem;line-height:1.8;
+}
+.meta{flex:0 0 auto;text-align:center;min-width:0}
+.meta h2{
+  margin:0;font-family:var(--font-display);
+  font-size:1.35rem;font-weight:600;letter-spacing:.06em;
+}
+.meta .artist{margin:4px 0 0;color:var(--ink-2);font-size:.9rem}
+.meta .note{margin:6px 0 0;color:var(--dim);font-size:.78rem}
+.meta a{
+  display:inline-block;margin-top:8px;
+  color:var(--accent);text-decoration:none;font-size:.78rem;letter-spacing:.05em;
+}
+.meta a:hover{color:var(--accent-ink);text-decoration:underline}
+
+.lyrics-col{
+  flex:1;min-width:0;position:relative;
+  overflow-y:auto;
+  padding:0 30px;
+  border-left:1px solid var(--line);
+  scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+}
+.lyrics-col::-webkit-scrollbar{width:8px}
+.lyrics-col::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+#lyrics{
+  max-width:640px;margin:0 auto;
+  display:flex;flex-direction:column;gap:6px;
+  padding:12vh 0 44vh;   /* 前後留白，讓首末句也能捲至畫面中段 */
+  font-size:calc(1rem * var(--fs,1));   /* 字級滑桿：整份歌詞等比縮放 */
+}
+
+/* 歌詞行──本站的視覺主角：
+   目前行以左側泥金細線與暖色字標記，唱過的行如翻頁般淡去 */
+.line{
+  position:relative;
+  padding:10px 46px 10px 16px;
+  border-radius:10px;border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s,opacity .35s,border-color .15s;
+}
+.line:hover{background:var(--panel-2)}
+.line:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.line.nosync{cursor:default}
+.line.played{opacity:.4}
+.line.played:hover{opacity:.85}
+.line.active{background:var(--panel-2);border-left-color:var(--accent);opacity:1}
+.line p{margin:2px 0}
+.line .ruby{font-size:1.22em;line-height:2.05;color:var(--ink)}
+.line p[lang="ja"]{font-family:var(--font-ja)}
+.line.active .ruby{color:var(--accent-ink)}
+ruby rt{font-size:.5em;color:var(--dim);letter-spacing:.06em}
+.line.active ruby rt{color:var(--accent)}
+.line .rmj{font-size:.82em;color:var(--dim);letter-spacing:.03em}
+.line .zh{font-size:.98em;color:var(--ink-2)}
+.tstamp{
+  position:absolute;right:14px;top:12px;
+  font-size:.72rem;color:var(--dim);
+  font-variant-numeric:tabular-nums;
+  opacity:0;transition:opacity .15s;
+}
+.line:hover .tstamp,.line.active .tstamp{opacity:.9}
+
+/* 顯示切換（由 body class 控制） */
+body.hide-rt ruby rt{display:none}
+body.hide-rmj .rmj{display:none}
+body.hide-zh .zh{display:none}
+
+/* ────────────── 窄螢幕（手機直式）：上下堆疊 ────────────── */
+@media (max-width:640px){
+  header{flex-wrap:wrap;gap:10px;padding:10px 14px}
+  .toggles{margin-left:0}
+  #stage{flex-direction:column}
+  .video-col{flex:0 0 auto;padding:12px 14px;gap:10px}
+  .video-box{max-width:calc(38dvh * 16 / 9)}
+  .meta h2{font-size:1.05rem}
+  .lyrics-col{border-left:none;border-top:1px solid var(--line);padding:0 16px}
+  #lyrics{padding:4vh 0 32vh}
+  .line .ruby{font-size:1.08em}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="#" id="brand">歌詞集</a>
+  <select id="songSelect" aria-label="選擇歌曲">
+    <option value="">── 選擇歌曲 ──</option>
+  </select>
+  <div class="toggles" id="toggles">
+    <button type="button" class="tg on" data-k="rt">讀音</button>
+    <button type="button" class="tg on" data-k="rmj">羅馬字</button>
+    <button type="button" class="tg on" data-k="zh">中譯</button>
+    <button type="button" class="tg on" data-k="sync">自動捲動</button>
+    <div class="fs-wrap">
+      <button type="button" class="tg" id="fsBtn" aria-haspopup="true" aria-expanded="false" aria-label="歌詞字體大小">AA</button>
+      <div class="fs-pop" id="fsPop" hidden>
+        <input type="range" id="fsRange" min="70" max="170" step="5" value="100" aria-label="歌詞字體大小（百分比）">
+        <span id="fsVal">100%</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="err" id="errBox" hidden></div>
+
+<main>
+  <div id="stage">
+    <section class="video-col">
+      <div class="video-box">
+        <div id="yt"></div>
+        <div class="yt-msg" id="ytMsg" hidden></div>
+      </div>
+      <div class="meta">
+        <h2 id="tTitle"></h2>
+        <p class="artist" id="tArtist"></p>
+        <p class="note" id="tNote"></p>
+        <a id="ytLink" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a>
+      </div>
+    </section>
+    <section class="lyrics-col" id="lyricsCol">
+      <div id="lyrics"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════
+   歌詞集──單檔靜態歌詞播放器
+   資料來源：songs/index.json（歌單）＋ songs/*.json（每首歌）
+   外部相依：僅 YouTube IFrame Player API（Google，執行期載入）
+   ════════════════════════════════════════════════════════ */
+
+const $ = s => document.querySelector(s);
+
+const state = {
+  list: [],            // 已載入的歌曲
+  byId: new Map(),     // id → 歌曲
+  cur: null,           // 目前歌曲
+  timed: [],           // 有時間標記的行（依時間排序）：{ i, t }
+  activeIdx: -1,       // 目前行的顯示序
+  lastManual: 0,       // 使用者最後一次手動捲動的時刻
+};
+
+/* ────────────── 顯示偏好（localStorage 記憶） ────────────── */
+const prefs = (() => {
+  try { return JSON.parse(localStorage.getItem("lyricsPrefs") || "{}"); }
+  catch (e) { return {}; }
+})();
+function savePrefs() {
+  try { localStorage.setItem("lyricsPrefs", JSON.stringify(prefs)); } catch (e) {}
+}
+function applyPrefs() {
+  document.body.classList.toggle("hide-rt",  prefs.rt  === false);
+  document.body.classList.toggle("hide-rmj", prefs.rmj === false);
+  document.body.classList.toggle("hide-zh",  prefs.zh  === false);
+  document.querySelectorAll(".tg[data-k]").forEach(b => {
+    b.classList.toggle("on", prefs[b.dataset.k] !== false);
+  });
+  const fs = Math.min(170, Math.max(70, Number(prefs.fs) || 100));
+  document.documentElement.style.setProperty("--fs", fs / 100);
+  $("#fsRange").value = fs;
+  $("#fsVal").textContent = fs + "%";
+}
+document.querySelectorAll(".tg[data-k]").forEach(b => b.addEventListener("click", () => {
+  const k = b.dataset.k;
+  prefs[k] = prefs[k] === false;      // 預設為開，點按即切換
+  savePrefs();
+  applyPrefs();
+}));
+
+/* ────────────── 字體大小（AA 彈出滑桿；只縮放歌詞欄） ────────────── */
+$("#fsBtn").addEventListener("click", () => {
+  const pop = $("#fsPop");
+  pop.hidden = !pop.hidden;
+  $("#fsBtn").setAttribute("aria-expanded", String(!pop.hidden));
+});
+document.addEventListener("pointerdown", ev => {
+  if ($("#fsPop").hidden) return;
+  if (!ev.target.closest(".fs-wrap")) {
+    $("#fsPop").hidden = true;
+    $("#fsBtn").setAttribute("aria-expanded", "false");
+  }
+});
+$("#fsRange").addEventListener("input", () => {
+  prefs.fs = Number($("#fsRange").value);
+  savePrefs();
+  applyPrefs();
+});
+
+/* ────────────── 基礎工具 ────────────── */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* {漢字|よみ} → <ruby>漢字<rt>よみ</rt></ruby>；先跳脫 HTML 再展開標記 */
+function rubyHtml(t) {
+  return escapeHtml(t).replace(/\{([^{}|]+)\|([^{}|]*)\}/g, "<ruby>$1<rt>$2</rt></ruby>");
+}
+
+/* 時間標記：數字（秒）或 "分:秒"、"時:分:秒" 字串，例如 83.5、"1:23.5" */
+function parseTime(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  const parts = String(v).trim().split(":");
+  let sec = 0;
+  for (const p of parts) {
+    const n = parseFloat(p);
+    if (!isFinite(n)) return null;
+    sec = sec * 60 + n;
+  }
+  return sec;
+}
+
+function fmt(sec) {
+  if (sec == null) return "";
+  sec = Math.max(0, sec);
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function langAttr(l) {
+  if (!l) return "zh-Hant";
+  const map = { ja:"ja", jp:"ja", en:"en", ko:"ko", zh:"zh-Hant", "zh-hant":"zh-Hant", "zh-tw":"zh-Hant" };
+  return map[String(l).toLowerCase()] || l;
+}
+
+/* ────────────── YouTube 播放器 ────────────── */
+let player = null, playerReady = false, pendingVideo = null, curVideo = null;
+
+function ytMsg(t) {
+  const el = $("#ytMsg");
+  if (t) { el.textContent = t; el.hidden = false; }
+  else el.hidden = true;
+}
+
+window.onYouTubeIframeAPIReady = function () {
+  if (pendingVideo) makePlayer(pendingVideo);
+};
+
+function makePlayer(videoId) {
+  curVideo = videoId;
+  const vars = { playsinline: 1, rel: 0 };
+  if (/^https?:$/.test(location.protocol)) vars.origin = location.origin;
+  player = new YT.Player("yt", {
+    videoId,
+    playerVars: vars,
+    events: {
+      onReady() {
+        playerReady = true;
+        if (pendingVideo && pendingVideo !== curVideo) {
+          curVideo = pendingVideo;
+          player.cueVideoById(pendingVideo);
+        }
+        pendingVideo = null;
+      },
+      onError(e) {
+        const code = e && e.data;
+        const msg = {
+          2:   "影片 ID 格式有誤，請檢查歌曲檔中的 youtube 欄位。",
+          5:   "播放器發生錯誤，請重新整理頁面。",
+          100: "找不到影片──可能已被移除或設為私人。",
+          101: "影片擁有者不允許在其他網站嵌入播放。",
+          150: "影片擁有者不允許在其他網站嵌入播放。",
+        };
+        ytMsg(msg[code] || ("影片載入失敗（錯誤碼 " + code + "）。"));
+      },
+    },
+  });
+}
+
+function loadVideo(id) {
+  ytMsg("");
+  if (player && playerReady) {
+    if (id !== curVideo) { curVideo = id; player.cueVideoById(id); }
+  } else if (window.YT && window.YT.Player && !player) {
+    makePlayer(id);
+  } else {
+    pendingVideo = id;   // API 尚未就緒，先記下，就緒後載入
+  }
+}
+
+/* 執行期載入 IFrame API──先定義好回呼再插入 script，避免時序競態 */
+(function () {
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  s.async = true;
+  s.onerror = () => ytMsg("無法載入 YouTube 播放器──請確認網路連線後重新整理。");
+  document.head.appendChild(s);
+})();
+
+/* ────────────── 資料載入 ────────────── */
+async function loadSongFile(f) {
+  const r = await fetch("songs/" + f, { cache: "no-cache" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  let s;
+  try { s = await r.json(); }
+  catch (e) { throw new Error("JSON 解析失敗──請檢查逗號、引號與括號是否成對"); }
+  const off = Number(s.offset) || 0;
+  s.id = s.id || f.replace(/\.json$/i, "");
+  s._lines = (Array.isArray(s.lines) ? s.lines : []).map(ln => {
+    const t = parseTime(ln.t);
+    return Object.assign({}, ln, { time: t == null ? null : t + off });
+  });
+  return s;
+}
+
+function fatal(msg) {
+  const e = $("#errBox");
+  e.hidden = false;
+  e.textContent = msg;
+}
+
+async function boot() {
+  applyPrefs();
+  let idx;
+  try {
+    const r = await fetch("songs/index.json", { cache: "no-cache" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    idx = await r.json();
+  } catch (err) {
+    fatal("無法讀取 songs/index.json：" + err.message +
+      (location.protocol === "file:"
+        ? "\n以 file:// 直接開啟時，瀏覽器會封鎖本機資料讀取；請改用本機伺服器預覽（見 README）。"
+        : ""));
+    return;
+  }
+  if (idx.title) {
+    $("#brand").textContent = idx.title;
+    document.title = idx.title;
+  }
+  const files = Array.isArray(idx.songs) ? idx.songs : [];
+  const errs = [];
+  const settled = await Promise.allSettled(files.map(loadSongFile));
+  settled.forEach((res, i) => {
+    if (res.status === "fulfilled") {
+      state.list.push(res.value);
+      state.byId.set(res.value.id, res.value);
+    } else {
+      errs.push("songs/" + files[i] + "：" + res.reason.message);
+    }
+  });
+  if (errs.length) {
+    const e = $("#errBox");
+    e.hidden = false;
+    e.textContent = "下列歌曲檔載入失敗：\n" + errs.join("\n");
+  }
+  if (!state.list.length) {
+    fatal(($("#errBox").textContent ? $("#errBox").textContent + "\n" : "") +
+      "歌單目前是空的──請在 songs/ 加入歌曲檔並登錄於 index.json。");
+    ytMsg("尚無可播放的歌曲。");
+    return;
+  }
+  renderSelect();
+  window.addEventListener("hashchange", route);
+  route();
+}
+
+/* ────────────── 選單（唯一的選歌介面） ────────────── */
+function renderSelect() {
+  const sel = $("#songSelect");
+  sel.options.length = 0;   // 移除「── 選擇歌曲 ──」占位項，永遠顯示目前歌曲
+  state.list.forEach(s => {
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = (s.title || s.id) + (s.artist ? "──" + s.artist : "");
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", () => {
+    location.hash = encodeURIComponent(sel.value);
+  });
+}
+
+/* ────────────── 路由（#歌曲id 即公開分享連結；無 hash 時載入第一首） ────────────── */
+function route() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  const song = state.byId.get(id) || state.list[0];
+  if (song && song !== state.cur) showStage(song);
+}
+
+function showStage(song) {
+  state.cur = song;
+  state.activeIdx = -1;
+  $("#songSelect").value = song.id;
+  $("#tTitle").textContent = song.title || song.id;
+  $("#tArtist").textContent = song.artist || "";
+  $("#tNote").textContent = song.note || "";
+  const yl = $("#ytLink");
+  if (song.youtube) {
+    yl.href = "https://www.youtube.com/watch?v=" + encodeURIComponent(song.youtube);
+    yl.hidden = false;
+    loadVideo(song.youtube);
+  } else {
+    yl.hidden = true;
+    ytMsg("此歌曲尚未設定 YouTube 影片 ID（youtube 欄位）。");
+  }
+  document.title = (song.title || song.id) + "｜" + $("#brand").textContent;
+  renderLyrics(song);
+}
+
+/* 點按「在 YouTube 開啟」時，把目前播放秒數帶進連結（&t=秒s） */
+$("#ytLink").addEventListener("click", function () {
+  if (!state.cur || !state.cur.youtube) return;
+  const base = "https://www.youtube.com/watch?v=" + encodeURIComponent(state.cur.youtube);
+  let s = 0;
+  if (player && playerReady) {
+    try { s = Math.floor(player.getCurrentTime()) || 0; } catch (e) { s = 0; }
+  }
+  this.href = s > 0 ? base + "&t=" + s + "s" : base;
+});
+
+/* ────────────── 畫面：歌詞 ────────────── */
+function renderLyrics(song) {
+  const box = $("#lyrics");
+  box.innerHTML = "";
+  const la = langAttr(song.lang);
+  state.timed = [];
+  song._lines.forEach((ln, i) => {
+    const div = document.createElement("div");
+    div.className = "line" + (ln.time == null ? " nosync" : "");
+    div.dataset.i = i;
+    let h = "";
+    if (ln.orig) h += '<p class="ruby" lang="' + la + '">' + rubyHtml(ln.orig) + "</p>";
+    if (ln.rmj)  h += '<p class="rmj">' + escapeHtml(ln.rmj) + "</p>";
+    if (ln.zh)   h += '<p class="zh" lang="zh-Hant">' + escapeHtml(ln.zh) + "</p>";
+    if (ln.time != null) h += '<span class="tstamp">' + fmt(ln.time) + "</span>";
+    div.innerHTML = h;
+    if (ln.time != null) {
+      div.tabIndex = 0;
+      div.setAttribute("role", "button");
+      div.dataset.t = ln.time;
+      const seek = () => {
+        if (player && playerReady) {
+          player.seekTo(Math.max(0, ln.time), true);
+          player.playVideo();
+        }
+      };
+      div.addEventListener("click", seek);
+      div.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); seek(); } });
+      state.timed.push({ i, t: ln.time });
+    }
+    box.appendChild(div);
+  });
+  state.timed.sort((a, b) => a.t - b.t);
+  $("#lyricsCol").scrollTop = 0;
+}
+
+/* ────────────── 播放同步：高亮目前行、自動捲動 ────────────── */
+const REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+setInterval(() => {
+  if (!state.cur || !player || !playerReady) return;
+  let t;
+  try { t = player.getCurrentTime(); } catch (e) { return; }
+  if (typeof t !== "number" || !isFinite(t)) return;
+
+  let idx = -1;
+  for (const item of state.timed) {
+    if (item.t <= t + 0.05) idx = item.i;
+    else break;
+  }
+  if (idx === state.activeIdx) return;
+  state.activeIdx = idx;
+
+  const lines = $("#lyrics").children;
+  for (let k = 0; k < lines.length; k++) {
+    lines[k].classList.toggle("active", k === idx);
+    lines[k].classList.toggle("played", idx >= 0 && k < idx);
+  }
+  if (idx >= 0 && prefs.sync !== false && Date.now() - state.lastManual > 4000) {
+    const el = lines[idx], c = $("#lyricsCol");
+    c.scrollTo({
+      top: el.offsetTop - (c.clientHeight - el.offsetHeight) / 2,
+      behavior: REDUCED ? "auto" : "smooth",
+    });
+  }
+}, 250);
+
+/* 使用者手動捲動時，暫停自動捲動四秒，避免互相拉扯 */
+["wheel", "touchstart", "pointerdown"].forEach(ev =>
+  $("#lyricsCol").addEventListener(ev, () => { state.lastManual = Date.now(); }, { passive: true })
+);
+
+boot();
+</script>
+</body>
+</html>

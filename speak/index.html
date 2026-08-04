@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 關鍵：Google 翻譯 TTS 端點會對帶 Referer 的請求回 404，
+     全頁關閉 referrer 後 <audio> 與外開連結才能正常取得 MP3 -->
+<meta name="referrer" content="no-referrer">
+<title>朗讀練習</title>
+<meta name="description" content="貼上文章、逐行或逐字點按朗讀，練習聽力的單頁工具：Google 翻譯語音、播放暫停停止、指定範圍音檔擷取（分頁錄音、MP3 連結、curl）。">
+<style>
+/* ══════════════ 設計基調：墨夜與泥金（承 lyrics 專案） ══════════════ */
+:root{
+  --bg:#12131a;
+  --panel:#191b23;
+  --panel-2:#20222d;
+  --line:#2a2d3a;
+  --ink:#eae7de;
+  --ink-2:#bab7c3;
+  --dim:#82808f;
+  --accent:#d9a648;
+  --accent-ink:#f3ddad;
+  --accent-soft:rgba(217,166,72,.13);
+  --radius:12px;
+  --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display:"Noto Serif TC","Songti TC","Source Han Serif TC","PMingLiU",serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{
+  margin:0;
+  height:100vh;height:100dvh;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  background:var(--bg);color:var(--ink);
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft);color:var(--accent-ink)}
+
+/* ────────────── 頁首 ────────────── */
+header{
+  flex:0 0 auto;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:10px 22px;
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+}
+.brand{
+  font-family:var(--font-display);
+  font-size:1.12rem;letter-spacing:.22em;
+  color:var(--ink);text-decoration:none;white-space:nowrap;
+}
+.brand:hover{color:var(--accent-ink)}
+.toggles{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tg{
+  background:var(--panel-2);color:var(--dim);
+  border:1px solid var(--line);border-radius:999px;
+  padding:4px 13px;font:inherit;font-size:.8rem;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.tg.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.tg:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+select{
+  background:var(--panel-2);color:var(--ink-2);
+  border:1px solid var(--line);border-radius:8px;
+  padding:5px 10px;font:inherit;font-size:.82rem;
+  max-width:200px;text-overflow:ellipsis;
+}
+label.lab{color:var(--dim);font-size:.78rem;letter-spacing:.05em}
+
+/* 速度彈出滑桿 */
+.fs-wrap{position:relative}
+.fs-pop{
+  position:absolute;top:calc(100% + 10px);right:0;z-index:10;
+  display:flex;align-items:center;gap:10px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.45);
+}
+.fs-pop input[type=range]{width:180px;accent-color:var(--accent)}
+#rateVal{
+  color:var(--ink-2);font-size:.78rem;min-width:44px;text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ────────────── 提示橫幅 ────────────── */
+.note-bar{
+  flex:0 0 auto;
+  background:rgba(217,166,72,.08);border:1px solid rgba(217,166,72,.35);
+  color:var(--accent-ink);border-radius:10px;padding:10px 16px;margin:10px 22px 0;
+  font-size:.83rem;line-height:1.7;white-space:pre-line;
+}
+
+/* ────────────── 主區域 ────────────── */
+main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+
+/* 輸入模式 */
+#editPane{
+  flex:1;min-height:0;
+  display:flex;flex-direction:column;gap:14px;
+  padding:22px;max-width:860px;width:100%;margin:0 auto;
+}
+#srcText{
+  flex:1;min-height:0;resize:none;
+  background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;font:inherit;font-size:1rem;line-height:1.9;
+}
+#srcText::placeholder{color:var(--dim)}
+.edit-actions{flex:0 0 auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{
+  background:var(--accent-soft);color:var(--accent-ink);
+  border:1px solid var(--accent);border-radius:10px;
+  padding:9px 22px;font:inherit;font-size:.92rem;letter-spacing:.08em;cursor:pointer;
+  transition:background .15s;
+}
+.btn:hover{background:rgba(217,166,72,.22)}
+.btn.ghost{
+  background:var(--panel-2);color:var(--ink-2);border-color:var(--line);
+}
+.btn.ghost:hover{color:var(--ink);border-color:var(--dim)}
+.hint{color:var(--dim);font-size:.78rem;line-height:1.7}
+
+/* 練習模式：左欄工具、右欄字幕（承 lyrics 的左影片右歌詞版型） */
+#playPane{flex:1;min-height:0;display:none}
+#playPane.show{display:flex}
+.tool-col{
+  flex:0 0 320px;min-width:0;
+  display:flex;flex-direction:column;gap:14px;
+  padding:22px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+}
+.list-col{
+  flex:1;min-height:0;min-width:0;overflow-y:auto;
+  padding:0 30px;
+  border-left:1px solid var(--line);
+  scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+}
+.list-col::-webkit-scrollbar{width:8px}
+.list-col::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+#lines{
+  max-width:760px;margin:0 auto;
+  display:flex;flex-direction:column;gap:6px;
+  padding:5vh 0 40vh;
+  font-size:calc(1rem * var(--fs,1));
+}
+
+/* 行──本站的視覺主角：目前行以左側泥金細線標記，聽過的行淡去 */
+.line{
+  position:relative;
+  padding:12px 46px 12px 16px;
+  border-radius:10px;border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s,opacity .35s,border-color .15s;
+  font-size:1.14em;line-height:1.85;color:var(--ink);
+  overflow-wrap:break-word;
+}
+.line:hover{background:var(--panel-2)}
+.line:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.line.played{opacity:.4}
+.line.played:hover{opacity:.85}
+.line.active{background:var(--panel-2);border-left-color:var(--accent);opacity:1;color:var(--accent-ink)}
+.line .ord{
+  position:absolute;right:14px;top:13px;
+  font-size:.7rem;color:var(--dim);
+  font-variant-numeric:tabular-nums;
+  opacity:0;transition:opacity .15s;
+}
+.line:hover .ord,.line.active .ord{opacity:.9}
+.line.active .spk{color:var(--accent)}
+.spk{
+  display:inline-block;margin-right:8px;color:transparent;
+  font-size:.8em;vertical-align:.08em;
+}
+.line.active .spk{color:var(--accent);animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ────────────── 單字點按與播放控制 ────────────── */
+.w{cursor:pointer;border-radius:4px;padding:0 1px;transition:background .12s,color .12s}
+.w:hover{color:var(--accent);background:var(--accent-soft)}
+.w.speaking{color:var(--accent-ink);background:var(--accent-soft)}
+.pop{
+  position:fixed;z-index:50;
+  display:flex;gap:6px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+  padding:7px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.pop button{
+  background:var(--panel);color:var(--ink-2);
+  border:1px solid var(--line);border-radius:8px;
+  padding:5px 12px;font:inherit;font-size:.8rem;cursor:pointer;white-space:nowrap;
+}
+.pop button:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.transport .row .btn{width:auto;flex:1}
+.transport .btn.on{background:rgba(217,166,72,.28)}
+
+/* ────────────── 左欄：錄製工具面板 ────────────── */
+.rec-bar{
+  flex:0 0 auto;
+  display:flex;flex-direction:column;gap:12px;
+  padding:16px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+}
+.rec-bar .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rec-bar .lab{color:var(--dim);font-size:.78rem}
+.rec-bar input[type=number]{
+  width:64px;
+  background:var(--panel-2);color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;
+  padding:5px 8px;font:inherit;font-size:.85rem;
+  font-variant-numeric:tabular-nums;
+}
+.rec-bar .btn{padding:8px 14px;font-size:.82rem;width:100%}
+.rec-bar .rec-dot{
+  display:none;width:9px;height:9px;border-radius:50%;
+  background:#c4453c;animation:pulse 1.1s ease-in-out infinite;
+}
+.rec-bar.recording .rec-dot{display:inline-block}
+.rec-out{
+  flex:0 0 auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;font-size:.83rem;line-height:1.8;color:var(--ink-2);
+}
+.rec-out a{color:var(--accent);text-decoration:none;word-break:break-all}
+.rec-out a:hover{color:var(--accent-ink);text-decoration:underline}
+.rec-out pre{
+  margin:8px 0 0;padding:12px 14px;overflow-x:auto;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  font-size:.74rem;line-height:1.7;color:var(--ink-2);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.rec-out .dl{
+  display:inline-block;margin:4px 10px 4px 0;
+  padding:6px 14px;border:1px solid var(--accent);border-radius:8px;
+  background:var(--accent-soft);color:var(--accent-ink);
+}
+
+/* ────────────── 窄螢幕 ────────────── */
+@media (max-width:640px){
+  header{gap:8px;padding:10px 14px}
+  .toggles{margin-left:0}
+  #editPane{padding:14px}
+  #playPane.show{flex-direction:column}
+  .tool-col{flex:0 0 auto;padding:12px 14px;max-height:44dvh}
+  .list-col{padding:0 14px;border-left:none;border-top:1px solid var(--line)}
+  .line{font-size:1.02em;padding:10px 40px 10px 12px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="#" id="brand">朗讀練習</a>
+  <label class="lab" for="langSel">語言</label>
+  <select id="langSel" aria-label="朗讀語言">
+    <option value="en" selected>英文 English</option>
+    <option value="ja">日文 日本語</option>
+    <option value="ko">韓文 한국어</option>
+    <option value="zh-TW">中文（台灣）</option>
+    <option value="es">西班牙文 Español</option>
+    <option value="fr">法文 Français</option>
+    <option value="de">德文 Deutsch</option>
+  </select>
+  <label class="lab" for="engineSel">語音</label>
+  <select id="engineSel" aria-label="語音來源">
+    <option value="gt" selected>Google 翻譯</option>
+    <option value="ws">瀏覽器語音</option>
+  </select>
+  <select id="voiceSel" aria-label="瀏覽器語音選擇" hidden></select>
+  <div class="toggles">
+    <button type="button" class="tg" id="autoBtn" aria-pressed="false">連續播放</button>
+    <button type="button" class="tg" id="repeatBtn" aria-pressed="false">單句重複</button>
+    <div class="fs-wrap">
+      <button type="button" class="tg" id="rateBtn" aria-haspopup="true" aria-expanded="false">速度</button>
+      <div class="fs-pop" id="ratePop" hidden>
+        <input type="range" id="rateRange" min="50" max="150" step="5" value="100" aria-label="朗讀速度（百分比）">
+        <span id="rateVal">100%</span>
+      </div>
+    </div>
+    <button type="button" class="tg" id="editBtn" hidden>重新輸入</button>
+  </div>
+</header>
+
+<div class="note-bar" id="noteBar" hidden></div>
+
+<main>
+  <section id="editPane">
+    <textarea id="srcText" placeholder="把要練習的文章貼在這裡──每行一句。
+空行會自動略過；也可以貼一整段，按「自動分句」以句號、問號等拆成逐行。
+
+Paste your text here, one sentence per line."></textarea>
+    <div class="edit-actions">
+      <button type="button" class="btn" id="startBtn">開始練習</button>
+      <button type="button" class="btn ghost" id="splitBtn">自動分句</button>
+      <button type="button" class="btn ghost" id="clearBtn">清空</button>
+      <span class="hint">內容只存在你瀏覽器的 localStorage，不會上傳。點按任一行即朗讀該行；鍵盤 ↑↓ 選行、Enter 或空白鍵播放。</span>
+    </div>
+  </section>
+
+  <section id="playPane">
+    <div class="tool-col">
+      <div class="rec-bar transport" id="transport">
+        <div class="row">
+          <button type="button" class="btn" id="tpPlay">播放</button>
+          <button type="button" class="btn ghost" id="tpPause">暫停</button>
+          <button type="button" class="btn ghost" id="tpStop">停止</button>
+        </div>
+        <span class="lab">播放＝從目前行連續念到結尾。點字幕裡的單字，可選擇只念該詞或從該詞接續往下念。</span>
+      </div>
+      <div class="rec-bar" id="recBar">
+        <div class="row">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span class="lab">擷取範圍：第</span>
+          <input type="number" id="recFrom" min="1" value="1" aria-label="起始行">
+          <span class="lab">到</span>
+          <input type="number" id="recTo" min="1" value="1" aria-label="結束行">
+          <span class="lab">行</span>
+        </div>
+        <button type="button" class="btn" id="recBtn">錄製音檔（分頁擷取）</button>
+        <button type="button" class="btn ghost" id="linkBtn">MP3 連結</button>
+        <button type="button" class="btn ghost" id="curlBtn">curl 指令</button>
+      </div>
+      <div class="rec-out" id="recOut" hidden></div>
+    </div>
+    <div class="list-col" id="listCol">
+      <div id="lines"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════
+   朗讀練習──單檔靜態英聽工具（speak）
+   來源文字：使用者貼上（localStorage 記憶，不上傳）
+   語音來源：
+     1. Google 翻譯 TTS（translate.google.com/translate_tts，
+        以 <audio> 播放；不需金鑰，但屬非官方端點，若被擋
+        會自動退回瀏覽器語音並提示）
+     2. 瀏覽器 Web Speech API（Chrome 內建 Google 語音）
+   ════════════════════════════════════════════════════════ */
+
+const $ = s => document.querySelector(s);
+
+const state = {
+  lines: [],        // 練習中的句子
+  idx: -1,          // 目前行
+  audio: null,      // Google 翻譯播放中的 <audio>
+  chunkQueue: [],   // 長句切塊後的待播序列
+  playing: false,
+  gtFailed: false,  // Google 翻譯端點失效旗標（本次瀏覽有效）
+  recording: false, // 分頁錄音進行中
+  paused: false,    // 暫停中
+  q: null,          // 連續播放佇列 { items:[{text,line}], i }
+  tok: 0,           // 播放世代票號：stopAll 後舊回呼全數失效
+  wordEl: null,     // 正在朗讀的單字 span
+};
+
+/* ────────────── 偏好與草稿（localStorage） ────────────── */
+const prefs = (() => {
+  try { return JSON.parse(localStorage.getItem("speakPrefs") || "{}"); }
+  catch (e) { return {}; }
+})();
+function savePrefs() {
+  try { localStorage.setItem("speakPrefs", JSON.stringify(prefs)); } catch (e) {}
+}
+function saveDraft() {
+  try { localStorage.setItem("speakDraft", $("#srcText").value); } catch (e) {}
+}
+
+/* ────────────── 提示橫幅 ────────────── */
+function note(msg) {
+  const el = $("#noteBar");
+  if (msg) { el.textContent = msg; el.hidden = false; }
+  else el.hidden = true;
+}
+
+/* ────────────── 基礎工具 ────────────── */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* Google 翻譯 TTS 對單次請求有長度上限，長句依標點切成 ≤180 字塊 */
+function chunkText(t, max = 180) {
+  t = t.trim();
+  if (t.length <= max) return [t];
+  const out = [];
+  let rest = t;
+  while (rest.length > max) {
+    let cut = -1;
+    for (const re of [/[.!?。！？;；]["')\]」』]?\s/g, /[,，、:：]\s?/g, /\s/g]) {
+      let m, last = -1;
+      while ((m = re.exec(rest.slice(0, max))) !== null) last = m.index + m[0].length;
+      if (last > 0) { cut = last; break; }
+    }
+    if (cut <= 0) cut = max;
+    out.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) out.push(rest);
+  return out.filter(Boolean);
+}
+
+/* ────────────── 語音一：Google 翻譯 TTS ────────────── */
+function gtUrl(text, lang, slow) {
+  const p = new URLSearchParams({
+    ie: "UTF-8", client: "tw-ob", tl: lang, q: text,
+  });
+  if (slow) p.set("ttsspeed", "0.24");
+  return "https://translate.google.com/translate_tts?" + p.toString();
+}
+
+function stopAudio() {
+  if (state.audio) {
+    state.audio.onended = state.audio.onerror = null;
+    state.audio.pause();
+    state.audio = null;
+  }
+  state.chunkQueue = [];
+}
+
+function playGt(text, lang, done, fail) {
+  const rate = getRate();                 // 100 = 原速
+  const slow = rate < 80;                 // Google 翻譯僅有原速／慢速兩檔
+  state.chunkQueue = chunkText(text);
+  const next = () => {
+    const piece = state.chunkQueue.shift();
+    if (piece == null) { done(); return; }
+    const a = new Audio(gtUrl(piece, lang, slow));
+    state.audio = a;
+    a.onended = next;
+    a.onerror = () => fail(new Error("audio error"));
+    a.play().catch(err => fail(err));
+  };
+  next();
+}
+
+/* ────────────── 語音二：Web Speech API ────────────── */
+let voices = [];
+function loadVoices() {
+  if (!("speechSynthesis" in window)) return;
+  voices = speechSynthesis.getVoices();
+  renderVoiceSel();
+}
+if ("speechSynthesis" in window) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+/* 依語言篩選聲音；Google 聲音優先（即 Chrome 內建的 Google 翻譯同源語音） */
+function voicesFor(lang) {
+  const pre = lang.toLowerCase().slice(0, 2);
+  const list = voices.filter(v => v.lang.toLowerCase().startsWith(pre));
+  return list.sort((a, b) =>
+    (b.name.startsWith("Google") - a.name.startsWith("Google")) || a.name.localeCompare(b.name));
+}
+
+function renderVoiceSel() {
+  const sel = $("#voiceSel");
+  const list = voicesFor($("#langSel").value);
+  sel.options.length = 0;
+  list.forEach(v => {
+    const o = document.createElement("option");
+    o.value = v.name;
+    o.textContent = v.name + (v.name.startsWith("Google") ? "" : "（系統）");
+    sel.appendChild(o);
+  });
+  if (prefs.voice && list.some(v => v.name === prefs.voice)) sel.value = prefs.voice;
+  sel.hidden = $("#engineSel").value !== "ws" || !list.length;
+}
+
+function playWs(text, lang, done, fail) {
+  if (!("speechSynthesis" in window)) { fail(new Error("此瀏覽器不支援語音合成")); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  const list = voicesFor(lang);
+  const pick = list.find(v => v.name === $("#voiceSel").value) || list[0];
+  if (pick) u.voice = pick;
+  u.rate = getRate() / 100;
+  u.onend = done;
+  u.onerror = e => { if (e.error !== "canceled" && e.error !== "interrupted") fail(new Error(e.error)); };
+  speechSynthesis.speak(u);
+}
+
+/* ────────────── 播放調度 ────────────── */
+function getRate() { return Number(prefs.rate) || 100; }
+
+function stopAll() {
+  state.tok++;               // 讓所有進行中的播放回呼失效
+  state.playing = false;
+  state.paused = false;
+  state.q = null;
+  if (state.wordEl) { state.wordEl.classList.remove("speaking"); state.wordEl = null; }
+  stopAudio();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  updateTransport();
+}
+
+/* 單段文字的播放核心：引擎分派＋失效退回，done 以票號防過期回呼 */
+function playText(text, done) {
+  const tok = ++state.tok;
+  const guard = fn => (...a) => { if (tok === state.tok) fn(...a); };
+  const gdone = guard(done);
+  const lang = $("#langSel").value;
+  const engine = state.gtFailed ? "ws" : $("#engineSel").value;
+  const wsFail = guard(err => {
+    state.playing = false;
+    note("語音播放失敗：" + err.message);
+    updateTransport();
+  });
+  const failToWs = guard(() => {
+    if (!state.gtFailed) {
+      state.gtFailed = true;
+      $("#engineSel").value = "ws";
+      renderVoiceSel();
+      note("Google 翻譯語音端點目前無法使用──已自動改用瀏覽器語音（Chrome 的 Google 語音同樣來自 Google 翻譯）。");
+    }
+    playWs(text, lang, gdone, wsFail);
+  });
+  if (engine === "gt") playGt(text, lang, gdone, failToWs);
+  else playWs(text, lang, gdone, wsFail);
+}
+
+function playLine(i, fromAuto) {
+  if (state.recording) return;   // 錄音期間鎖定點播，避免混入其他句子
+  if (i < 0 || i >= state.lines.length) return;
+  stopAll();
+  setActive(i);
+  state.playing = true;
+  updateTransport();
+  playText(state.lines[i], () => {
+    state.playing = false;
+    markPlayed(i);
+    updateTransport();
+    if (prefs.repeat) { playLine(i, true); return; }
+    if (prefs.auto && i + 1 < state.lines.length) {
+      const tok = state.tok;
+      setTimeout(() => { if (tok === state.tok && !state.playing) playLine(i + 1, true); }, 650);
+    }
+  });
+}
+
+/* ────────────── 連續播放佇列與播放／暫停／停止 ────────────── */
+function startQueue(items) {
+  if (state.recording || !items.length) return;
+  stopAll();
+  state.q = { items, i: 0 };
+  state.playing = true;
+  updateTransport();
+  stepQueue();
+}
+
+function stepQueue() {
+  const q = state.q;
+  if (!q) return;
+  if (state.paused) return;   // 暫停落在句間空檔：停在原地，等續播時再前進
+  if (q.i >= q.items.length) {
+    state.q = null;
+    state.playing = false;
+    updateTransport();
+    return;
+  }
+  const it = q.items[q.i];
+  if (it.line != null) setActive(it.line);
+  playText(it.text, () => {
+    if (it.line != null) markPlayed(it.line);
+    if (!state.q) return;
+    q.i++;
+    const tok = state.tok;
+    setTimeout(() => { if (tok === state.tok && state.q === q) stepQueue(); }, 500);
+  });
+}
+
+/* 從第 i 行（可指定行內起始字元）連續念到整段結尾 */
+function itemsFrom(i, charOffset) {
+  const out = [];
+  for (let k = i; k < state.lines.length; k++) {
+    const t = k === i && charOffset ? state.lines[k].slice(charOffset).trim() : state.lines[k];
+    if (t) out.push({ text: t, line: k });
+  }
+  return out;
+}
+
+function updateTransport() {
+  $("#tpPlay").classList.toggle("on", state.playing && !state.paused);
+  $("#tpPause").classList.toggle("on", state.paused);
+}
+
+$("#tpPlay").addEventListener("click", () => {
+  if (state.recording) { note("錄音進行中──請先等錄音完成。"); return; }
+  if (state.paused) {              // 續播
+    state.paused = false;
+    if (state.audio) state.audio.play().catch(() => {});
+    else if ("speechSynthesis" in window && speechSynthesis.paused) speechSynthesis.resume();
+    else if (state.q) stepQueue(); // 暫停時正好在句間空檔，直接接下一句
+    updateTransport();
+    return;
+  }
+  if (state.playing) return;       // 已在播放
+  startQueue(itemsFrom(state.idx >= 0 ? state.idx : 0, 0));
+});
+
+$("#tpPause").addEventListener("click", () => {
+  if (state.recording || state.paused) return;
+  const speaking = "speechSynthesis" in window && speechSynthesis.speaking;
+  if (!state.playing && !speaking) return;
+  state.paused = true;
+  if (state.audio) state.audio.pause();
+  if (speaking) speechSynthesis.pause();
+  updateTransport();
+});
+
+$("#tpStop").addEventListener("click", () => {
+  if (state.recording) { note("錄音進行中──請先等錄音完成。"); return; }
+  stopAll();
+});
+
+/* ────────────── 單字點按：只念該詞／從該詞接續 ────────────── */
+/* 分詞：Intl.Segmenter 對中日韓等無空格語言也能斷詞；不支援時退回空白切分 */
+function tokenize(text, lang) {
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    try {
+      const seg = new Intl.Segmenter(lang, { granularity: "word" });
+      return Array.from(seg.segment(text), s => ({ t: s.segment, w: s.isWordLike }));
+    } catch (e) { /* 語言代碼異常時退回 */ }
+  }
+  return text.split(/(\s+)/).filter(Boolean).map(t => ({ t, w: !/^\s+$/.test(t) }));
+}
+
+let popEl = null;
+function closePop() { if (popEl) { popEl.remove(); popEl = null; } }
+
+function openPop(span) {
+  closePop();
+  const li = Number(span.dataset.line), off = Number(span.dataset.o);
+  const word = span.textContent;
+  popEl = document.createElement("div");
+  popEl.className = "pop";
+  const b1 = document.createElement("button");
+  b1.textContent = "只念「" + (word.length > 12 ? word.slice(0, 12) + "…" : word) + "」";
+  b1.addEventListener("click", () => {
+    closePop();
+    if (state.recording) return;
+    stopAll();
+    state.playing = true;
+    state.wordEl = span;
+    span.classList.add("speaking");
+    updateTransport();
+    playText(word, () => {
+      state.playing = false;
+      span.classList.remove("speaking");
+      state.wordEl = null;
+      updateTransport();
+    });
+  });
+  const b2 = document.createElement("button");
+  b2.textContent = "從這裡開始念";
+  b2.addEventListener("click", () => {
+    closePop();
+    startQueue(itemsFrom(li, off));
+  });
+  popEl.append(b1, b2);
+  document.body.appendChild(popEl);
+  const r = span.getBoundingClientRect(), pw = popEl.offsetWidth;
+  popEl.style.left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.left)) + "px";
+  popEl.style.top = Math.min(window.innerHeight - popEl.offsetHeight - 8, r.bottom + 6) + "px";
+}
+
+/* 捕捉階段攔截單字點按，避免觸發整行播放 */
+$("#lines").addEventListener("click", ev => {
+  const w = ev.target.closest(".w");
+  if (!w) { closePop(); return; }
+  ev.stopPropagation();
+  openPop(w);
+}, true);
+document.addEventListener("pointerdown", ev => {
+  if (popEl && !ev.target.closest(".pop") && !ev.target.closest(".w")) closePop();
+});
+$("#listCol").addEventListener("scroll", closePop, { passive: true });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") closePop(); });
+
+/* ────────────── 畫面：逐行清單 ────────────── */
+function setActive(i) {
+  state.idx = i;
+  const kids = $("#lines").children;
+  for (let k = 0; k < kids.length; k++) kids[k].classList.toggle("active", k === i);
+  const el = kids[i], c = $("#listCol");
+  if (el) c.scrollTo({
+    top: el.offsetTop - (c.clientHeight - el.offsetHeight) / 2,
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+  });
+}
+
+function markPlayed(i) {
+  const el = $("#lines").children[i];
+  if (el) el.classList.add("played");
+}
+
+/* 一行文字 → 逐字（詞）包 span，保留原字元位移供「從這裡開始念」使用 */
+function lineHtml(text, li) {
+  const lang = $("#langSel").value;
+  let off = 0, h = "";
+  for (const tk of tokenize(text, lang)) {
+    const esc = escapeHtml(tk.t);
+    h += tk.w
+      ? '<span class="w" data-line="' + li + '" data-o="' + off + '">' + esc + "</span>"
+      : esc;
+    off += tk.t.length;
+  }
+  return h;
+}
+
+function renderLines() {
+  const box = $("#lines");
+  box.innerHTML = "";
+  state.lines.forEach((t, i) => {
+    const div = document.createElement("div");
+    div.className = "line";
+    div.tabIndex = 0;
+    div.setAttribute("role", "button");
+    div.innerHTML = '<span class="spk" aria-hidden="true">▶</span>' + lineHtml(t, i) +
+      '<span class="ord">' + (i + 1) + "／" + state.lines.length + "</span>";
+    div.addEventListener("click", () => playLine(i));
+    div.addEventListener("keydown", ev => {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); playLine(i); }
+    });
+    box.appendChild(div);
+  });
+  $("#listCol").scrollTop = 0;
+}
+
+/* ────────────── 模式切換 ────────────── */
+function enterPlay() {
+  const raw = $("#srcText").value;
+  const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { note("請先貼上要練習的文字。"); return; }
+  note("");
+  state.lines = lines;
+  state.idx = -1;
+  saveDraft();
+  renderLines();
+  // 更新擷取範圍的上限與預設值
+  $("#recFrom").max = $("#recTo").max = lines.length;
+  $("#recFrom").value = 1;
+  $("#recTo").value = lines.length;
+  $("#recOut").hidden = true;
+  $("#editPane").hidden = true;
+  $("#playPane").classList.add("show");
+  $("#editBtn").hidden = false;
+}
+
+function enterEdit() {
+  if (state.recording) { note("錄音進行中──請先等錄音完成。"); return; }
+  stopAll();
+  $("#playPane").classList.remove("show");
+  $("#editPane").hidden = false;
+  $("#editBtn").hidden = true;
+  note("");
+  $("#srcText").focus();
+}
+
+/* 自動分句：把整段文字依終結標點拆行（縮寫、小數點盡量不誤切） */
+function autoSplit() {
+  const t = $("#srcText").value;
+  const marked = t
+    .replace(/([.!?。！？])(["')\]」』]?)\s+(?=[A-Z0-9「『"(一-鿿])/g, "$1$2\n")
+    .replace(/([。！？])(?=[^\n」』")\]])/g, "$1\n");
+  $("#srcText").value = marked.split(/\n/).map(s => s.trim()).filter(Boolean).join("\n");
+  saveDraft();
+}
+
+/* ────────────── 控制列事件 ────────────── */
+$("#startBtn").addEventListener("click", enterPlay);
+$("#splitBtn").addEventListener("click", autoSplit);
+$("#clearBtn").addEventListener("click", () => { $("#srcText").value = ""; saveDraft(); $("#srcText").focus(); });
+$("#editBtn").addEventListener("click", enterEdit);
+$("#brand").addEventListener("click", ev => { ev.preventDefault(); enterEdit(); });
+$("#srcText").addEventListener("input", saveDraft);
+
+$("#autoBtn").addEventListener("click", () => {
+  prefs.auto = !prefs.auto;
+  if (prefs.auto) prefs.repeat = false;
+  savePrefs(); applyPrefs();
+});
+$("#repeatBtn").addEventListener("click", () => {
+  prefs.repeat = !prefs.repeat;
+  if (prefs.repeat) prefs.auto = false;
+  savePrefs(); applyPrefs();
+});
+
+$("#langSel").addEventListener("change", () => {
+  prefs.lang = $("#langSel").value;
+  savePrefs(); renderVoiceSel();
+});
+$("#engineSel").addEventListener("change", () => {
+  prefs.engine = $("#engineSel").value;
+  if (prefs.engine === "gt") state.gtFailed = false;   // 使用者手動切回時重試
+  savePrefs(); renderVoiceSel();
+});
+$("#voiceSel").addEventListener("change", () => {
+  prefs.voice = $("#voiceSel").value;
+  savePrefs();
+});
+
+/* 速度彈出滑桿 */
+$("#rateBtn").addEventListener("click", () => {
+  const pop = $("#ratePop");
+  pop.hidden = !pop.hidden;
+  $("#rateBtn").setAttribute("aria-expanded", String(!pop.hidden));
+});
+document.addEventListener("pointerdown", ev => {
+  if ($("#ratePop").hidden) return;
+  if (!ev.target.closest(".fs-wrap")) {
+    $("#ratePop").hidden = true;
+    $("#rateBtn").setAttribute("aria-expanded", "false");
+  }
+});
+$("#rateRange").addEventListener("input", () => {
+  prefs.rate = Number($("#rateRange").value);
+  savePrefs(); applyPrefs();
+});
+
+/* 鍵盤：↑↓ 選行、Enter／空白播放、Esc 停止（練習模式時） */
+document.addEventListener("keydown", ev => {
+  if ($("#editPane").hidden === false) return;
+  if (ev.target.matches("select, input, textarea")) return;
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    const n = state.lines.length;
+    if (!n) return;
+    const next = ev.key === "ArrowDown"
+      ? Math.min(n - 1, state.idx + 1)
+      : Math.max(0, state.idx - 1);
+    setActive(next);
+    const el = $("#lines").children[next];
+    if (el) el.focus({ preventScroll: true });
+  } else if (ev.key === "Escape") {
+    stopAll();
+  }
+});
+
+/* ════════════════════════════════════════════════════════
+   指定範圍音檔擷取
+   為什麼不能「直接抓」：Google 翻譯 TTS 沒有 CORS 標頭，
+   fetch() 讀不到位元組；跨網域 <audio> 接進 Web Audio API
+   也會因安全限制輸出靜音。可行的兩條路──
+   A. 分頁錄音：getDisplayMedia 取得本分頁音訊，邊播邊用
+      MediaRecorder 錄成 webm（opus）。純前端、一鍵下載；
+      限制：需使用者同意分享並勾選「分頁音訊」，且瀏覽器
+      語音（speechSynthesis）不算分頁音訊、錄不到，故錄音
+      一律走 Google 翻譯引擎。
+   B. 直接下載 MP3：translate_tts 端點回傳的就是 MP3，
+      瀏覽器開連結或 curl 抓取都不受 CORS 限制。產生逐行
+      連結與 curl 指令，適合要「真 MP3 檔」的情境。
+   ════════════════════════════════════════════════════════ */
+
+function recRange() {
+  const n = state.lines.length;
+  let a = Math.round(Number($("#recFrom").value)) || 1;
+  let b = Math.round(Number($("#recTo").value)) || n;
+  a = Math.min(Math.max(1, a), n);
+  b = Math.min(Math.max(a, b), n);
+  $("#recFrom").value = a; $("#recTo").value = b;
+  return [a - 1, b - 1];   // 轉為 0 起算
+}
+
+function recOut(html) {
+  const el = $("#recOut");
+  el.hidden = false;
+  el.innerHTML = html;
+}
+
+/* ── A. 分頁錄音 → webm ── */
+async function recordRange() {
+  if (state.recording) return;
+  const [from, to] = recRange();
+  const lang = $("#langSel").value;
+  stopAll();
+  note("");
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true, audio: true,
+      preferCurrentTab: true,          // Chrome：預選「這個分頁」
+      selfBrowserSurface: "include",
+    });
+  } catch (e) {
+    note("已取消或無法開始分頁錄音：" + e.message);
+    return;
+  }
+  if (!stream.getAudioTracks().length) {
+    stream.getTracks().forEach(t => t.stop());
+    note("沒有取得音訊──分享視窗中請選「Chrome 分頁」並勾選「同時分享分頁音訊」，再試一次。");
+    return;
+  }
+
+  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus" : "";
+  const rec = new MediaRecorder(new MediaStream(stream.getAudioTracks()),
+    mime ? { mimeType: mime } : undefined);
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const stopped = new Promise(r => { rec.onstop = r; });
+
+  state.recording = true;
+  $("#recBar").classList.add("recording");
+  $("#recBtn").disabled = true;
+  rec.start();
+  await new Promise(r => setTimeout(r, 350));   // 開頭留一點靜音
+
+  let failed = false;
+  for (let i = from; i <= to && !failed; i++) {
+    setActive(i);
+    await new Promise(resolve => {
+      playGt(state.lines[i], lang, resolve, () => { failed = true; resolve(); });
+    });
+    markPlayed(i);
+    await new Promise(r => setTimeout(r, 450)); // 句間停頓
+  }
+
+  rec.stop();
+  await stopped;
+  stream.getTracks().forEach(t => t.stop());
+  state.recording = false;
+  $("#recBar").classList.remove("recording");
+  $("#recBtn").disabled = false;
+
+  if (failed) {
+    note("Google 翻譯語音端點無法使用，錄音中斷──改用「MP3 連結」或「curl 指令」試試。");
+    return;
+  }
+  const blob = new Blob(chunks, { type: "audio/webm" });
+  const url = URL.createObjectURL(blob);
+  const name = "speak_" + (from + 1) + "-" + (to + 1) + "_" + lang + ".webm";
+  recOut(
+    '<strong style="color:var(--accent-ink)">錄音完成</strong>（' +
+    (blob.size / 1024).toFixed(0) + ' KB）──' +
+    '<a class="dl" href="' + url + '" download="' + name + '">下載 ' + name + "</a>" +
+    '<audio controls src="' + url + '" style="display:block;margin-top:10px;width:100%"></audio>' +
+    '<p style="margin:8px 0 0;color:var(--dim)">webm（opus）格式，各瀏覽器與播放器皆可播。' +
+    "如需 mp3，可用 ffmpeg 轉檔：<code>ffmpeg -i " + name + " out.mp3</code></p>"
+  );
+}
+$("#recBtn").addEventListener("click", recordRange);
+
+/* ── B. MP3 直接下載：逐行連結與 curl 指令 ── */
+/* 每行可能超過單次請求上限，沿用 chunkText 切塊；一行多塊時以 -a/-b 標序 */
+function rangeUrls() {
+  const [from, to] = recRange();
+  const lang = $("#langSel").value;
+  const slow = getRate() < 80;
+  const out = [];
+  for (let i = from; i <= to; i++) {
+    const pieces = chunkText(state.lines[i]);
+    pieces.forEach((p, k) => {
+      out.push({
+        name: "line" + String(i + 1).padStart(2, "0") +
+              (pieces.length > 1 ? "-" + String.fromCharCode(97 + k) : ""),
+        text: p,
+        url: gtUrl(p, lang, slow),
+      });
+    });
+  }
+  return out;
+}
+
+$("#linkBtn").addEventListener("click", () => {
+  const items = rangeUrls();
+  recOut(
+    '<strong style="color:var(--accent-ink)">MP3 連結</strong>' +
+    '（點開後右鍵「另存音訊」即可存成 mp3；連結直接指向 Google 翻譯的 TTS 端點）<br>' +
+    items.map(it =>
+      '<a href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' +
+      it.name + "：" + escapeHtml(it.text.length > 40 ? it.text.slice(0, 40) + "…" : it.text) +
+      "</a>").join("<br>")
+  );
+});
+
+$("#curlBtn").addEventListener("click", () => {
+  const items = rangeUrls();
+  const lines = items.map(it =>
+    "curl -sL -A 'Mozilla/5.0' '" + it.url.replace(/'/g, "'\\''") + "' -o " + it.name + ".mp3");
+  const script = lines.join("\n") +
+    "\ncat line*.mp3 > speak_all.mp3   # 合併為單一檔（MP3 可直接串接）";
+  recOut(
+    '<strong style="color:var(--accent-ink)">curl 指令</strong>' +
+    '（貼到終端機執行，逐行下載 mp3 後合併）' +
+    '<button type="button" class="btn ghost" id="copyCurl" style="margin-left:10px">複製</button>' +
+    "<pre>" + escapeHtml(script) + "</pre>"
+  );
+  $("#copyCurl").addEventListener("click", () => {
+    navigator.clipboard.writeText(script).then(
+      () => { $("#copyCurl").textContent = "已複製"; },
+      () => { note("複製失敗──請手動選取指令文字。"); });
+  });
+});
+
+/* ────────────── 套用偏好與啟動 ────────────── */
+function applyPrefs() {
+  $("#autoBtn").classList.toggle("on", !!prefs.auto);
+  $("#autoBtn").setAttribute("aria-pressed", String(!!prefs.auto));
+  $("#repeatBtn").classList.toggle("on", !!prefs.repeat);
+  $("#repeatBtn").setAttribute("aria-pressed", String(!!prefs.repeat));
+  const r = Math.min(150, Math.max(50, getRate()));
+  $("#rateRange").value = r;
+  $("#rateVal").textContent = r + "%";
+  $("#rateBtn").classList.toggle("on", r !== 100);
+}
+
+(function boot() {
+  if (prefs.lang) $("#langSel").value = prefs.lang;
+  if (prefs.engine) $("#engineSel").value = prefs.engine;
+  try {
+    const d = localStorage.getItem("speakDraft");
+    if (d) $("#srcText").value = d;
+  } catch (e) {}
+  applyPrefs();
+  renderVoiceSel();
+})();
+</script>
+</body>
+</html>

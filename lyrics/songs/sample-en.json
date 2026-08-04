@@ -1,0 +1,16 @@
+{
+  "id": "sample-en",
+  "title": "Paper Boats（示範曲）",
+  "artist": "Sample",
+  "lang": "en",
+  "youtube": "M7lc1UVf-VE",
+  "note": "示範資料：非中文歌曲附原文與繁體中文翻譯，請替換為實際內容。",
+  "lines": [
+    { "t": "0:05", "orig": "We fold the morning into paper boats", "zh": "我們把清晨摺成紙船" },
+    { "t": "0:12", "orig": "And send them down a silver stream", "zh": "讓它們順著銀色的溪流漂遠" },
+    { "t": "0:19", "orig": "The city hums a distant note", "zh": "城市低吟著遙遠的音符" },
+    { "t": "0:26", "orig": "We drift between the tide and dream", "zh": "我們漂盪在潮水與夢境之間" },
+    { "t": "0:33", "orig": "If night should fall before we land", "zh": "若夜色在靠岸之前先行降臨" },
+    { "t": "0:40", "orig": "I'll keep a lantern in my hand", "zh": "我會在掌心留一盞燈" }
+  ]
+}

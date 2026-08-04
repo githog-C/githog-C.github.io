@@ -1,0 +1,19 @@
+{
+  "id": "sample-ja",
+  "title": "星あかり（示範曲）",
+  "artist": "Sample",
+  "lang": "ja",
+  "youtube": "M7lc1UVf-VE",
+  "offset": 0,
+  "note": "示範資料：歌詞為本站原創占位短句，時間軸僅供展示，請替換為實際內容。",
+  "lines": [
+    { "t": "0:05", "orig": "{夜|よる}の{窓|まど}に{灯|ひ}をともして", "rmj": "yoru no mado ni hi o tomoshite", "zh": "在夜裡的窗邊點起燈火" },
+    { "t": "0:12", "orig": "{遠|とお}い{街|まち}の{音|おと}を{聞|き}いている", "rmj": "tooi machi no oto o kiite iru", "zh": "聽著遠方街市的聲響" },
+    { "t": "0:19", "orig": "{星|ほし}をひとつポケットに{入|い}れて", "rmj": "hoshi o hitotsu poketto ni irete", "zh": "把一顆星星收進口袋" },
+    { "t": "0:26", "orig": "{静|しず}かな{道|みち}を{歩|ある}き{出|だ}す", "rmj": "shizuka na michi o arukidasu", "zh": "邁步走上寂靜的道路" },
+    { "orig": "（間奏）", "zh": "──此行未標記時間，僅供展示：不可點按、也不會被高亮──" },
+    { "t": "0:40", "orig": "{雨上|あめあ}がりの{空|そら}は{青|あお}くて", "rmj": "ameagari no sora wa aokute", "zh": "雨後的天空一片湛藍" },
+    { "t": "0:47", "orig": "{言葉|ことば}にならない{光|ひかり}がある", "rmj": "kotoba ni naranai hikari ga aru", "zh": "有著無法言喻的光" },
+    { "t": "0:54", "orig": "{明日|あした}はきっと{晴|は}れるだろう", "rmj": "ashita wa kitto hareru darou", "zh": "明天想必會放晴吧" }
+  ]
+}

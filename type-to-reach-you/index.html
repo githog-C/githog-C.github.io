@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW" data-mode="normal">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Type to Reach You　打字練習</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>
+      <span id="titleMain">Type to Reach You　打字練習</span><span id="titleCredit" class="credit" style="display:none;"></span>
+    </h1>
+    <nav id="titleSocial" class="title-social" hidden aria-label="社群"></nav>
+    <div id="titleShop" class="title-shop" hidden></div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tabs" id="tabsBar" aria-label="分頁"></nav>
+
+  <!-- Question controls -->
+  <div class="q-controls" id="qControls"></div>
+
+  <!-- Listen bar（深深模式 / 歌詞分頁專用） -->
+  <div class="listen-row" id="listenRow" style="display:none;">
+    <span class="listen-label">聽我：</span>
+    <span class="listen-list" id="listenList"></span>
+    <span class="bgm-label">♪ BGM</span>
+    <span class="bgm-slot">尚未提供　[停用]</span>
+  </div>
+
+  <!-- 比對模式（中文／歌詞用） -->
+  <div class="compare-mode-row" id="compareRow" style="display:none;">
+    <label class="q-label" for="compareSelect">模式：</label>
+    <select id="compareSelect" class="q-select" style="flex:0 1 200px;">
+      <option value="A">A 逐字比對</option>
+      <option value="B">B 寬鬆比對（預留）</option>
+    </select>
+  </div>
+
+  <!-- Target display -->
+  <div class="display-wrap">
+    <div id="display" class="display" aria-live="polite"></div>
+    <span class="focus-toggle" id="focusToggle" role="button" tabindex="0" aria-label="專注模式">［-□-］</span>
+  </div>
+
+  <!-- Input area -->
+  <textarea id="input" class="input" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="從這裡開始打字…"></textarea>
+
+  <!-- Stats -->
+  <div class="stats">
+    <span class="stat" id="statSpeed">CPM <span class="v">0</span></span>
+    <span class="stat" id="statAcc">正確率 <span class="v">0%</span></span>
+    <span class="stat" id="statTime">時間 <span class="v">0.0s</span></span>
+    <span class="stat" id="statErr">錯誤 <span class="v err">0</span></span>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button id="restartBtn" class="btn" type="button">重新開始</button>
+    <button id="nextBtn" class="btn" type="button">下一題</button>
+  </div>
+
+  <footer>
+    <span class="footer-base">·　Type to Reach You　·</span><span class="footer-egg" id="footerEgg" role="button" tabindex="0" aria-label="切換模式" hidden>　𓆹　·</span>
+  </footer>
+
+  <!-- 彩蛋彈窗 Modal -->
+  <div id="eggModal" class="egg-modal" hidden role="dialog" aria-modal="true" aria-labelledby="eggModalText">
+    <div class="egg-modal-mask"></div>
+    <div class="egg-modal-panel">
+      <div class="egg-modal-text" id="eggModalText"></div>
+      <div class="egg-modal-actions" id="eggModalActions"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 資料以 <script src> 載入：file:// 與 https:// 行為一致，不需伺服器 -->
+<script src="data/list_en.js"></script>
+<script src="data/list_code.js"></script>
+<script src="data/list_tw.js"></script>
+<script src="data/list_links.js"></script>
+<script src="data/lyrics.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

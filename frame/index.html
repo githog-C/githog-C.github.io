@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>逐幀擷取　Frame Picker</title>
+<style>
+  :root{
+    --bg:#0c0c0e;
+    --bg-soft:#141416;
+    --panel:#16161a;
+    --line:rgba(255,255,255,.08);
+    --line-strong:rgba(255,255,255,.16);
+    --ink:#e8e6e1;
+    --ink-dim:#8a8780;
+    --ink-faint:#5a5852;
+    --gold:#c9a86a;
+    --gold-soft:rgba(201,168,106,.14);
+    --danger:#b66;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,Menlo,monospace;
+    --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:
+      radial-gradient(120% 80% at 50% -10%,#17171b 0%,var(--bg) 60%) fixed;
+    color:var(--ink);
+    font-family:var(--sans);
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    -webkit-text-size-adjust:100%;
+  }
+  .app{
+    width:min(1080px,94vw);
+    height:min(940px,96dvh);
+    display:grid;
+    grid-template-rows:auto 1fr auto auto;
+    gap:14px;
+    padding:22px 26px;
+  }
+
+  /* 頁首 */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:12px;
+  }
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand h1{
+    margin:0;font-size:15px;font-weight:600;letter-spacing:.18em;
+  }
+  .brand .latin{
+    font-family:var(--mono);font-size:10px;letter-spacing:.34em;
+    color:var(--gold);text-transform:uppercase;
+  }
+
+  /* 頁首工具列：｜子母畫面｜複製鈕｜　｜ZH／EN｜ */
+  .toolbar{
+    display:flex;align-items:stretch;flex:0 0 auto;gap:10px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+  }
+  .tb-group{
+    display:flex;align-items:stretch;
+    border:1px solid var(--line-strong);border-radius:3px;
+    background:var(--bg-soft);overflow:hidden;
+  }
+  .toolbar button,
+  .toolbar a{
+    display:inline-flex;align-items:center;justify-content:center;
+    font:inherit;letter-spacing:inherit;
+    padding:7px 12px;margin:0;
+    border:none;border-left:1px solid var(--line);border-radius:0;
+    background:none;white-space:nowrap;
+    transition:.15s;
+  }
+  .tb-group > :first-child{border-left:none}
+  a.bookmarklet{
+    color:var(--gold);text-decoration:none;
+    background:var(--gold-soft);
+    cursor:grab;-webkit-user-select:none;user-select:none;
+  }
+  a.bookmarklet:hover{background:rgba(201,168,106,.24)}
+  a.bookmarklet:active{cursor:grabbing}
+  .toolbar .icon{color:var(--ink-dim);cursor:pointer}
+  .toolbar .icon:hover{color:var(--gold)}
+  .toolbar .icon.ok{color:var(--gold)}
+  .toolbar .icon .ic-ok{display:none}
+  .toolbar .icon.ok .ic-copy{display:none}
+  .toolbar .icon.ok .ic-ok{display:inline}
+  .toolbar .lang{color:var(--ink-dim);cursor:pointer;min-width:44px}
+  .toolbar .lang:hover{color:var(--gold)}
+
+  /* 影片舞台 */
+  .stage{
+    position:relative;min-height:0;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:
+      repeating-linear-gradient(45deg,#0e0e10 0 10px,#0b0b0d 10px 20px);
+    overflow:hidden;
+  }
+  video{
+    display:none;
+    width:100%;height:100%;
+    object-fit:contain;
+    background:#000;
+  }
+  .stage.loaded{
+    background:#000;
+    border-color:var(--line-strong);
+  }
+  .stage.loaded video{display:block}
+
+  /* 空狀態 / 拖放區 */
+  .dropzone{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;text-align:center;cursor:pointer;
+    transition:background .2s;
+  }
+  .stage.loaded .dropzone{display:none}
+  .dropzone.over{background:var(--gold-soft)}
+  .dropzone .sprocket{
+    display:flex;gap:7px;margin-bottom:4px;
+  }
+  .dropzone .sprocket i{
+    width:8px;height:11px;border-radius:1px;
+    background:var(--ink-faint);display:block;
+  }
+  .dropzone p{margin:0;color:var(--ink-dim);font-size:13px;letter-spacing:.04em}
+  .dropzone .sub{color:var(--ink-faint);font-size:11px;font-family:var(--mono)}
+
+  /* 控制列 */
+  .controls{
+    display:grid;gap:12px;
+    border:1px solid var(--line);border-radius:4px;
+    background:var(--panel);padding:14px 16px;
+  }
+  .readout{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    font-family:var(--mono);
+  }
+  .tc{font-size:24px;letter-spacing:.04em;color:var(--ink)}
+  .tc .ms{color:var(--gold)}
+  .meta{display:flex;gap:18px;font-size:11px;color:var(--ink-dim)}
+  .meta b{color:var(--ink);font-weight:500}
+
+  /* 進度軸 */
+  input[type=range]{
+    width:100%;-webkit-appearance:none;appearance:none;
+    height:3px;background:var(--line-strong);border-radius:3px;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--gold);border:2px solid var(--bg);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;background:var(--gold);border:2px solid var(--bg);
+  }
+
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row.split{justify-content:space-between}
+  .group{display:flex;align-items:center;gap:6px}
+
+  button{
+    font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+    color:var(--ink);background:var(--bg-soft);
+    border:1px solid var(--line-strong);border-radius:3px;
+    padding:7px 12px;cursor:pointer;transition:.15s;
+  }
+  button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+  button:disabled{opacity:.32;cursor:not-allowed}
+  button.key{min-width:42px;font-size:14px}
+  button.capture{
+    background:var(--gold);color:#1a1408;border-color:var(--gold);font-weight:600;
+    padding:8px 20px;
+  }
+  button.capture:hover:not(:disabled){filter:brightness(1.08);color:#1a1408}
+
+  label.lbl{font-size:11px;color:var(--ink-dim);font-family:var(--mono);letter-spacing:.05em}
+  input.num{
+    width:58px;font-family:var(--mono);font-size:12px;text-align:center;
+    color:var(--ink);background:var(--bg-soft);
+    border:1px solid var(--line-strong);border-radius:3px;padding:6px 4px;
+  }
+  #prefix{width:270px;max-width:100%;text-align:left}
+  select{
+    font-family:var(--mono);font-size:12px;color:var(--ink);
+    background:var(--bg-soft);border:1px solid var(--line-strong);
+    border-radius:3px;padding:6px 8px;cursor:pointer;
+  }
+
+  /* 連結輸入列 */
+  .urlbar{gap:8px}
+  .urlbar[hidden]{display:none}
+  #urlInput{
+    flex:1;min-width:0;
+    font-family:var(--mono);font-size:12px;
+    color:var(--ink);background:var(--bg-soft);
+    border:1px solid var(--line-strong);border-radius:3px;padding:7px 10px;
+  }
+  #urlInput:focus{outline:none;border-color:var(--gold)}
+  #urlInput::placeholder{color:var(--ink-faint)}
+  .urlnote{
+    font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+    color:var(--ink-dim);line-height:1.5;
+  }
+  .urlnote[hidden]{display:none}
+  .urlnote.warn{color:var(--danger)}
+
+  /* 頁尾 */
+  footer{
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    border-top:1px solid var(--line);padding-top:10px;
+    font-size:10px;color:var(--ink-faint);font-family:var(--mono);letter-spacing:.1em;
+  }
+  footer .dot{color:var(--gold)}
+  canvas{display:none}
+
+  /* ── 手機／窄螢幕（以 iPhone SE 375×667 為基準）────────
+     桌機版是「一屏塞滿、不捲動」的固定版面；窄螢幕改成可捲動的直式流排 */
+  @media (max-width:720px){
+    html,body{height:auto;min-height:100%}
+    body{display:block;overflow-x:hidden;overflow-y:auto}
+    .app{
+      width:100%;height:auto;min-height:100dvh;
+      grid-template-rows:none;grid-auto-rows:min-content;
+      gap:12px;padding:14px 14px 20px;
+    }
+
+    header{flex-wrap:wrap;gap:10px;justify-content:center}
+    .brand{gap:8px;flex:1 1 auto}
+    .brand h1{font-size:14px;letter-spacing:.12em}
+    .brand .latin{font-size:9px;letter-spacing:.2em}
+    .toolbar{font-size:10px;gap:8px;flex:0 1 auto}
+    .toolbar button,.toolbar a{padding:8px 10px}
+    .toolbar .lang{min-width:38px}
+
+    /* 舞台不再吃剩餘高度，改用固定比例，避免被控制列擠成一條線 */
+    .stage{aspect-ratio:16/9;min-height:160px}
+    .dropzone{gap:10px;padding:0 18px}
+    .dropzone p{font-size:12px;line-height:1.65}
+    .dropzone .sub{font-size:10px;line-height:1.6}
+    .dropzone .sprocket{gap:5px;margin-bottom:0}
+
+    .controls{padding:12px;gap:10px}
+    .readout{flex-wrap:wrap;gap:6px}
+    .tc{font-size:20px}
+    .meta{gap:12px;font-size:10px;flex-wrap:wrap}
+
+    .row.split{gap:8px}
+    .group{min-width:0;flex-wrap:wrap}
+    /* 播放鍵獨占一列並平均撐開 */
+    .row.split > .group:first-child{flex:1 1 100%}
+    button.key{flex:1 1 0;min-width:0;padding:9px 6px}
+    button.capture{flex:1 1 auto;padding:9px 14px}
+
+    /* 輸入類在 iOS 需 16px，否則點入會自動放大整頁 */
+    input.num,#urlInput,select{font-size:16px}
+    #prefix{flex:1 1 140px;width:auto;min-width:110px}
+    #urlInput{flex:1 1 100%}
+    .urlbar{flex-wrap:wrap}
+
+    footer{font-size:9px;letter-spacing:.06em;line-height:1.9}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <h1 data-i18n="brand">逐幀擷取</h1>
+      <span class="latin" data-i18n-html="latin">Frame&nbsp;Picker</span>
+    </div>
+
+    <div class="toolbar">
+     <div class="tb-group">
+      <!-- 子母畫面書籤：原始版本備份（原生 PiP，Netflix 字幕不會帶入）
+           javascript:(function()%7Bfunction f(d)%7Btry%7Bvar v=d.getElementById('ani_video_html5_api');if(v)return v;var a=d.getElementsByTagName('video');for(var i=0;i<a.length;i++)%7Bif(a%5Bi%5D.currentSrc%7C%7Ca%5Bi%5D.readyState>0)return a%5Bi%5D;%7Dif(a.length)return a%5B0%5D;var g=d.getElementsByTagName('iframe');for(var j=0;j<g.length;j++)%7Btry%7Bvar r=f(g%5Bj%5D.contentDocument);if(r)return r;%7Dcatch(e)%7B%7D%7D%7Dcatch(e)%7B%7Dreturn null;%7Dvar v=f(document);if(!v)%7Balert('找不到影片元素，請確認已在播放頁面並開始播放。');return;%7Dif(document.pictureInPictureElement)%7Bdocument.exitPictureInPicture();return;%7Dtry%7Bv.disablePictureInPicture=false;%7Dcatch(e)%7B%7Dif(v.requestPictureInPicture)%7Bv.requestPictureInPicture().catch(function(e)%7Balert('無法啟動子母畫面：'+((e&&e.message)%7C%7Ce));%7D);%7Delse%7Balert('此瀏覽器不支援子母畫面 API。');%7D%7D)();
+      -->
+      <a class="bookmarklet" id="bmk" draggable="true"
+         data-i18n="bmk" data-i18n-title="bmkTitle"
+         href="javascript:(function()%7Bfunction f(d)%7Btry%7Bvar v=d.getElementById('ani_video_html5_api');if(v)return v;var a=d.getElementsByTagName('video');for(var i=0;i!==a.length;i++)%7Bif(a%5Bi%5D.currentSrc%7C%7Ca%5Bi%5D.readyState)return a%5Bi%5D%7Dif(a.length)return a%5B0%5D;var g=d.getElementsByTagName('iframe');for(var j=0;j!==g.length;j++)%7Btry%7Bvar r=f(g%5Bj%5D.contentDocument);if(r)return r%7Dcatch(e)%7B%7D%7D%7Dcatch(e)%7B%7Dreturn null%7Dvar v=f(document);if(!v)%7Balert('找不到影片元素，請確認已在播放頁面並開始播放。');return%7Dvar D=window.documentPictureInPicture;if(D)if(D.window)%7BD.window.close();return%7Dif(document.pictureInPictureElement)%7Bdocument.exitPictureInPicture();return%7Dfunction N()%7Btry%7Bv.disablePictureInPicture=false%7Dcatch(e)%7B%7Dif(v.requestPictureInPicture)%7Bv.requestPictureInPicture().catch(function(e)%7Balert('無法啟動子母畫面：'+((e.message)%7C%7Ce))%7D)%7Delse%7Balert('此瀏覽器不支援子母畫面 API。')%7D%7Dif(!D)%7BN();return%7Dif(!D.requestWindow)%7BN();return%7Dvar S='.player-timedtext,%5Bclass*=timedtext%5D,%5Bclass*=subtitle%5D,%5Bclass*=caption%5D,%5Bid*=caption%5D';var box=v.parentElement,T=null;while(box)%7Bif(box===document.body)break;if(box.querySelector(S))%7BT=box;break%7Dbox=box.parentElement%7Dif(!T)%7BN();return%7Dvar R=T.getBoundingClientRect();var W=Math.round(R.width)%7C%7Cv.videoWidth%7C%7C640;var H=Math.round(R.height)%7C%7Cv.videoHeight%7C%7C360;var PW=Math.round(Math.min(560,W));var PH=Math.round(PW*H/W);D.requestWindow(%7Bwidth:PW,height:PH%7D).then(function(w)%7Btry%7BArray.prototype.forEach.call(document.styleSheets,function(s)%7Btry%7Bvar c=Array.prototype.map.call(s.cssRules,function(r)%7Breturn r.cssText%7D).join('');var st=w.document.createElement('style');st.textContent=c;w.document.head.appendChild(st)%7Dcatch(err)%7Bif(s.href)%7Bvar l=w.document.createElement('link');l.rel='stylesheet';l.href=s.href;w.document.head.appendChild(l)%7D%7D%7D)%7Dcatch(e)%7B%7Dvar b=w.document.createElement('style');b.textContent='html,body%7Bmargin:0;padding:0;background:black;overflow:hidden%7D.pipbox%7Bposition:absolute;top:0;left:0;transform-origin:top left%7D';w.document.head.appendChild(b);var K=w.document.createElement('div');K.className='pipbox';K.style.width=W+'px';K.style.height=H+'px';w.document.body.appendChild(K);var P=document.createElement('div');P.style.display='none';T.parentNode.insertBefore(P,T);var old=T.getAttribute('style');K.appendChild(T);T.style.width=W+'px';T.style.height=H+'px';function fit()%7Bvar k=Math.min(w.innerWidth/W,w.innerHeight/H);K.style.transform='scale('+k+')';K.style.left=Math.round((w.innerWidth-W*k)/2)+'px';K.style.top=Math.round((w.innerHeight-H*k)/2)+'px'%7Dfit();w.addEventListener('resize',fit);w.addEventListener('pagehide',function()%7Bif(old!==null)%7BT.setAttribute('style',old)%7Delse%7BT.removeAttribute('style')%7DP.parentNode.insertBefore(T,P);P.parentNode.removeChild(P)%7D)%7D).catch(function(e)%7BN()%7D)%7D)();">子母畫面</a>
+
+      <button class="icon" id="bmkCopy" type="button" data-i18n-title="copyTitle" aria-label="copy">
+        <svg class="ic-copy" viewBox="0 0 16 16" width="13" height="13" fill="none"
+             stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5.4" y="5.4" width="8.2" height="8.2" rx="1.4"/>
+          <path d="M10.6 3.3V2.9a1.5 1.5 0 0 0-1.5-1.5H3.9a1.5 1.5 0 0 0-1.5 1.5v5.2a1.5 1.5 0 0 0 1.5 1.5h.4"/>
+        </svg>
+        <svg class="ic-ok" viewBox="0 0 16 16" width="13" height="13" fill="none"
+             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 8.6 6.3 12 13 4.6"/>
+        </svg>
+      </button>
+     </div>
+
+     <div class="tb-group">
+      <button class="lang" id="lang" type="button" data-i18n-title="langTitle"><span id="langLabel">EN</span></button>
+     </div>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <video id="video" playsinline></video>
+    <div class="dropzone" id="dropzone">
+      <div class="sprocket"><i></i><i></i><i></i><i></i><i></i></div>
+      <p data-i18n="dropMain">拖放影片或影片連結到此，或點擊選取，如果需要子母畫面功能，請拖曳或複製網頁右上角的書籤</p>
+      <span class="sub" data-i18n="dropSub">MP4 / WebM / MOV / M3U8 ⋯⋯　完全在瀏覽器內運作</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="readout">
+      <div class="tc" id="timecode">00:00:00<span class="ms">.000</span></div>
+      <div class="meta">
+        <span><span data-i18n="mFrame">幀</span> <b id="frameNo">—</b></span>
+        <span><span data-i18n="mDims">解析度</span> <b id="dims">—</b></span>
+        <span><span data-i18n="mDur">總長</span> <b id="duration">—</b></span>
+      </div>
+    </div>
+
+    <input type="range" id="seek" min="0" max="0" step="0.001" value="0" disabled>
+
+    <div class="row split">
+      <div class="group">
+        <button class="key" id="back10" disabled data-i18n-title="tBack1">«</button>
+        <button class="key" id="prev" disabled data-i18n-title="tPrev">,</button>
+        <button class="key" id="play" disabled data-i18n-title="tPlay">▶</button>
+        <button class="key" id="next" disabled data-i18n-title="tNext">.</button>
+        <button class="key" id="fwd10" disabled data-i18n-title="tFwd1">»</button>
+      </div>
+      <div class="group">
+        <label class="lbl">FPS</label>
+        <input class="num" type="number" id="fps" value="30" min="1" max="120" step="0.01">
+      </div>
+    </div>
+
+    <div class="row split">
+      <div class="group">
+        <select id="source" data-i18n-title="srcTitle">
+          <option value="" disabled selected data-i18n="srcHead">影片來源⋯⋯</option>
+          <option value="file" data-i18n="srcFile">選取影片</option>
+          <option value="url" data-i18n="srcUrl">輸入連結</option>
+        </select>
+        <input type="file" id="file" accept="video/*" hidden>
+        <label class="lbl" data-i18n="prefix">命名前綴</label>
+        <input class="num" type="text" id="prefix" value="frame">
+      </div>
+      <div class="group">
+        <label class="lbl" data-i18n="fmt">格式</label>
+        <select id="fmt">
+          <option value="image/png" data-i18n="fmtPng">PNG（無損）</option>
+          <option value="image/jpeg">JPEG</option>
+        </select>
+        <button class="capture" id="grab" disabled data-i18n="grabBtn">擷取此幀</button>
+      </div>
+    </div>
+
+    <div class="row urlbar" id="urlbar" hidden>
+      <label class="lbl" data-i18n="urlLabel">影片連結</label>
+      <input type="text" id="urlInput" spellcheck="false" data-i18n-ph="urlPh"
+             placeholder="https://⋯⋯.mp4　/　.webm　/　.m3u8（HLS）">
+      <button id="urlLoad" data-i18n="load">載入</button>
+      <button id="urlCancel" data-i18n="cancel">取消</button>
+    </div>
+    <div class="urlnote" id="urlnote" hidden></div>
+  </div>
+
+  <footer>
+    <span data-i18n-html="footR"><span class="dot">Q</span> 前一幀　<span class="dot">E</span> 後一幀　<span class="dot">A</span> 後退 1 秒　<span class="dot">D</span> 前進 1 秒　<span class="dot">空白</span> 播放／暫停　<span class="dot">S</span> 擷取 PNG　<span class="dot">W</span> 擷取 JPG　<span class="dot">P</span> 子母畫面</span>
+  </footer>
+
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const video = $("video"), stage = $("stage"), dropzone = $("dropzone");
+  const seek = $("seek"), tcEl = $("timecode"), frameNoEl = $("frameNo");
+  const dimsEl = $("dims"), durEl = $("duration");
+  const fpsEl = $("fps"), prefixEl = $("prefix"), fmtEl = $("fmt");
+  const btns = ["back10","prev","play","next","fwd10","grab"].map($);
+  const canvas = $("canvas"), ctx = canvas.getContext("2d");
+  let videoName = "frame";
+
+  // ── 介面語言（ZH／EN）────────────────────────────
+  const I18N = {
+    zh:{
+      title:"逐幀擷取　Frame Picker",
+      brand:"逐幀擷取",
+      latin:"Frame&nbsp;Picker",
+      bmk:"子母畫面",
+      bmkTitle:"拖曳這顆按鈕到瀏覽器書籤列，即可在任何影片頁面點一下啟動／關閉子母畫面；在本頁直接點擊則對目前影片生效。",
+      copyTitle:"複製書籤程式碼（Safari 無法拖曳時使用）",
+      copied:"已複製，請到書籤編輯畫面貼上",
+      copyFail:"瀏覽器不允許自動複製，請手動選取以下程式碼：",
+      langTitle:"切換介面語言",
+      dropMain:"拖放影片或影片連結到此，或點擊選取，如果需要子母畫面功能，請拖曳或複製網頁右上角的書籤",
+      dropSub:"MP4 / WebM / MOV / M3U8 ⋯⋯　完全在瀏覽器內運作",
+      mFrame:"幀", mDims:"解析度", mDur:"總長",
+      tBack1:"後退 1 秒（A）", tPrev:"前一幀（Q／,）", tPlay:"播放／暫停（空白鍵）",
+      tNext:"後一幀（E／.）", tFwd1:"前進 1 秒（D）",
+      srcTitle:"影片來源", srcHead:"影片來源⋯⋯", srcFile:"選取影片", srcUrl:"輸入連結",
+      prefix:"命名前綴", fmt:"格式", fmtPng:"PNG（無損）", grabBtn:"擷取此幀",
+      urlLabel:"影片連結", urlPh:"https://⋯⋯.mp4　/　.webm　/　.m3u8（HLS）",
+      load:"載入", cancel:"取消",
+      footR:'<span class="dot">Q</span> 前一幀　<span class="dot">E</span> 後一幀　<span class="dot">A</span> 後退 1 秒　<span class="dot">D</span> 前進 1 秒　<span class="dot">空白</span> 播放／暫停　<span class="dot">S</span> 擷取 PNG　<span class="dot">W</span> 擷取 JPG　<span class="dot">P</span> 子母畫面',
+      nLoading:"載入中⋯⋯",
+      nHlsJs:"此瀏覽器需要 hls.js 才能播放 HLS，載入中⋯⋯",
+      nHlsLoading:"HLS 串流載入中⋯⋯",
+      nCors:"已載入：此來源未提供跨網域（CORS）授權，擷取畫面可能被瀏覽器阻擋。",
+      aBadUrl:"網址格式不正確，請輸入完整的 http(s) 連結。",
+      aProtocol:"僅支援 http(s) 開頭的影片連結。",
+      aNoHlsJs:"無法載入 hls.js（需要網路連線），因此無法播放此 HLS 串流。",
+      aNoHls:"此瀏覽器不支援 HLS（.m3u8）播放。",
+      aHlsFail:"HLS 串流載入失敗：",
+      aHlsWhy:"\n可能是網址已失效，或來源未開放跨網域（CORS）存取。",
+      aLoadFail:"影片連結載入失敗：",
+      aLoadWhy:"\n請確認網址是可直接播放的影片檔（.mp4／.webm／.m3u8 等），而非播放頁面的網址。",
+      eUnsupported:"格式不支援，或來源拒絕存取（CORS／防盜連）",
+      eDecode:"解碼失敗", eNetwork:"網路錯誤", eUnknown:"無法載入",
+      aTaint:"此影片來源未提供跨網域（CORS）授權，瀏覽器禁止擷取畫面。\n請先將影片下載到本機，再用「選取影片」開啟。",
+      aPipNo:"此瀏覽器不支援子母畫面 API。",
+      aPipFail:"無法啟動子母畫面：",
+      bmkTip:"\n可改用右上角的「子母畫面」按鈕：把它拖曳到書籤列（Safari 請用旁邊的複製鈕），在影片播放頁面點一下即可啟動子母畫面。"
+    },
+    en:{
+      title:"Frame Picker",
+      brand:"Frame Picker",
+      latin:"Frame&nbsp;by&nbsp;Frame",
+      bmk:"PiP",
+      bmkTitle:"Drag this button to your bookmarks bar, then click it on any video page to toggle PiP. Clicking it here applies to the current video.",
+      copyTitle:"Copy bookmarklet code (for Safari, where dragging is unavailable)",
+      copied:"Copied — paste it into a new bookmark",
+      copyFail:"The browser blocked automatic copying. Please select the code below manually:",
+      langTitle:"Switch interface language",
+      dropMain:"Drop a video file or link here, or click to choose. For PiP, drag or copy the bookmarklet at the top right.",
+      dropSub:"MP4 / WebM / MOV / M3U8 ⋯⋯　runs entirely in your browser",
+      mFrame:"Frame", mDims:"Resolution", mDur:"Duration",
+      tBack1:"Back 1 second (A)", tPrev:"Previous frame (Q / ,)", tPlay:"Play / Pause (Space)",
+      tNext:"Next frame (E / .)", tFwd1:"Forward 1 second (D)",
+      srcTitle:"Video source", srcHead:"Video source⋯⋯", srcFile:"Choose file", srcUrl:"Enter URL",
+      prefix:"Filename prefix", fmt:"Format", fmtPng:"PNG (lossless)", grabBtn:"Capture frame",
+      urlLabel:"Video URL", urlPh:"https://⋯⋯.mp4　/　.webm　/　.m3u8 (HLS)",
+      load:"Load", cancel:"Cancel",
+      footR:'<span class="dot">Q</span> Prev frame　<span class="dot">E</span> Next frame　<span class="dot">A</span> −1 s　<span class="dot">D</span> +1 s　<span class="dot">Space</span> Play / Pause　<span class="dot">S</span> Capture PNG　<span class="dot">W</span> Capture JPG　<span class="dot">P</span> PiP',
+      nLoading:"Loading⋯⋯",
+      nHlsJs:"This browser needs hls.js for HLS playback — loading it⋯⋯",
+      nHlsLoading:"Loading HLS stream⋯⋯",
+      nCors:"Loaded: this source sends no CORS header, so frame capture may be blocked by the browser.",
+      aBadUrl:"That is not a valid URL. Please enter a full http(s) link.",
+      aProtocol:"Only http(s) video links are supported.",
+      aNoHlsJs:"Could not load hls.js (requires an internet connection), so this HLS stream cannot be played.",
+      aNoHls:"This browser does not support HLS (.m3u8) playback.",
+      aHlsFail:"HLS stream failed to load: ",
+      aHlsWhy:"\nThe URL may have expired, or the source may not allow cross-origin (CORS) access.",
+      aLoadFail:"The video link failed to load: ",
+      aLoadWhy:"\nMake sure the URL points to a directly playable video file (.mp4 / .webm / .m3u8 etc.), not to a player page.",
+      eUnsupported:"unsupported format, or the source refused access (CORS / hotlink protection)",
+      eDecode:"decoding failed", eNetwork:"network error", eUnknown:"could not be loaded",
+      aTaint:"This video source sends no CORS header, so the browser forbids capturing frames.\nDownload the video first, then open it with “Choose file”.",
+      aPipNo:"This browser does not support the PiP API.",
+      aPipFail:"Could not start PiP: ",
+      bmkTip:"\nTry the “PiP” button at the top right instead: drag it to your bookmarks bar (in Safari, use the copy button next to it), then click it on the video page."
+    }
+  };
+  let lang = "zh";
+  try{ const s = localStorage.getItem("fp-lang"); if(s === "en" || s === "zh") lang = s; }catch(e){}
+  function t(k){ return (I18N[lang] && I18N[lang][k]) || I18N.zh[k] || ""; }
+
+  function applyLang(l){
+    lang = (l === "en") ? "en" : "zh";
+    try{ localStorage.setItem("fp-lang", lang); }catch(e){}
+    document.documentElement.lang = lang === "en" ? "en" : "zh-Hant";
+    document.title = t("title");
+    document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-html]").forEach(el=>{ el.innerHTML = t(el.dataset.i18nHtml); });
+    document.querySelectorAll("[data-i18n-title]").forEach(el=>{ el.title = t(el.dataset.i18nTitle); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.placeholder = t(el.dataset.i18nPh); });
+    $("langLabel").textContent = lang === "zh" ? "EN" : "ZH";   // 只顯示「可切換到」的語言
+    if(lastNote) note(lastNote.key, lastNote.warn);   // 提示文字跟著換語言
+  }
+
+  function fps(){ const v = parseFloat(fpsEl.value); return (v>0 && isFinite(v)) ? v : 30; }
+  function pad(n,w){ return String(Math.floor(n)).padStart(w,"0"); }
+
+  function fmtTime(t){
+    const h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = Math.floor(t%60);
+    const ms = Math.round((t - Math.floor(t))*1000);
+    return {h,m,s,ms};
+  }
+  function tcText(t){
+    const o = fmtTime(t);
+    return `${pad(o.h,2)}:${pad(o.m,2)}:${pad(o.s,2)}<span class="ms">.${pad(o.ms,3)}</span>`;
+  }
+  function tcFile(t){
+    const o = fmtTime(t);
+    return `${pad(o.h,2)}-${pad(o.m,2)}-${pad(o.s,2)}-${pad(o.ms,3)}`;
+  }
+
+  function updateUI(){
+    const t = video.currentTime || 0;
+    tcEl.innerHTML = tcText(t);
+    frameNoEl.textContent = Math.round(t * fps());
+    seek.value = t;
+  }
+
+  // 用 requestVideoFrameCallback 取得較精確的時間（若瀏覽器支援）
+  let rvfcId = null;
+  function startRVFC(){
+    if(!("requestVideoFrameCallback" in HTMLVideoElement.prototype)) return;
+    const cb = (now, meta)=>{
+      tcEl.innerHTML = tcText(meta.mediaTime);
+      frameNoEl.textContent = Math.round(meta.mediaTime * fps());
+      seek.value = meta.mediaTime;
+      rvfcId = video.requestVideoFrameCallback(cb);
+    };
+    rvfcId = video.requestVideoFrameCallback(cb);
+  }
+
+  function enable(){ btns.forEach(b=>b.disabled=false); seek.disabled=false; }
+
+  // ── 影片來源：本機檔案／線上連結 ──────────────────
+  const urlbar = $("urlbar"), urlInput = $("urlInput"), urlnote = $("urlnote");
+  let objectURL = null;    // 本機檔案的 blob URL
+  let hls = null;          // hls.js 實例（HLS 串流用）
+  let pending = null;      // 進行中的連結載入 {url, cors}
+  let corsBlocked = false; // 來源未給跨網域授權 → canvas 會被污染
+  let lastNote = null;     // 記住目前提示的字串代碼，切換語言時重印
+
+  function note(key, warn){
+    lastNote = key ? {key:key, warn:!!warn} : null;
+    urlnote.textContent = key ? t(key) : "";
+    urlnote.hidden = !key;
+    urlnote.classList.toggle("warn", !!warn);
+  }
+  function resetSource(){
+    pending = null;
+    corsBlocked = false;
+    if(hls){ try{ hls.destroy(); }catch(e){} hls = null; }
+    if(objectURL){ URL.revokeObjectURL(objectURL); objectURL = null; }
+    video.removeAttribute("crossorigin");
+    stage.classList.remove("loaded");
+  }
+  function applyName(name){
+    videoName = name || "frame";
+    if(prefixEl.value === "frame" || prefixEl.value === "") prefixEl.value = videoName;
+  }
+
+  function loadFile(file){
+    if(!file || !file.type.startsWith("video/")) return;
+    resetSource();
+    note(null);
+    applyName(file.name.replace(/\.[^.]+$/, ""));
+    objectURL = URL.createObjectURL(file);
+    video.src = objectURL;
+    video.load();
+  }
+
+  function baseName(u){
+    try{
+      const p = new URL(u).pathname.split("/").filter(Boolean).pop() || "";
+      return decodeURIComponent(p).replace(/\.[^.]+$/, "") || "frame";
+    }catch(e){ return "frame"; }
+  }
+
+  // 直接餵給 <video>；先試 CORS 模式（可擷取畫面），失敗再退回無 CORS（僅能播放）
+  function loadDirect(url, cors){
+    pending = {url:url, cors:cors};
+    video.removeAttribute("crossorigin");
+    if(cors) video.crossOrigin = "anonymous";
+    video.src = url;
+    video.load();
+  }
+
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = res;
+      s.onerror = ()=>rej(new Error(src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // HLS（.m3u8）：Safari 原生支援，其餘瀏覽器動態載入 hls.js
+  async function loadHLS(url){
+    if(video.canPlayType("application/vnd.apple.mpegurl")){ loadDirect(url, true); return; }
+    if(!window.Hls){
+      note("nHlsJs");
+      try{
+        await loadScript("https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js");
+      }catch(e){
+        note(null);
+        alert(t("aNoHlsJs"));
+        return;
+      }
+    }
+    if(!window.Hls || !window.Hls.isSupported()){
+      note(null);
+      alert(t("aNoHls"));
+      return;
+    }
+    hls = new Hls();
+    hls.on(Hls.Events.ERROR, (e, data)=>{
+      if(!data || !data.fatal) return;
+      const h = hls; hls = null;
+      try{ h.destroy(); }catch(err){}
+      note(null);
+      alert(t("aHlsFail") + ((data.details || data.type) || t("eUnknown")) + t("aHlsWhy"));
+    });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    note("nHlsLoading");
+  }
+
+  function loadURL(raw){
+    const u = (raw || "").trim();
+    if(!u) return;
+    let parsed;
+    try{ parsed = new URL(u); }
+    catch(e){ alert(t("aBadUrl")); return; }
+    if(!/^https?:$/.test(parsed.protocol)){ alert(t("aProtocol")); return; }
+    resetSource();
+    applyName(baseName(u));
+    if(/\.m3u8(\?|#|$)/i.test(parsed.pathname + parsed.search)){ loadHLS(u); return; }
+    note("nLoading");
+    loadDirect(u, true);
+  }
+
+  video.addEventListener("error", ()=>{
+    if(!pending) return;
+    const p = pending;
+    pending = null;
+    if(p.cors){ corsBlocked = true; loadDirect(p.url, false); return; }
+    note(null);
+    const code = (video.error && video.error.code) || 0;
+    const why = code === 4 ? t("eUnsupported")
+              : code === 3 ? t("eDecode")
+              : code === 2 ? t("eNetwork")
+              : t("eUnknown");
+    alert(t("aLoadFail") + why + t("aLoadWhy"));
+  });
+
+  video.addEventListener("loadedmetadata", ()=>{
+    pending = null;
+    urlbar.hidden = true;
+    note(corsBlocked ? "nCors" : null, corsBlocked);
+    stage.classList.add("loaded");
+    seek.max = video.duration;
+    dimsEl.textContent = `${video.videoWidth}×${video.videoHeight}`;
+    const o = fmtTime(video.duration);
+    durEl.textContent = `${pad(o.h,2)}:${pad(o.m,2)}:${pad(o.s,2)}`;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    enable();
+    updateUI();
+    startRVFC();
+  });
+  video.addEventListener("seeked", updateUI);
+  video.addEventListener("timeupdate", updateUI);
+  video.addEventListener("play", ()=>$("play").textContent="❚❚");
+  video.addEventListener("pause", ()=>$("play").textContent="▶");
+
+  // 逐幀步進
+  function step(dir){
+    video.pause();
+    const dt = 1/fps();
+    let t = video.currentTime + dir*dt;
+    t = Math.max(0, Math.min(video.duration||0, t));
+    video.currentTime = t;
+  }
+  function jump(sec){
+    video.pause();
+    let t = Math.max(0, Math.min(video.duration||0, video.currentTime + sec));
+    video.currentTime = t;
+  }
+  function togglePlay(){ video.paused ? video.play() : video.pause(); }
+
+  // 擷取當前幀；forceType 可覆寫下拉選單格式
+  function grab(forceType){
+    if(!video.videoWidth) return;
+    const type = forceType || fmtEl.value;
+    const ext = type === "image/png" ? "png" : "jpg";
+    const quality = type === "image/jpeg" ? 0.95 : undefined;
+    try{
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const prefix = (prefixEl.value || "frame").trim().replace(/[\\/:*?"<>|]/g,"_");
+        a.href = url;
+        a.download = `${prefix}_${tcFile(video.currentTime)}.${ext}`;
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      }, type, quality);
+    }catch(e){
+      alert(t("aTaint"));
+    }
+  }
+
+  // 子母畫面（PiP）：介面上由右上角的書籤按鈕負責，這裡保留 P 快速鍵
+  const pipSupported = ("pictureInPictureEnabled" in document) && document.pictureInPictureEnabled
+    && typeof video.requestPictureInPicture === "function";
+  function togglePiP(){
+    if(!pipSupported){ alert(t("aPipNo") + t("bmkTip")); return; }
+    if(!video.videoWidth) return;
+    if(document.pictureInPictureElement){
+      document.exitPictureInPicture().catch(()=>{});
+      return;
+    }
+    try{ video.disablePictureInPicture = false; }catch(e){}
+    video.requestPictureInPicture().catch(e=>{
+      alert(t("aPipFail") + ((e && e.message) || e) + "\n" + t("bmkTip"));
+    });
+  }
+
+  // 複製書籤程式碼（Safari 無法把連結拖到書籤列時使用）
+  const copyBtn = $("bmkCopy");
+  let copyTimer = null;
+  function flashCopied(){
+    copyBtn.classList.add("ok");
+    copyBtn.title = t("copied");
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(()=>{
+      copyBtn.classList.remove("ok");
+      copyBtn.title = t("copyTitle");
+    }, 1800);
+  }
+  copyBtn.addEventListener("click", async ()=>{
+    const code = $("bmk").getAttribute("href");
+    let ok = false;
+    try{
+      await navigator.clipboard.writeText(code);
+      ok = true;
+    }catch(e){
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      }catch(err){ ok = false; }
+    }
+    if(ok) flashCopied();
+    else window.prompt(t("copyFail"), code);
+  });
+
+  // 事件綁定
+  $("lang").addEventListener("click", ()=>applyLang(lang === "zh" ? "en" : "zh"));
+  $("file").addEventListener("change", e=>loadFile(e.target.files[0]));
+  dropzone.addEventListener("click", ()=>$("file").click());
+
+  $("source").addEventListener("change", e=>{
+    const mode = e.target.value;
+    e.target.selectedIndex = 0;
+    if(mode === "file"){
+      urlbar.hidden = true;
+      $("file").click();
+    }else if(mode === "url"){
+      urlbar.hidden = false;
+      urlInput.focus();
+      urlInput.select();
+    }
+  });
+  $("urlLoad").addEventListener("click", ()=>loadURL(urlInput.value));
+  $("urlCancel").addEventListener("click", ()=>{ urlbar.hidden = true; note(null); });
+  urlInput.addEventListener("keydown", e=>{
+    e.stopPropagation();
+    if(e.key === "Enter"){ e.preventDefault(); loadURL(urlInput.value); }
+  });
+  ["dragenter","dragover"].forEach(ev=>dropzone.addEventListener(ev, e=>{
+    e.preventDefault(); dropzone.classList.add("over");
+  }));
+  ["dragleave","drop"].forEach(ev=>dropzone.addEventListener(ev, e=>{
+    e.preventDefault(); dropzone.classList.remove("over");
+  }));
+  dropzone.addEventListener("drop", e=>{
+    if(e.dataTransfer.files.length){ loadFile(e.dataTransfer.files[0]); return; }
+    const text = (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text") || "").trim();
+    if(text) loadURL(text);
+  });
+
+  $("prev").addEventListener("click", ()=>step(-1));
+  $("next").addEventListener("click", ()=>step(1));
+  $("back10").addEventListener("click", ()=>jump(-1));
+  $("fwd10").addEventListener("click", ()=>jump(1));
+  $("play").addEventListener("click", togglePlay);
+  $("grab").addEventListener("click", grab);
+  seek.addEventListener("input", ()=>{ video.pause(); video.currentTime = parseFloat(seek.value); });
+
+  // 鍵盤
+  document.addEventListener("keydown", e=>{
+    if(/input|select|textarea/i.test(e.target.tagName)) return;
+    if(!video.src) return;
+    switch(e.key){
+      case "q": case "Q": e.preventDefault(); step(-1); break;
+      case "e": case "E": e.preventDefault(); step(1); break;
+      case ",": e.preventDefault(); step(-1); break;
+      case ".": e.preventDefault(); step(1); break;
+      case " ": e.preventDefault(); togglePlay(); break;
+      case "a": case "A": e.preventDefault(); jump(-1); break;
+      case "d": case "D": e.preventDefault(); jump(1); break;
+      case "s": case "S": e.preventDefault(); grab("image/png"); break;
+      case "w": case "W": e.preventDefault(); grab("image/jpeg"); break;
+      case "p": case "P": e.preventDefault(); togglePiP(); break;
+      case "ArrowLeft": e.preventDefault(); jump(-1); break;
+      case "ArrowRight": e.preventDefault(); jump(1); break;
+    }
+  });
+
+  applyLang(lang);
+})();
+</script>
+</body>
+</html>
