@@ -1,8 +1,8 @@
-# report-timer
+# timer
 
 A bookmarklet that keeps back-to-back presentations to the same time limit.
 
-Live page: <https://githog-c.github.io/report-timer/index.html>
+Live page: <https://githog-c.github.io/timer/index.html>
 
 Open the page, set the limit and the pre-warning point, then drag the black
 button onto your bookmarks bar. Click it when a speaker starts.
@@ -35,9 +35,9 @@ tries hard not to interfere:
 
 ## Notes
 
-- Progress is kept in `localStorage`: navigating within the same origin resumes
-  the run, but crossing to another origin does not. Re-click the bookmarklet
-  when that happens.
+- Progress is kept in `localStorage` under `__timerState__`: navigating within
+  the same origin resumes the run, but crossing to another origin does not.
+  Re-click the bookmarklet when that happens.
 - Timing is computed from timestamps rather than interval counts, so background
   tab throttling does not skew it. Audio may still be deferred by the OS.
 - Beeps use the Web Audio API, which browsers unlock on a user gesture — that
@@ -49,10 +49,16 @@ calls. Works in any current browser on any platform.
 
 ## Editing
 
-`reportTimer(TOTAL, WARN, SOUND, DOT)` in `index.html` is the only source of
-truth; the `javascript:` URL is regenerated from `reportTimer.toString()` at
-page load. The compressor strips whole-line comments and collapses whitespace,
-so when editing: keep comments on their own lines, never put two consecutive
-spaces inside a string literal, and terminate every statement with a semicolon.
+`timer(TOTAL, WARN, SOUND, DOT)` in `index.html` is the only source of truth;
+the `javascript:` URL is regenerated from `timer.toString()` at page load. The
+compressor strips whole-line comments and collapses whitespace, so when
+editing: keep comments on their own lines, never put two consecutive spaces
+inside a string literal, and terminate every statement with a semicolon.
+Anything injected into the host page uses the `__timer` prefix.
 
 MIT, per the LICENSE at the repository root.
+
+---
+
+Published 2026-08-07 as `report-timer`; renamed to `timer` the same day. The
+old path is gone rather than redirected — it was live for roughly two hours.

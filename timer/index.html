@@ -138,9 +138,9 @@
 </main>
 
 <script>
-function reportTimer(TOTAL, WARN, SOUND, DOT){
-  var W=window, D=document, KEY='__rptTimerState__';
-  if(W.__rptTimer){ W.__rptTimer.menu(); return; }
+function timer(TOTAL, WARN, SOUND, DOT){
+  var W=window, D=document, KEY='__timerState__';
+  if(W.__timer){ W.__timer.menu(); return; }
   var ac=null;
   function actx(){ try{ if(!ac){ var C=W.AudioContext||W.webkitAudioContext; if(C) ac=new C(); } if(ac&&ac.state==='suspended') ac.resume(); }catch(e){} return ac; }
   function tone(freq,at,dur,vol){ var c=actx(); if(!c) return; try{ var o=c.createOscillator(),g=c.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(c.destination); var t=c.currentTime+at; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.05); }catch(e){} }
@@ -149,7 +149,7 @@ function reportTimer(TOTAL, WARN, SOUND, DOT){
   function beepEnd(){ if(!SOUND) return; tone(740,0,0.16,0.24); tone(988,0.22,0.16,0.24); tone(1175,0.44,0.36,0.26); }
 
   var box=D.createElement('div');
-  box.id='__rptTimerBox__';
+  box.id='__timerBox__';
   box.style.cssText='all:initial;position:fixed;top:clamp(8px,1.4vw,14px);right:clamp(8px,1.4vw,14px);z-index:2147483647;pointer-events:none;display:none;font-family:system-ui,-apple-system,"Microsoft JhengHei","Segoe UI",sans-serif';
   var card=D.createElement('div');
   card.style.cssText='box-sizing:border-box;display:flex;align-items:center;gap:clamp(7px,1vw,11px);max-width:calc(100vw - 24px);background:#ffffff;border:1px solid #cbd5e1;border-left:5px solid #64748b;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.24);padding:clamp(7px,1vw,11px) clamp(10px,1.3vw,15px)';
@@ -204,7 +204,7 @@ function reportTimer(TOTAL, WARN, SOUND, DOT){
     clearInterval(tick); clearTimeout(hideT); clearTimeout(menuT); wipe();
     if(box.parentNode) box.parentNode.removeChild(box);
     if(dot&&dot.parentNode) dot.parentNode.removeChild(dot);
-    try{ delete W.__rptTimer; }catch(e){ W.__rptTimer=null; }
+    try{ delete W.__timer; }catch(e){ W.__timer=null; }
   }
 
   btns.appendChild(mkBtn('下一單位','#0f172a','#ffffff','#0f172a',nextUnit));
@@ -226,7 +226,7 @@ function reportTimer(TOTAL, WARN, SOUND, DOT){
   }
   render();
   tick=setInterval(render,250);
-  W.__rptTimer={menu:menu,next:nextUnit,stop:stop};
+  W.__timer={menu:menu,next:nextUnit,stop:stop};
 }
 
 (function(){
@@ -241,7 +241,7 @@ function reportTimer(TOTAL, WARN, SOUND, DOT){
   }
   function secs(v,fb){ var n=parseFloat(v); if(!isFinite(n)||n<=0) n=fb; return Math.max(3,Math.round(n*60)); }
   function code(total,warn,sound,dot){
-    return 'javascript:('+oneLine(reportTimer)+')('+total+','+warn+','+sound+','+dot+');void 0;';
+    return 'javascript:('+oneLine(timer)+')('+total+','+warn+','+sound+','+dot+');void 0;';
   }
   function build(){
     var total=secs(inTotal.value,5);
@@ -253,10 +253,10 @@ function reportTimer(TOTAL, WARN, SOUND, DOT){
   [inTotal,inWarn,inSound,inDot].forEach(function(el){ el.addEventListener('input',build); el.addEventListener('change',build); });
   build();
 
-  function killRunning(){ if(window.__rptTimer) window.__rptTimer.stop(); }
-  bm.addEventListener('click',function(e){ e.preventDefault(); reportTimer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); });
-  document.getElementById('tryReal').onclick=function(){ killRunning(); reportTimer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); };
-  document.getElementById('tryFast').onclick=function(){ killRunning(); reportTimer(12,8,inSound.checked?1:0,inDot.checked?1:0); };
+  function killRunning(){ if(window.__timer) window.__timer.stop(); }
+  bm.addEventListener('click',function(e){ e.preventDefault(); timer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); });
+  document.getElementById('tryReal').onclick=function(){ killRunning(); timer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); };
+  document.getElementById('tryFast').onclick=function(){ killRunning(); timer(12,8,inSound.checked?1:0,inDot.checked?1:0); };
   document.getElementById('tryStop').onclick=killRunning;
 })();
 </script>
