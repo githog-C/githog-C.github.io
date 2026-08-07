@@ -45,12 +45,14 @@
     font-weight:700;font-size:15px;padding:11px 20px;border-radius:10px;
     box-shadow:0 6px 16px rgba(15,23,42,.25); cursor:grab;
   }
+  a.bm.alt{background:#fff;color:var(--ink);border:1px solid #cbd5e1;box-shadow:none;font-size:14px;padding:10px 16px}
   a.bm:active{cursor:grabbing}
   button.try{
     font-family:inherit;font-size:13px;font-weight:600;padding:10px 14px;
     border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--ink);cursor:pointer;
   }
-  button.try:hover{background:var(--soft)}
+  button.try.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
+  button.try:hover{filter:brightness(.97)}
   ol,ul{margin:0;padding-left:1.3em}
   li{margin:5px 0;font-size:clamp(12px,1.8vw,14px)}
   code{
@@ -59,9 +61,15 @@
   }
   .note{border-left:4px solid var(--warn);background:#fffbeb;border-color:#fde68a}
   .note h2 span{background:var(--warn)}
+  .good{border-left:4px solid var(--ok);background:#f0fdf4;border-color:#bbf7d0}
+  .good h2 span{background:var(--ok)}
   table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
   th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
   th{color:var(--mut);font-weight:600;font-size:12px;white-space:nowrap}
+  .msg{font-size:13px;margin-top:10px;padding:9px 12px;border-radius:8px;display:none}
+  .msg.on{display:block}
+  .msg.err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+  .msg.okmsg{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
   .foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px}
 </style>
 </head>
@@ -90,23 +98,44 @@
     <p class="hintline">改動設定後，下方書籤會即時更新，請重新拖曳一次。</p>
   </section>
 
-  <section class="card">
-    <h2><span>2</span>拖到書籤列</h2>
+  <section class="card good">
+    <h2><span>2</span>浮動視窗（最可靠，建議優先用）</h2>
+    <p class="hintline" style="margin-top:0">
+      開一個永遠置頂的小視窗來計時。它不住在被報告的網頁裡，所以<b>不受對方網站的 CSP、CSS 或改版影響，換網站也不會中斷</b>，
+      是唯一能保證「所有網站都看得到」的做法。缺點是小視窗會一直在，不是只在提醒時才出現。
+    </p>
     <div class="bmrow">
-      <a class="bm" id="bm" href="#">報告計時</a>
-      <button class="try" id="tryReal">以目前設定試用</button>
-      <button class="try" id="tryFast">快速試用（12 秒／8 秒）</button>
-      <button class="try" id="tryStop">停止試用</button>
+      <button class="try pri" id="pipOpen">開啟浮動計時視窗</button>
+      <button class="try" id="pipClose">關閉浮動視窗</button>
     </div>
-    <p class="hintline">按住黑色按鈕拖曳到瀏覽器書籤列即可。若書籤列未顯示，Chrome／Edge 按 <code>Ctrl + Shift + B</code>。</p>
+    <div class="msg" id="pipMsg"></div>
+    <p class="hintline">需要 Chrome／Edge 116 以上。本分頁必須保持開著（可以切到背景），視窗才會存在。</p>
   </section>
 
   <section class="card">
-    <h2><span>3</span>操作方式</h2>
+    <h2><span>3</span>書籤覆蓋版（拖到書籤列）</h2>
+    <div class="bmrow">
+      <a class="bm" id="bm" href="#">報告計時</a>
+      <a class="bm alt" id="bmTest" href="#">顯示測試</a>
+    </div>
+    <p class="hintline">
+      按住按鈕拖曳到書籤列。若書籤列未顯示，Chrome／Edge 按 <code>Ctrl + Shift + B</code>（macOS 為 <code>Cmd + Shift + B</code>）。<br>
+      <b>「顯示測試」</b>會在該頁右上角放一個不會消失的方塊並回報定位狀態，用來確認這個網站到底能不能顯示 —— 先在要報告的網站上點它一次。
+    </p>
+    <div class="bmrow" style="margin-top:12px">
+      <button class="try" id="tryReal">在本頁以目前設定試用</button>
+      <button class="try" id="tryFast">快速試用（12 秒／8 秒）</button>
+      <button class="try" id="tryTest">在本頁顯示測試</button>
+      <button class="try" id="tryStop">停止</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span>4</span>操作方式</h2>
     <table>
       <tr><th>動作</th><th>結果</th></tr>
-      <tr><td>第一次點書籤</td><td>開始為第 1 單位計時，右上角浮現一次「5:00 開始計時」，一秒後自動隱藏。</td></tr>
-      <tr><td>第 4 分鐘</td><td>浮現「1:00 剩餘時間」＋單聲提示音，<b>一秒後自動隱藏</b>，不擋畫面。</td></tr>
+      <tr><td>第一次點書籤</td><td>開始為第 1 單位計時，右上角浮現「5:00 開始計時」，<b>兩秒半</b>後自動隱藏。</td></tr>
+      <tr><td>第 4 分鐘</td><td>浮現「1:00 剩餘時間」＋單聲提示音，<b>一秒後自動隱藏</b>。</td></tr>
       <tr><td>第 5 分鐘</td><td>浮現紅色「時間到」＋三聲提示音，<b>固定不消失</b>，並持續累計超時秒數。</td></tr>
       <tr><td>計時中再點書籤</td><td>叫出小選單（顯示第幾單位、已進行多久），六秒後自動收起。</td></tr>
       <tr><td>選單「下一單位」</td><td>單位序號 +1、時間歸零重新計時。</td></tr>
@@ -114,23 +143,38 @@
     </table>
   </section>
 
+  <section class="card note">
+    <h2><span>疑難</span>書籤版顯示不出來時</h2>
+    <p class="hintline" style="margin-top:0">先在那個網站點「顯示測試」。<b>連測試方塊都不出現</b>，代表書籤根本沒被執行，那是網站層級的封鎖，改程式沒有用，請改用上面的浮動視窗。</p>
+    <table>
+      <tr><th>症狀</th><th>原因與處置</th></tr>
+      <tr><td>測試方塊完全不出現，也沒有聲音</td><td>網站的 CSP（內容安全政策）擋掉了書籤。F12 主控台會看到 <code>Refused to execute</code>。<b>無解，改用浮動視窗。</b></td></tr>
+      <tr><td>一開始有、往下捲就不見</td><td>該站在 <code>body</code> 上放了 <code>transform</code>／<code>filter</code>／<code>will-change</code>，使 <code>position:fixed</code> 改以 body 為基準。<b>本版已自動偵測並改用絕對定位跟著捲動補正。</b></td></tr>
+      <tr><td>方塊被網站樣式吃掉</td><td>該站有 <code>div{display:none!important}</code> 這類規則。<b>本版已改用自訂標籤＋Shadow DOM＋<code>!important</code> 內聯樣式，網站規則碰不到。</b></td></tr>
+      <tr><td>操作幾下之後消失</td><td>單頁式網站（SPA）重繪時把它掃掉了。<b>本版每 0.25 秒檢查一次，被移除會自動掛回去。</b></td></tr>
+      <tr><td>網頁全螢幕後看不到</td><td>全螢幕時只有全螢幕元素會被繪出。<b>本版會自動把自己搬進全螢幕元素裡。</b></td></tr>
+      <tr><td>點了沒反應，網址列出現一堆程式碼</td><td>書籤是用「貼上網址列」的方式執行的，瀏覽器會拿掉 <code>javascript:</code>。必須用拖曳建立書籤再點。</td></tr>
+    </table>
+  </section>
+
   <section class="card">
-    <h2><span>4</span>不擋畫面的設計</h2>
+    <h2><span>5</span>不擋畫面的設計</h2>
     <ul>
-      <li>整個容器預設 <code>display:none</code>，只有提醒的那一兩秒才存在於視覺上。</li>
-      <li>容器設 <code>pointer-events:none</code>，即使浮現時也不會攔截滑鼠；只有「下一單位／結束」按鈕可點。</li>
-      <li>外層 <code>all:initial</code> 隔離，不吃被報告網站的 CSS，也不污染對方樣式。</li>
-      <li>字級與間距全用 <code>clamp()</code>，F12 開啟後視窗被壓窄一樣讀得到；最大寬度 <code>calc(100vw - 24px)</code>，不會橫向溢出。</li>
+      <li>容器平時 <code>display:none</code>，只有提醒的那一兩秒才存在於視覺上。</li>
+      <li>容器帶 <code>pointer-events:none</code>，即使浮現時也不攔滑鼠；只有選單三顆按鈕可點。</li>
+      <li>掛在 <code>&lt;html&gt;</code> 底下的自訂標籤 <code>&lt;x-timer-hud&gt;</code>，內容放在 Shadow DOM 裡：不吃被報告網站的 CSS，也不污染對方樣式。</li>
+      <li>關鍵樣式以 <code>!important</code> 內聯寫入，勝過網站端任何規則。</li>
+      <li>最大寬度 <code>calc(100vw - 24px)</code>，並在 640 px 以下縮排縮字，F12 停靠後照樣讀得到。</li>
     </ul>
   </section>
 
   <section class="card note">
-    <h2><span>注意</span>限制</h2>
+    <h2><span>注意</span>書籤版的先天限制</h2>
     <ul>
-      <li>計時狀態存在 <code>localStorage</code>，<b>同一個網站</b>內換頁會自動接續；<b>換到別的網域</b>會中斷，需重新點一次書籤。若各單位報的是各自的網站，建議每個單位上台時重點一次。</li>
-      <li>瀏覽器分頁切到背景時計時器仍準確（以時間戳計算，不受節流影響），但提示音可能被系統延後播放。</li>
-      <li>提示音使用 Web Audio，須由點擊書籤這個使用者動作啟動；因此第一次點書籤時會有一聲很短的確認音，用意即在解鎖音訊。</li>
-      <li>少數網站設有嚴格 CSP（內容安全政策），會擋掉書籤執行，此為瀏覽器機制，無解。</li>
+      <li><b>跨網域會中斷。</b>計時狀態存在 <code>localStorage</code>，同網站換頁自動接續，換到別家網站就沒了，需重新點一次。浮動視窗版沒有這個問題。</li>
+      <li><b>CSP 擋得住書籤。</b>這是瀏覽器機制，任何 bookmarklet 都一樣，只能改用浮動視窗。</li>
+      <li>分頁切到背景時計時仍準確（以時間戳計算），但提示音可能被系統延後播放。</li>
+      <li>提示音使用 Web Audio，須由點擊這個使用者動作解鎖，所以開始計時時會有一聲很短的確認音。</li>
     </ul>
   </section>
 
@@ -138,9 +182,10 @@
 </main>
 
 <script>
-function timer(TOTAL, WARN, SOUND, DOT){
+function timer(TOTAL, WARN, SOUND, DOT, TEST){
   var W=window, D=document, KEY='__timerState__';
-  if(W.__timer){ W.__timer.menu(); return; }
+  if(W.__timer){ if(TEST){ W.__timer.stop(); } else { W.__timer.menu(); return; } }
+
   var ac=null;
   function actx(){ try{ if(!ac){ var C=W.AudioContext||W.webkitAudioContext; if(C) ac=new C(); } if(ac&&ac.state==='suspended') ac.resume(); }catch(e){} return ac; }
   function tone(freq,at,dur,vol){ var c=actx(); if(!c) return; try{ var o=c.createOscillator(),g=c.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(c.destination); var t=c.currentTime+at; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.05); }catch(e){} }
@@ -148,81 +193,150 @@ function timer(TOTAL, WARN, SOUND, DOT){
   function beepWarn(){ if(SOUND) tone(880,0,0.20,0.20); }
   function beepEnd(){ if(!SOUND) return; tone(740,0,0.16,0.24); tone(988,0.22,0.16,0.24); tone(1175,0.44,0.36,0.26); }
 
-  var box=D.createElement('div');
-  box.id='__timerBox__';
-  box.style.cssText='all:initial;position:fixed;top:clamp(8px,1.4vw,14px);right:clamp(8px,1.4vw,14px);z-index:2147483647;pointer-events:none;display:none;font-family:system-ui,-apple-system,"Microsoft JhengHei","Segoe UI",sans-serif';
-  var card=D.createElement('div');
-  card.style.cssText='box-sizing:border-box;display:flex;align-items:center;gap:clamp(7px,1vw,11px);max-width:calc(100vw - 24px);background:#ffffff;border:1px solid #cbd5e1;border-left:5px solid #64748b;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.24);padding:clamp(7px,1vw,11px) clamp(10px,1.3vw,15px)';
-  var big=D.createElement('div');
-  big.style.cssText='font-size:clamp(17px,2.6vw,26px);font-weight:800;line-height:1.1;color:#0f172a;white-space:nowrap;font-variant-numeric:tabular-nums';
-  var txt=D.createElement('div');
-  txt.style.cssText='font-size:clamp(11px,1.5vw,13px);color:#475569;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-  var btns=D.createElement('div');
-  btns.style.cssText='display:none;gap:6px;flex-wrap:wrap;margin-left:2px;pointer-events:auto';
-  card.appendChild(big); card.appendChild(txt); card.appendChild(btns); box.appendChild(card);
+  var CSS='@@.card{display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #cbd5e1;border-left:5px solid #64748b;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.24);padding:9px 13px;font-family:system-ui,-apple-system,"Microsoft JhengHei","Segoe UI",sans-serif}'
+    +'@@.card.warn{background:#fffbeb;border-color:#fde68a;border-left-color:#d97706}'
+    +'@@.card.end{background:#fef2f2;border-color:#fecaca;border-left-color:#dc2626}'
+    +'@@.big{font-size:23px;font-weight:800;line-height:1.1;color:#0f172a;white-space:nowrap;font-variant-numeric:tabular-nums}'
+    +'@@.card.end .big{color:#b91c1c}'
+    +'@@.txt{font-size:12px;color:#475569;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    +'@@.btns{display:none;gap:6px;flex-wrap:wrap;pointer-events:auto}'
+    +'@@.btns.on{display:flex}'
+    +'@@button{cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;line-height:1;padding:7px 11px;border-radius:7px;white-space:nowrap;background:#fff;color:#0f172a;border:1px solid #cbd5e1}'
+    +'@@button.pri{background:#0f172a;color:#fff;border-color:#0f172a}'
+    +'@media (max-width:640px){@@.big{font-size:17px}@@.txt{font-size:11px}@@.card{gap:7px;padding:7px 10px}@@button{font-size:11px;padding:6px 9px}}';
 
-  function mkBtn(label,bg,fg,bd,fn){ var b=D.createElement('button'); b.textContent=label; b.style.cssText='all:unset;box-sizing:border-box;display:inline-block;cursor:pointer;font-family:inherit;font-size:clamp(11px,1.4vw,12px);font-weight:700;line-height:1;padding:7px 11px;border-radius:7px;white-space:nowrap;background:'+bg+';color:'+fg+';border:1px solid '+bd; b.onclick=fn; return b; }
+  var host=D.createElement('x-timer-hud');
+  var root=null, shadow=true;
+  try{ root=host.attachShadow({mode:'open'}); }catch(e){ root=host; shadow=false; }
+  var sty=D.createElement('style');
+  sty.textContent=CSS.replace(/@@/g, shadow?'':'x-timer-hud ');
+  root.appendChild(sty);
 
-  var dot=null;
-  if(DOT){ dot=D.createElement('div'); dot.style.cssText='all:initial;position:fixed;top:5px;right:5px;width:10px;height:10px;border-radius:50%;background:#16a34a;opacity:.55;z-index:2147483646;pointer-events:auto;cursor:pointer'; }
+  var card=D.createElement('div'); card.className='card';
+  var big=D.createElement('div'); big.className='big';
+  var txt=D.createElement('div'); txt.className='txt';
+  var btns=D.createElement('div'); btns.className='btns';
+  card.appendChild(big); card.appendChild(txt); card.appendChild(btns);
+  root.appendChild(card);
+
+  function mkBtn(label,pri,fn){ var b=D.createElement('button'); b.textContent=label; if(pri) b.className='pri'; b.onclick=fn; return b; }
+
+  var OFF=12, absMode=false, shown=false;
+  function setH(k,v){ try{ host.style.setProperty(k,v,'important'); }catch(e){ try{ host.style[k]=v; }catch(e2){} } }
+  function baseStyle(){
+    setH('all','initial');
+    setH('position',absMode?'absolute':'fixed'); setH('top',OFF+'px'); setH('right',OFF+'px');
+    setH('left','auto'); setH('bottom','auto');
+    setH('z-index','2147483647'); setH('display','none'); setH('pointer-events','none');
+    setH('margin','0'); setH('padding','0'); setH('border','0');
+    setH('width','auto'); setH('height','auto'); setH('max-width','calc(100vw - 24px)');
+    setH('min-width','0'); setH('min-height','0'); setH('max-height','none');
+    setH('opacity','1'); setH('visibility','visible'); setH('transform','none');
+    setH('filter','none'); setH('clip-path','none'); setH('contain','none');
+    setH('overflow','visible'); setH('isolation','isolate'); setH('float','none');
+  }
+  baseStyle();
+
+  function target(){ return D.fullscreenElement||D.webkitFullscreenElement||D.documentElement||D.body; }
+  function mount(){ var t=target(); if(t&&host.parentNode!==t){ try{ t.appendChild(host); }catch(e){ try{ D.body.appendChild(host); }catch(e2){} } } }
+  function vis(on){ shown=on; setH('display',on?'block':'none'); if(on){ mount(); probe(); reflow(); } }
+  function probe(){
+    if(absMode) return;
+    var r=host.getBoundingClientRect();
+    if(!r.width&&!r.height) return;
+    var vw=(D.documentElement&&D.documentElement.clientWidth)||W.innerWidth;
+    if(Math.abs(r.top-OFF)>4||Math.abs(vw-r.right-OFF)>4){ absMode=true; setH('position','absolute'); }
+  }
+  function reflow(){
+    if(!absMode) return;
+    var vw=(D.documentElement&&D.documentElement.clientWidth)||W.innerWidth;
+    setH('right','auto');
+    setH('top',((W.pageYOffset||0)+OFF)+'px');
+    setH('left',((W.pageXOffset||0)+Math.max(0,vw-host.offsetWidth-OFF))+'px');
+  }
+  function onResize(){ OFF=Math.max(8,Math.min(14,Math.round(((D.documentElement&&D.documentElement.clientWidth)||W.innerWidth)*0.014))); if(!absMode){ setH('top',OFF+'px'); setH('right',OFF+'px'); } reflow(); }
+  W.addEventListener('resize',onResize,true);
+  W.addEventListener('scroll',reflow,true);
+  D.addEventListener('fullscreenchange',mount,true);
+  D.addEventListener('webkitfullscreenchange',mount,true);
+  onResize();
+  mount();
 
   var start=0, unit=1, warned=false, ended=false, menuOn=false;
   var hideT=null, menuT=null, tick=null;
-
   function save(){ try{ localStorage.setItem(KEY,JSON.stringify({s:start,u:unit,t:TOTAL,w:WARN})); }catch(e){} }
   function wipe(){ try{ localStorage.removeItem(KEY); }catch(e){} }
   function fmt(sec){ var n=Math.max(0,Math.floor(sec)); var m=Math.floor(n/60), s=n%60; return m+':'+(s<10?'0':'')+s; }
-  function show(){ box.style.display='block'; }
-  function hideSoon(ms){ clearTimeout(hideT); hideT=setTimeout(function(){ if(!ended&&!menuOn) box.style.display='none'; },ms); }
-  function skin(bg,bd,left){ card.style.background=bg; card.style.borderColor=bd; card.style.borderLeftColor=left; }
-  function calm(){ skin('#ffffff','#cbd5e1','#64748b'); }
+  function hideSoon(ms){ clearTimeout(hideT); hideT=setTimeout(function(){ if(!ended&&!menuOn) vis(false); },ms); }
+  function fireWarn(){ card.className='card warn'; beepWarn(); vis(true); hideSoon(1000); }
+  function fireEnd(){ ended=true; warned=true; clearTimeout(hideT); card.className='card end'; btns.className='btns on'; beepEnd(); vis(true); }
 
-  function fireWarn(){ skin('#fffbeb','#fde68a','#d97706'); beepWarn(); show(); hideSoon(1000); }
-  function fireEnd(silent){ ended=true; warned=true; clearTimeout(hideT); skin('#fef2f2','#fecaca','#dc2626'); btns.style.display='flex'; if(!silent) beepEnd(); show(); }
-
+  function guard(){
+    if(!host.isConnected) mount();
+    if(shown){
+      var cs=null; try{ cs=W.getComputedStyle(host); }catch(e){}
+      if(cs&&(cs.display==='none'||cs.visibility==='hidden'||cs.opacity==='0')){ baseStyle(); setH('display','block'); }
+      probe(); reflow();
+    }
+  }
+  function diag(){ return '定位：'+(absMode?'絕對（此頁 fixed 失效，已補正）':'固定 OK')+'・Shadow DOM：'+(shadow?'啟用':'不支援')+'・全螢幕元素：'+(D.fullscreenElement?'有':'無'); }
   function render(){
+    guard();
+    if(TEST){ txt.textContent=diag(); return; }
     var el=(Date.now()-start)/1000;
     if(!ended&&!warned&&el>=WARN&&el<TOTAL){ warned=true; fireWarn(); }
-    if(!ended&&el>=TOTAL){ fireEnd(false); }
-    if(ended){ big.textContent='時間到'; big.style.color='#b91c1c'; txt.textContent='第 '+unit+' 單位・超時 '+fmt(el-TOTAL); }
-    else{ big.textContent=fmt(TOTAL-el); big.style.color='#0f172a'; txt.textContent='第 '+unit+' 單位・'+(menuOn?('已進行 '+fmt(el)):(warned?'剩餘時間':'開始計時')); }
-    if(dot) dot.style.background=ended?'#dc2626':(warned?'#d97706':'#16a34a');
+    if(!ended&&el>=TOTAL){ fireEnd(); }
+    if(ended){ big.textContent='時間到'; txt.textContent='第 '+unit+' 單位・超時 '+fmt(el-TOTAL); }
+    else{ big.textContent=fmt(TOTAL-el); txt.textContent='第 '+unit+' 單位・'+(menuOn?('已進行 '+fmt(el)):(warned?'剩餘時間':'開始計時')); }
+    if(dot) dot.style.setProperty('background',ended?'#dc2626':(warned?'#d97706':'#16a34a'),'important');
   }
 
-  function closeMenu(){ menuOn=false; clearTimeout(menuT); if(!ended){ btns.style.display='none'; box.style.display='none'; } }
-  function menu(){
-    menuOn=true; btns.style.display='flex'; show(); render();
-    clearTimeout(hideT); clearTimeout(menuT);
-    if(!ended) menuT=setTimeout(closeMenu,6000);
-  }
-  function nextUnit(){
-    unit++; start=Date.now(); warned=false; ended=false; menuOn=false;
-    clearTimeout(menuT); btns.style.display='none'; calm(); save(); render();
-    beepStart(); show(); hideSoon(1400);
-  }
+  function closeMenu(){ menuOn=false; clearTimeout(menuT); if(!ended){ btns.className='btns'; vis(false); } }
+  function menu(){ menuOn=true; btns.className='btns on'; vis(true); render(); clearTimeout(hideT); clearTimeout(menuT); if(!ended) menuT=setTimeout(closeMenu,6000); }
+  function nextUnit(){ unit++; start=Date.now(); warned=false; ended=false; menuOn=false; clearTimeout(menuT); btns.className='btns'; card.className='card'; save(); render(); beepStart(); vis(true); hideSoon(2500); }
   function stop(){
     clearInterval(tick); clearTimeout(hideT); clearTimeout(menuT); wipe();
-    if(box.parentNode) box.parentNode.removeChild(box);
+    W.removeEventListener('resize',onResize,true); W.removeEventListener('scroll',reflow,true);
+    D.removeEventListener('fullscreenchange',mount,true); D.removeEventListener('webkitfullscreenchange',mount,true);
+    if(host.parentNode) host.parentNode.removeChild(host);
     if(dot&&dot.parentNode) dot.parentNode.removeChild(dot);
     try{ delete W.__timer; }catch(e){ W.__timer=null; }
   }
 
-  btns.appendChild(mkBtn('下一單位','#0f172a','#ffffff','#0f172a',nextUnit));
-  btns.appendChild(mkBtn('結束計時','#ffffff','#0f172a','#cbd5e1',stop));
-  btns.appendChild(mkBtn('關閉','#ffffff','#64748b','#e2e8f0',function(){ menuOn=false; clearTimeout(menuT); btns.style.display='none'; box.style.display='none'; }));
+  var dot=null;
+  if(DOT&&!TEST){
+    dot=D.createElement('x-timer-dot');
+    var dk={position:'fixed',top:'5px',right:'5px',width:'10px',height:'10px','border-radius':'50%',background:'#16a34a',opacity:'.55','z-index':'2147483646','pointer-events':'auto',cursor:'pointer',display:'block',margin:'0',padding:'0'};
+    for(var k in dk) dot.style.setProperty(k,dk[k],'important');
+    dot.onclick=function(){ menu(); };
+    try{ target().appendChild(dot); }catch(e){}
+  }
 
-  D.body.appendChild(box);
-  if(dot) D.body.appendChild(dot);
+  if(TEST){
+    btns.appendChild(mkBtn('關閉',true,stop));
+    btns.className='btns on';
+    big.textContent='顯示測試';
+    txt.textContent='檢測中';
+    vis(true); probe(); reflow();
+    txt.textContent=diag();
+    tick=setInterval(render,250);
+    W.__timer={menu:function(){},next:function(){},stop:stop};
+    return;
+  }
 
-  var st=null;
-  try{ st=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){}
-  if(st&&st.s&&(Date.now()-st.s)<((st.t||TOTAL)+1800)*1000){
-    start=st.s; unit=st.u||1; TOTAL=st.t||TOTAL; WARN=st.w||WARN;
+  btns.appendChild(mkBtn('下一單位',true,nextUnit));
+  btns.appendChild(mkBtn('結束計時',false,stop));
+  btns.appendChild(mkBtn('關閉',false,function(){ menuOn=false; clearTimeout(menuT); btns.className='btns'; vis(false); }));
+
+  var saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){}
+  if(saved&&saved.s&&(Date.now()-saved.s)<((saved.t||TOTAL)+1800)*1000){
+    start=saved.s; unit=saved.u||1; TOTAL=saved.t||TOTAL; WARN=saved.w||WARN;
     var el0=(Date.now()-start)/1000;
-    if(el0>=TOTAL){ fireEnd(false); }
-    else{ warned=el0>=WARN; if(warned) skin('#fffbeb','#fde68a','#d97706'); beepStart(); show(); hideSoon(1400); }
+    if(el0>=TOTAL){ fireEnd(); }
+    else{ warned=el0>=WARN; if(warned) card.className='card warn'; beepStart(); vis(true); hideSoon(2500); }
   }else{
-    start=Date.now(); unit=1; save(); beepStart(); show(); hideSoon(1400);
+    start=Date.now(); unit=1; save(); beepStart(); vis(true); hideSoon(2500);
   }
   render();
   tick=setInterval(render,250);
@@ -235,29 +349,107 @@ function timer(TOTAL, WARN, SOUND, DOT){
   var inSound=document.getElementById('inSound');
   var inDot=document.getElementById('inDot');
   var bm=document.getElementById('bm');
+  var bmTest=document.getElementById('bmTest');
+  var pipMsg=document.getElementById('pipMsg');
 
   function oneLine(fn){
     return fn.toString().split('\n').filter(function(l){ return !/^\s*\/\//.test(l); }).join(' ').replace(/\s+/g,' ').trim();
   }
+  // Percent-escape the characters a bookmark URL can mangle: % (must map to %25),
+  // # (would start a fragment) and anything non-ASCII. The browser decodes the
+  // URL before executing it, so the script text arrives intact.
+  function urlSafe(s){ return s.replace(/[%#\u0080-\uFFFF]/g, function(c){ return encodeURIComponent(c); }); }
   function secs(v,fb){ var n=parseFloat(v); if(!isFinite(n)||n<=0) n=fb; return Math.max(3,Math.round(n*60)); }
-  function code(total,warn,sound,dot){
-    return 'javascript:('+oneLine(timer)+')('+total+','+warn+','+sound+','+dot+');void 0;';
+  function conf(){
+    var total=secs(inTotal.value,5), warn=secs(inWarn.value,4);
+    if(warn>=total) warn=Math.max(3,total-30);
+    return {total:total,warn:warn,sound:inSound.checked?1:0,dot:inDot.checked?1:0};
   }
   function build(){
-    var total=secs(inTotal.value,5);
-    var warn=secs(inWarn.value,4);
-    if(warn>=total) warn=Math.max(3,total-30);
-    bm.setAttribute('href',code(total,warn,inSound.checked?1:0,inDot.checked?1:0));
-    bm.textContent='報告計時 '+(total/60).toFixed(total%60?1:0)+' 分';
+    var c=conf(), body=oneLine(timer);
+    bm.setAttribute('href','javascript:'+urlSafe('('+body+')('+c.total+','+c.warn+','+c.sound+','+c.dot+',0);void 0;'));
+    bmTest.setAttribute('href','javascript:'+urlSafe('('+body+')(60,30,0,0,1);void 0;'));
+    bm.textContent='報告計時 '+(c.total/60).toFixed(c.total%60?1:0)+' 分';
   }
   [inTotal,inWarn,inSound,inDot].forEach(function(el){ el.addEventListener('input',build); el.addEventListener('change',build); });
   build();
 
   function killRunning(){ if(window.__timer) window.__timer.stop(); }
-  bm.addEventListener('click',function(e){ e.preventDefault(); timer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); });
-  document.getElementById('tryReal').onclick=function(){ killRunning(); timer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); };
-  document.getElementById('tryFast').onclick=function(){ killRunning(); timer(12,8,inSound.checked?1:0,inDot.checked?1:0); };
+  function runHere(t,w,s,d,x){ killRunning(); timer(t,w,s,d,x); }
+  bm.addEventListener('click',function(e){ e.preventDefault(); var c=conf(); runHere(c.total,c.warn,c.sound,c.dot,0); });
+  bmTest.addEventListener('click',function(e){ e.preventDefault(); runHere(60,30,0,0,1); });
+  document.getElementById('tryReal').onclick=function(){ var c=conf(); runHere(c.total,c.warn,c.sound,c.dot,0); };
+  document.getElementById('tryFast').onclick=function(){ runHere(12,8,inSound.checked?1:0,inDot.checked?1:0,0); };
+  document.getElementById('tryTest').onclick=function(){ runHere(60,30,0,0,1); };
   document.getElementById('tryStop').onclick=killRunning;
+
+  // ---- floating always-on-top window (Document Picture-in-Picture) ----
+  var pipWin=null, pipTick=null, pipAc=null;
+  function say(text,kind){ pipMsg.textContent=text; pipMsg.className='msg on '+(kind||''); }
+  function pipTone(freq,at,dur,vol){
+    try{
+      if(!pipAc){ var C=window.AudioContext||window.webkitAudioContext; if(C) pipAc=new C(); }
+      if(!pipAc) return;
+      if(pipAc.state==='suspended') pipAc.resume();
+      var o=pipAc.createOscillator(),g=pipAc.createGain();
+      o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(pipAc.destination);
+      var t=pipAc.currentTime+at;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(vol,t+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.start(t); o.stop(t+dur+0.05);
+    }catch(e){}
+  }
+  var PIPCSS='*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:system-ui,-apple-system,"Microsoft JhengHei","Segoe UI",sans-serif;background:#fff;color:#0f172a;'
+    +'display:flex;flex-direction:column;justify-content:center;gap:4px;padding:8px 12px;height:100vh;border-left:6px solid #64748b}'
+    +'body.warn{background:#fffbeb;border-left-color:#d97706}'
+    +'body.end{background:#fef2f2;border-left-color:#dc2626}'
+    +'.t{font-size:clamp(20px,13vw,40px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}'
+    +'body.end .t{color:#b91c1c}'
+    +'.s{font-size:clamp(10px,4.6vw,13px);color:#475569}'
+    +'.r{display:flex;gap:6px;margin-top:2px}'
+    +'button{flex:1;cursor:pointer;font-family:inherit;font-size:clamp(10px,4.2vw,12px);font-weight:700;'
+    +'padding:5px 6px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;white-space:nowrap}'
+    +'button.pri{background:#0f172a;color:#fff;border-color:#0f172a}';
+
+  document.getElementById('pipOpen').onclick=async function(){
+    if(!('documentPictureInPicture' in window)){
+      say('這個瀏覽器沒有浮動視窗（Document Picture-in-Picture）功能，需要 Chrome 或 Edge 116 以上。請改用書籤覆蓋版。','err');
+      return;
+    }
+    if(pipWin&&!pipWin.closed){ pipWin.focus(); return; }
+    var c=conf();
+    try{
+      pipWin=await documentPictureInPicture.requestWindow({width:250,height:104});
+    }catch(err){
+      say('無法開啟浮動視窗：'+(err&&err.message?err.message:err),'err');
+      return;
+    }
+    var d=pipWin.document;
+    d.title='計時';
+    var s=d.createElement('style'); s.textContent=PIPCSS; d.head.appendChild(s);
+    d.body.innerHTML='<div class="t" id="t">0:00</div><div class="s" id="s"></div>'
+      +'<div class="r"><button class="pri" id="n">下一單位</button><button id="x">結束</button></div>';
+    var eT=d.getElementById('t'), eS=d.getElementById('s');
+    var st={start:Date.now(),unit:1,warned:false,ended:false};
+    function fmt(sec){ var n=Math.max(0,Math.floor(sec)); return Math.floor(n/60)+':'+((n%60)<10?'0':'')+(n%60); }
+    function paint(){
+      var el=(Date.now()-st.start)/1000;
+      if(!st.ended&&!st.warned&&el>=c.warn&&el<c.total){ st.warned=true; d.body.className='warn'; if(c.sound) pipTone(880,0,0.20,0.20); }
+      if(!st.ended&&el>=c.total){ st.ended=true; d.body.className='end'; if(c.sound){ pipTone(740,0,0.16,0.24); pipTone(988,0.22,0.16,0.24); pipTone(1175,0.44,0.36,0.26); } }
+      if(st.ended){ eT.textContent='時間到'; eS.textContent='第 '+st.unit+' 單位・超時 '+fmt(el-c.total); }
+      else{ eT.textContent=fmt(c.total-el); eS.textContent='第 '+st.unit+' 單位・已進行 '+fmt(el); }
+    }
+    d.getElementById('n').onclick=function(){ st.unit++; st.start=Date.now(); st.warned=false; st.ended=false; d.body.className=''; if(c.sound) pipTone(523,0,0.09,0.10); paint(); };
+    d.getElementById('x').onclick=function(){ pipWin.close(); };
+    pipWin.addEventListener('pagehide',function(){ clearInterval(pipTick); pipTick=null; pipWin=null; say('浮動視窗已關閉。','okmsg'); });
+    if(c.sound) pipTone(523,0,0.09,0.10);
+    paint();
+    pipTick=setInterval(paint,250);
+    say('浮動視窗已開啟，會浮在所有視窗最上層。本分頁請保持開著。','okmsg');
+  };
+  document.getElementById('pipClose').onclick=function(){ if(pipWin&&!pipWin.closed){ pipWin.close(); } else { say('目前沒有開著的浮動視窗。','err'); } };
 })();
 </script>
 </body>
