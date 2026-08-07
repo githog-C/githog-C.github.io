@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>報告計時提醒書籤</title>
+<style>
+  :root{
+    --ink:#0f172a; --mut:#64748b; --line:#e2e8f0; --soft:#f8fafc;
+    --ok:#16a34a; --warn:#d97706; --bad:#dc2626; --brand:#0f172a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:clamp(16px,3vw,40px) clamp(12px,3vw,32px);
+    background:#f1f5f9; color:var(--ink);
+    font-family:system-ui,-apple-system,"Microsoft JhengHei","Segoe UI",sans-serif;
+    line-height:1.65;
+  }
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:clamp(20px,3.4vw,28px);margin:0 0 4px;letter-spacing:.5px}
+  .sub{color:var(--mut);font-size:clamp(12px,1.8vw,14px);margin:0 0 22px}
+  .card{
+    background:#fff;border:1px solid #cbd5e1;border-radius:12px;
+    box-shadow:0 6px 20px rgba(15,23,42,.06);
+    padding:clamp(14px,2.4vw,22px); margin-bottom:16px;
+  }
+  .card h2{font-size:clamp(14px,2vw,16px);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .card h2 span{
+    font-size:11px;font-weight:700;color:#fff;background:var(--brand);
+    border-radius:999px;padding:2px 9px;letter-spacing:.5px;
+  }
+  .grid{display:flex;flex-wrap:wrap;gap:12px}
+  .field{flex:1 1 150px;min-width:140px}
+  label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+  input[type=number]{
+    width:100%;padding:8px 10px;font-size:15px;font-family:inherit;
+    border:1px solid #cbd5e1;border-radius:8px;background:var(--soft);color:var(--ink);
+  }
+  .checks{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px}
+  .checks label{display:flex;align-items:center;gap:6px;color:var(--ink);margin:0;font-size:13px}
+  .hintline{font-size:12px;color:var(--mut);margin-top:10px}
+  .bmrow{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  a.bm{
+    display:inline-block;background:var(--brand);color:#fff;text-decoration:none;
+    font-weight:700;font-size:15px;padding:11px 20px;border-radius:10px;
+    box-shadow:0 6px 16px rgba(15,23,42,.25); cursor:grab;
+  }
+  a.bm:active{cursor:grabbing}
+  button.try{
+    font-family:inherit;font-size:13px;font-weight:600;padding:10px 14px;
+    border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--ink);cursor:pointer;
+  }
+  button.try:hover{background:var(--soft)}
+  ol,ul{margin:0;padding-left:1.3em}
+  li{margin:5px 0;font-size:clamp(12px,1.8vw,14px)}
+  code{
+    background:var(--soft);border:1px solid var(--line);border-radius:5px;
+    padding:1px 5px;font-size:.92em;
+  }
+  .note{border-left:4px solid var(--warn);background:#fffbeb;border-color:#fde68a}
+  .note h2 span{background:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600;font-size:12px;white-space:nowrap}
+  .foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <h1>報告計時提醒書籤</h1>
+  <p class="sub">給多單位輪流報告用的公平計時器。平時完全不顯示，只在預告與時間到時浮現於畫面右上角。</p>
+
+  <section class="card">
+    <h2><span>1</span>設定時間</h2>
+    <div class="grid">
+      <div class="field">
+        <label for="inTotal">每單位總時長（分鐘）</label>
+        <input id="inTotal" type="number" min="0.2" step="0.5" value="5">
+      </div>
+      <div class="field">
+        <label for="inWarn">預告提醒時點（第幾分鐘）</label>
+        <input id="inWarn" type="number" min="0.1" step="0.5" value="4">
+      </div>
+    </div>
+    <div class="checks">
+      <label><input id="inSound" type="checkbox" checked>提示音</label>
+      <label><input id="inDot" type="checkbox">右上角常駐小圓點（10 px，可看出計時中）</label>
+    </div>
+    <p class="hintline">改動設定後，下方書籤會即時更新，請重新拖曳一次。</p>
+  </section>
+
+  <section class="card">
+    <h2><span>2</span>拖到書籤列</h2>
+    <div class="bmrow">
+      <a class="bm" id="bm" href="#">報告計時</a>
+      <button class="try" id="tryReal">以目前設定試用</button>
+      <button class="try" id="tryFast">快速試用（12 秒／8 秒）</button>
+      <button class="try" id="tryStop">停止試用</button>
+    </div>
+    <p class="hintline">按住黑色按鈕拖曳到瀏覽器書籤列即可。若書籤列未顯示，Chrome／Edge 按 <code>Ctrl + Shift + B</code>。</p>
+  </section>
+
+  <section class="card">
+    <h2><span>3</span>操作方式</h2>
+    <table>
+      <tr><th>動作</th><th>結果</th></tr>
+      <tr><td>第一次點書籤</td><td>開始為第 1 單位計時，右上角浮現一次「5:00 開始計時」，一秒後自動隱藏。</td></tr>
+      <tr><td>第 4 分鐘</td><td>浮現「1:00 剩餘時間」＋單聲提示音，<b>一秒後自動隱藏</b>，不擋畫面。</td></tr>
+      <tr><td>第 5 分鐘</td><td>浮現紅色「時間到」＋三聲提示音，<b>固定不消失</b>，並持續累計超時秒數。</td></tr>
+      <tr><td>計時中再點書籤</td><td>叫出小選單（顯示第幾單位、已進行多久），六秒後自動收起。</td></tr>
+      <tr><td>選單「下一單位」</td><td>單位序號 +1、時間歸零重新計時。</td></tr>
+      <tr><td>選單「結束計時」</td><td>完全移除，畫面不留任何元素。</td></tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2><span>4</span>不擋畫面的設計</h2>
+    <ul>
+      <li>整個容器預設 <code>display:none</code>，只有提醒的那一兩秒才存在於視覺上。</li>
+      <li>容器設 <code>pointer-events:none</code>，即使浮現時也不會攔截滑鼠；只有「下一單位／結束」按鈕可點。</li>
+      <li>外層 <code>all:initial</code> 隔離，不吃被報告網站的 CSS，也不污染對方樣式。</li>
+      <li>字級與間距全用 <code>clamp()</code>，F12 開啟後視窗被壓窄一樣讀得到；最大寬度 <code>calc(100vw - 24px)</code>，不會橫向溢出。</li>
+    </ul>
+  </section>
+
+  <section class="card note">
+    <h2><span>注意</span>限制</h2>
+    <ul>
+      <li>計時狀態存在 <code>localStorage</code>，<b>同一個網站</b>內換頁會自動接續；<b>換到別的網域</b>會中斷，需重新點一次書籤。若各單位報的是各自的網站，建議每個單位上台時重點一次。</li>
+      <li>瀏覽器分頁切到背景時計時器仍準確（以時間戳計算，不受節流影響），但提示音可能被系統延後播放。</li>
+      <li>提示音使用 Web Audio，須由點擊書籤這個使用者動作啟動；因此第一次點書籤時會有一聲很短的確認音，用意即在解鎖音訊。</li>
+      <li>少數網站設有嚴格 CSP（內容安全政策），會擋掉書籤執行，此為瀏覽器機制，無解。</li>
+    </ul>
+  </section>
+
+  <p class="foot">單檔離線可用，無外部連線。</p>
+</main>
+
+<script>
+function reportTimer(TOTAL, WARN, SOUND, DOT){
+  var W=window, D=document, KEY='__rptTimerState__';
+  if(W.__rptTimer){ W.__rptTimer.menu(); return; }
+  var ac=null;
+  function actx(){ try{ if(!ac){ var C=W.AudioContext||W.webkitAudioContext; if(C) ac=new C(); } if(ac&&ac.state==='suspended') ac.resume(); }catch(e){} return ac; }
+  function tone(freq,at,dur,vol){ var c=actx(); if(!c) return; try{ var o=c.createOscillator(),g=c.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(c.destination); var t=c.currentTime+at; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.05); }catch(e){} }
+  function beepStart(){ if(SOUND) tone(523,0,0.09,0.10); else actx(); }
+  function beepWarn(){ if(SOUND) tone(880,0,0.20,0.20); }
+  function beepEnd(){ if(!SOUND) return; tone(740,0,0.16,0.24); tone(988,0.22,0.16,0.24); tone(1175,0.44,0.36,0.26); }
+
+  var box=D.createElement('div');
+  box.id='__rptTimerBox__';
+  box.style.cssText='all:initial;position:fixed;top:clamp(8px,1.4vw,14px);right:clamp(8px,1.4vw,14px);z-index:2147483647;pointer-events:none;display:none;font-family:system-ui,-apple-system,"Microsoft JhengHei","Segoe UI",sans-serif';
+  var card=D.createElement('div');
+  card.style.cssText='box-sizing:border-box;display:flex;align-items:center;gap:clamp(7px,1vw,11px);max-width:calc(100vw - 24px);background:#ffffff;border:1px solid #cbd5e1;border-left:5px solid #64748b;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.24);padding:clamp(7px,1vw,11px) clamp(10px,1.3vw,15px)';
+  var big=D.createElement('div');
+  big.style.cssText='font-size:clamp(17px,2.6vw,26px);font-weight:800;line-height:1.1;color:#0f172a;white-space:nowrap;font-variant-numeric:tabular-nums';
+  var txt=D.createElement('div');
+  txt.style.cssText='font-size:clamp(11px,1.5vw,13px);color:#475569;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  var btns=D.createElement('div');
+  btns.style.cssText='display:none;gap:6px;flex-wrap:wrap;margin-left:2px;pointer-events:auto';
+  card.appendChild(big); card.appendChild(txt); card.appendChild(btns); box.appendChild(card);
+
+  function mkBtn(label,bg,fg,bd,fn){ var b=D.createElement('button'); b.textContent=label; b.style.cssText='all:unset;box-sizing:border-box;display:inline-block;cursor:pointer;font-family:inherit;font-size:clamp(11px,1.4vw,12px);font-weight:700;line-height:1;padding:7px 11px;border-radius:7px;white-space:nowrap;background:'+bg+';color:'+fg+';border:1px solid '+bd; b.onclick=fn; return b; }
+
+  var dot=null;
+  if(DOT){ dot=D.createElement('div'); dot.style.cssText='all:initial;position:fixed;top:5px;right:5px;width:10px;height:10px;border-radius:50%;background:#16a34a;opacity:.55;z-index:2147483646;pointer-events:auto;cursor:pointer'; }
+
+  var start=0, unit=1, warned=false, ended=false, menuOn=false;
+  var hideT=null, menuT=null, tick=null;
+
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify({s:start,u:unit,t:TOTAL,w:WARN})); }catch(e){} }
+  function wipe(){ try{ localStorage.removeItem(KEY); }catch(e){} }
+  function fmt(sec){ var n=Math.max(0,Math.floor(sec)); var m=Math.floor(n/60), s=n%60; return m+':'+(s<10?'0':'')+s; }
+  function show(){ box.style.display='block'; }
+  function hideSoon(ms){ clearTimeout(hideT); hideT=setTimeout(function(){ if(!ended&&!menuOn) box.style.display='none'; },ms); }
+  function skin(bg,bd,left){ card.style.background=bg; card.style.borderColor=bd; card.style.borderLeftColor=left; }
+  function calm(){ skin('#ffffff','#cbd5e1','#64748b'); }
+
+  function fireWarn(){ skin('#fffbeb','#fde68a','#d97706'); beepWarn(); show(); hideSoon(1000); }
+  function fireEnd(silent){ ended=true; warned=true; clearTimeout(hideT); skin('#fef2f2','#fecaca','#dc2626'); btns.style.display='flex'; if(!silent) beepEnd(); show(); }
+
+  function render(){
+    var el=(Date.now()-start)/1000;
+    if(!ended&&!warned&&el>=WARN&&el<TOTAL){ warned=true; fireWarn(); }
+    if(!ended&&el>=TOTAL){ fireEnd(false); }
+    if(ended){ big.textContent='時間到'; big.style.color='#b91c1c'; txt.textContent='第 '+unit+' 單位・超時 '+fmt(el-TOTAL); }
+    else{ big.textContent=fmt(TOTAL-el); big.style.color='#0f172a'; txt.textContent='第 '+unit+' 單位・'+(menuOn?('已進行 '+fmt(el)):(warned?'剩餘時間':'開始計時')); }
+    if(dot) dot.style.background=ended?'#dc2626':(warned?'#d97706':'#16a34a');
+  }
+
+  function closeMenu(){ menuOn=false; clearTimeout(menuT); if(!ended){ btns.style.display='none'; box.style.display='none'; } }
+  function menu(){
+    menuOn=true; btns.style.display='flex'; show(); render();
+    clearTimeout(hideT); clearTimeout(menuT);
+    if(!ended) menuT=setTimeout(closeMenu,6000);
+  }
+  function nextUnit(){
+    unit++; start=Date.now(); warned=false; ended=false; menuOn=false;
+    clearTimeout(menuT); btns.style.display='none'; calm(); save(); render();
+    beepStart(); show(); hideSoon(1400);
+  }
+  function stop(){
+    clearInterval(tick); clearTimeout(hideT); clearTimeout(menuT); wipe();
+    if(box.parentNode) box.parentNode.removeChild(box);
+    if(dot&&dot.parentNode) dot.parentNode.removeChild(dot);
+    try{ delete W.__rptTimer; }catch(e){ W.__rptTimer=null; }
+  }
+
+  btns.appendChild(mkBtn('下一單位','#0f172a','#ffffff','#0f172a',nextUnit));
+  btns.appendChild(mkBtn('結束計時','#ffffff','#0f172a','#cbd5e1',stop));
+  btns.appendChild(mkBtn('關閉','#ffffff','#64748b','#e2e8f0',function(){ menuOn=false; clearTimeout(menuT); btns.style.display='none'; box.style.display='none'; }));
+
+  D.body.appendChild(box);
+  if(dot) D.body.appendChild(dot);
+
+  var st=null;
+  try{ st=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){}
+  if(st&&st.s&&(Date.now()-st.s)<((st.t||TOTAL)+1800)*1000){
+    start=st.s; unit=st.u||1; TOTAL=st.t||TOTAL; WARN=st.w||WARN;
+    var el0=(Date.now()-start)/1000;
+    if(el0>=TOTAL){ fireEnd(false); }
+    else{ warned=el0>=WARN; if(warned) skin('#fffbeb','#fde68a','#d97706'); beepStart(); show(); hideSoon(1400); }
+  }else{
+    start=Date.now(); unit=1; save(); beepStart(); show(); hideSoon(1400);
+  }
+  render();
+  tick=setInterval(render,250);
+  W.__rptTimer={menu:menu,next:nextUnit,stop:stop};
+}
+
+(function(){
+  var inTotal=document.getElementById('inTotal');
+  var inWarn=document.getElementById('inWarn');
+  var inSound=document.getElementById('inSound');
+  var inDot=document.getElementById('inDot');
+  var bm=document.getElementById('bm');
+
+  function oneLine(fn){
+    return fn.toString().split('\n').filter(function(l){ return !/^\s*\/\//.test(l); }).join(' ').replace(/\s+/g,' ').trim();
+  }
+  function secs(v,fb){ var n=parseFloat(v); if(!isFinite(n)||n<=0) n=fb; return Math.max(3,Math.round(n*60)); }
+  function code(total,warn,sound,dot){
+    return 'javascript:('+oneLine(reportTimer)+')('+total+','+warn+','+sound+','+dot+');void 0;';
+  }
+  function build(){
+    var total=secs(inTotal.value,5);
+    var warn=secs(inWarn.value,4);
+    if(warn>=total) warn=Math.max(3,total-30);
+    bm.setAttribute('href',code(total,warn,inSound.checked?1:0,inDot.checked?1:0));
+    bm.textContent='報告計時 '+(total/60).toFixed(total%60?1:0)+' 分';
+  }
+  [inTotal,inWarn,inSound,inDot].forEach(function(el){ el.addEventListener('input',build); el.addEventListener('change',build); });
+  build();
+
+  function killRunning(){ if(window.__rptTimer) window.__rptTimer.stop(); }
+  bm.addEventListener('click',function(e){ e.preventDefault(); reportTimer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); });
+  document.getElementById('tryReal').onclick=function(){ killRunning(); reportTimer(secs(inTotal.value,5),secs(inWarn.value,4),inSound.checked?1:0,inDot.checked?1:0); };
+  document.getElementById('tryFast').onclick=function(){ killRunning(); reportTimer(12,8,inSound.checked?1:0,inDot.checked?1:0); };
+  document.getElementById('tryStop').onclick=killRunning;
+})();
+</script>
+</body>
+</html>
