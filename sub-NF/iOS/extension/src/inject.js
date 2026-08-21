@@ -28,6 +28,55 @@
   const EXACT_FORMATS = ['webvtt-lssdh-ios8', 'webvtt'];
   const FUZZY_FORMATS = [/webvtt/i, /imsc/i, /dfxp/i, /ttml/i, /simplesdh/i];
 
+  // ---- asking Netflix for WebVTT in the first place ----------------------
+  // The manifest only OFFERS the formats the player asked for. The player no
+  // longer asks for WebVTT by itself, so we add it to the request's
+  // "profiles" array from inside a JSON.stringify hook (installed further
+  // down, browser-only). Netflix renames the properties around that array
+  // often, so — like current Subadub — we do not hard-code a path to it; we
+  // recognise it, either by its key or by the well-known profile names it
+  // contains.
+  const WEBVTT_PROFILE = 'webvtt-lssdh-ios8';
+  const KNOWN_PROFILES = [
+    'heaac-2-dash', 'heaac-2hq-dash',
+    'playready-h264mpl30-dash', 'playready-h264mpl31-dash',
+    'playready-h264hpl30-dash', 'playready-h264hpl31-dash',
+    'vp9-profile0-L30-dash-cenc', 'vp9-profile0-L31-dash-cenc',
+    'dfxp-ls-sdh', 'simplesdh', 'nflx-cmisc', 'BIF240', 'BIF320',
+  ];
+
+  // Pure: find the "profiles" array anywhere inside a request object.
+  // Bounded (depth + node budget) and cycle-safe on purpose: this runs inside
+  // a JSON.stringify hook, i.e. for EVERY stringify the page ever does.
+  function findProfilesArray(obj, seen, depth, budget) {
+    if (!obj || typeof obj !== 'object') return null;
+    seen = seen || new Set();
+    depth = (depth == null) ? 8 : depth;
+    budget = budget || { n: 2000 };
+    if (depth < 0 || budget.n-- <= 0 || seen.has(obj)) return null;
+    seen.add(obj);
+    for (const key of Object.keys(obj)) {
+      let v;
+      try { v = obj[key]; } catch (_) { continue; }
+      if (Array.isArray(v)) {
+        if (key === 'profiles'
+          || v.some((x) => typeof x === 'string' && KNOWN_PROFILES.indexOf(x) !== -1)) {
+          return v;
+        }
+        for (const item of v) {
+          if (item && typeof item === 'object') {
+            const hit = findProfilesArray(item, seen, depth - 1, budget);
+            if (hit) return hit;
+          }
+        }
+      } else if (v && typeof v === 'object') {
+        const hit = findProfilesArray(v, seen, depth - 1, budget);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }
+
   function pickUrl(downloadable) {
     if (!downloadable) return null;
     const urls = downloadable.urls || downloadable.downloadUrls;
@@ -93,7 +142,7 @@
         tracks.push({
           // Netflix's own id: same language can appear twice (CC + SUBTITLES),
           // so a language-derived key would collide.
-          id: String(t.new_track_id || t.trackId || t.track_id || (language + ':' + rawType)),
+          id: String(t.new_track_id || t.id || t.trackId || t.track_id || (language + ':' + rawType)),
           language,
           label: t.languageDescription || t.displayName || language,
           // What Netflix renders in its own Audio & Subtitles menu.
@@ -110,13 +159,21 @@
   }
 
   // Pure: given a Netflix manifest "result", return its subtitle tracks.
+  // Netflix renamed the manifest fields (observed 2025/26 and confirmed
+  // against current Subadub): `timedtexttracks` -> `textTracks`,
+  // `ttDownloadables` -> `downloadables`, `new_track_id` -> `id`. Accept both
+  // generations — the old names cost nothing to keep.
   function tracksFromManifest(result) {
-    if (!result || !result.movieId || !Array.isArray(result.timedtexttracks)) return [];
-    return normaliseTracks(result.timedtexttracks);
+    if (!result || !result.movieId) return [];
+    const list = Array.isArray(result.textTracks) ? result.textTracks
+      : Array.isArray(result.timedtexttracks) ? result.timedtexttracks
+        : null;
+    if (!list) return [];
+    return normaliseTracks(list);
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { pickUrl, pickFormat, normaliseTracks, tracksFromManifest };
+    module.exports = { pickUrl, pickFormat, normaliseTracks, tracksFromManifest, findProfilesArray };
   }
   if (!isBrowser) return; // under Node (tests) we stop here
 
@@ -124,7 +181,7 @@
   window.__subnfInjected = true;        // injected <script> both land here
 
   const seen = new Set();
-  const diag = { manifest: 0, playerApi: 0, json: 0, response: 0, xhr: 0 };
+  const diag = { manifest: 0, playerApi: 0, json: 0, response: 0, xhr: 0, profiles: 0 };
 
   function send(movieId, tracks, source) {
     if (!tracks || !tracks.length) return false;
@@ -196,9 +253,11 @@
   // ---------- paths 2-4: watch anything that looks like a manifest ----------
   function scan(value, source) {
     if (!value || typeof value !== 'object') return;
+    const looksLikeManifest = (o) => !!(o && o.movieId
+      && (Array.isArray(o.timedtexttracks) || Array.isArray(o.textTracks)));
     let result = null;
-    if (value.result && value.result.timedtexttracks) result = value.result;
-    else if (value.timedtexttracks && value.movieId) result = value;
+    if (looksLikeManifest(value.result)) result = value.result;
+    else if (looksLikeManifest(value)) result = value;
     if (!result) return;
     const tracks = tracksFromManifest(result);
     if (!tracks.length) return;
@@ -207,6 +266,24 @@
     send(result.movieId, tracks, source);
   }
 
+  // Outbound: put WebVTT on the manifest request's shopping list. Without
+  // this the manifest never OFFERS a WebVTT downloadable, and (post-2025
+  // schema) may offer nothing parseable at all.
+  const _stringify = JSON.stringify;
+  JSON.stringify = function (value) {
+    try {
+      if (value && typeof value === 'object') {
+        const profiles = findProfilesArray(value);
+        if (profiles && profiles.indexOf(WEBVTT_PROFILE) === -1) {
+          profiles.unshift(WEBVTT_PROFILE);
+          diag.profiles++;
+        }
+      }
+    } catch (_) { /* never break the site */ }
+    return _stringify.apply(this, arguments);
+  };
+
+  // Inbound: watch every JSON.parse for something manifest-shaped.
   const _parse = JSON.parse;
   JSON.parse = function () {
     const val = _parse.apply(this, arguments);
@@ -230,7 +307,8 @@
       RP.text = function () {
         return _text.apply(this, arguments).then((s) => {
           try {
-            if (typeof s === 'string' && s.indexOf('timedtexttracks') !== -1) {
+            if (typeof s === 'string' && s.indexOf('movieId') !== -1
+              && (s.indexOf('timedtexttracks') !== -1 || s.indexOf('"textTracks"') !== -1)) {
               scan(_parse(s), 'response');
             }
           } catch (_) {}
@@ -251,7 +329,8 @@
             if (t === 'json') { scan(this.response, 'xhr'); return; }
             if (t && t !== 'text') return;
             const s = this.responseText;
-            if (typeof s === 'string' && s.indexOf('timedtexttracks') !== -1) {
+            if (typeof s === 'string' && s.indexOf('movieId') !== -1
+              && (s.indexOf('timedtexttracks') !== -1 || s.indexOf('"textTracks"') !== -1)) {
               scan(_parse(s), 'xhr');
             }
           } catch (_) {}
