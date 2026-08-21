@@ -1,5 +1,19 @@
 # sub-NF — Chrome
 
+> **1.4.0 (2026-08-22) — why 1.3.0 stopped finding any tracks, and the fix.**
+> Netflix renamed its manifest fields: `timedtexttracks` → `textTracks`,
+> `ttDownloadables` → `downloadables`, `new_track_id` → `id` — verified against
+> Subadub v0.1.12, which works on today's Netflix and reads exactly the new
+> names. 1.3.0's capture paths 2–4 gated on the old `timedtexttracks` name, so
+> they matched nothing; path 1 (the player API) returns tracks *without*
+> download URLs, so it could never fill the gap. Net result: zero tracks, no
+> overlay. 1.4.0 accepts **both** generations of names, adds the missing
+> `JSON.stringify` hook that puts `webvtt-lssdh-ios8` on the manifest request's
+> `profiles` list (found by search, not by hard-coded property path, since
+> Netflix renames those too), and additionally reads the playing title's id
+> from the `data-videoid` DOM attribute. New unit tests cover the new schema
+> and the profiles finder (86 tests total).
+
 A Manifest V3 extension that shows **two subtitle languages at once** on
 `netflix.com`, drawn from Netflix's own subtitle tracks. Built for
 language-learning: read the dialogue in the language you are studying and your
@@ -46,6 +60,15 @@ There is no single reliable way to learn which subtitle tracks a title has, so
 Paths 2–4 only see main-thread parsing. **Path 1 is the insurance policy:** if
 Netflix decrypts and parses the manifest inside a Web Worker, no main-thread
 hook can see it, but the player object still knows its own track list.
+
+There is also one **outbound** hook (since 1.4.0): `JSON.stringify` is wrapped
+so the manifest *request*'s `profiles` array gains `webvtt-lssdh-ios8`. The
+manifest only offers the formats the player asked for, and the player no
+longer asks for WebVTT on its own. The array is recognised by its key or by
+the well-known profile names it contains — never by a hard-coded property
+path, because Netflix renames those regularly. All hooks accept both the old
+(`timedtexttracks` / `ttDownloadables` / `new_track_id`) and the new
+(`textTracks` / `downloadables` / `id`) manifest field names.
 
 `inject.js` is registered as a `"world": "MAIN"` content script at
 `document_start`, so the hooks are installed *before* any Netflix code runs.

@@ -139,6 +139,7 @@
     if (d.pageDiag) {
       const p = d.pageDiag;
       list.appendChild(row('各路徑', `api=${p.playerApi || 0} json=${p.json || 0} resp=${p.response || 0} xhr=${p.xhr || 0}`));
+      list.appendChild(row('已補上 WebVTT 的請求數', p.profiles || 0, cls((p.profiles || 0) > 0)));
     }
     const c = d.cues || {};
     list.appendChild(row('上行 cue 數', c.primary || 0, cls((c.primary || 0) > 0)));

@@ -5,7 +5,7 @@ const {
   parseVTT, parseTTML, parseSubtitle, textAt, parseTime, ttmlTime,
   stripTags, textFromNode, cleanNative, parseMenuUia, matchTrackByMenu,
 } = require('../src/vtt.js');
-const { pickUrl, pickFormat, tracksFromManifest, normaliseTracks } = require('../src/inject.js');
+const { pickUrl, pickFormat, tracksFromManifest, normaliseTracks, findProfilesArray } = require('../src/inject.js');
 
 let pass = 0;
 function t(name, fn) {
@@ -184,6 +184,59 @@ t('normaliseTracks accepts downloadables key', () => assert.strictEqual(pat[1].u
 const mt = tracksFromManifest({ movieId: 80014529, timedtexttracks: UPPER });
 t('tracksFromManifest passes through', () => assert.strictEqual(mt.length, 2));
 t('tracksFromManifest bad input -> []', () => assert.deepStrictEqual(tracksFromManifest({}), []));
+
+// ---- tracksFromManifest, 2025/26 schema ----
+// Netflix renamed the fields: timedtexttracks -> textTracks,
+// ttDownloadables -> downloadables, new_track_id -> id. Shape mirrors what
+// current Subadub (v0.1.12) reads from live manifests.
+const NEW_SCHEMA = {
+  movieId: 81929245,
+  textTracks: [
+    { id: 'T:1:0;1;en;1;1;', language: 'en', languageDescription: 'English',
+      rawTrackType: 'closedcaptions', isNoneTrack: false, isForcedNarrative: false,
+      downloadables: { 'webvtt-lssdh-ios8': { urls: [{ url: 'https://cdn.oca.nflxvideo.net/en-cc.vtt' }] } } },
+    { id: 'T:1:1;1;zh;0;1;', language: 'zh-Hant', languageDescription: 'Chinese (Traditional)',
+      rawTrackType: 'subtitles', isNoneTrack: false, isForcedNarrative: false,
+      downloadables: { 'webvtt-lssdh-ios8': { urls: [{ url: 'https://cdn.oca.nflxvideo.net/zh-hant.vtt' }] } } },
+    { id: 'T:1:2;1;off;;', isNoneTrack: true },
+    { id: 'T:1:3;1;en;2;1;', language: 'en', isForcedNarrative: true,
+      downloadables: { 'webvtt-lssdh-ios8': { urls: [{ url: 'https://cdn.oca.nflxvideo.net/en-forced.vtt' }] } } },
+  ],
+};
+const nt = tracksFromManifest(NEW_SCHEMA);
+t('new schema: textTracks accepted', () => assert.strictEqual(nt.length, 3));
+t('new schema: downloadables + urls[0].url read', () =>
+  assert.strictEqual(nt[1].url, 'https://cdn.oca.nflxvideo.net/zh-hant.vtt'));
+t('new schema: track id comes from t.id', () => assert.strictEqual(nt[0].id, 'T:1:0;1;en;1;1;'));
+t('new schema: CC flag from rawTrackType', () => { assert.ok(nt[0].cc); assert.ok(!nt[1].cc); });
+t('new schema: none track skipped, forced kept but flagged', () => {
+  assert.ok(nt.every((x) => x.id !== 'T:1:2;1;off;;'));
+  assert.ok(nt.find((x) => x.id === 'T:1:3;1;en;2;1;').forced);
+});
+t('old schema still accepted alongside', () =>
+  assert.strictEqual(tracksFromManifest({ movieId: 1, timedtexttracks: UPPER }).length, 2));
+
+// ---- findProfilesArray (the JSON.stringify hook's finder) ----
+const REQ_BY_KEY = { version: 2, url: '/manifest', params: { type: 'standard', profiles: ['heaac-2-dash'] } };
+t('findProfilesArray finds by key "profiles"', () =>
+  assert.strictEqual(findProfilesArray(REQ_BY_KEY), REQ_BY_KEY.params.profiles));
+const REQ_RENAMED = { a: { b: [{ c: { wanted: ['playready-h264mpl30-dash', 'BIF240'] } }] } };
+t('findProfilesArray finds by known contents under any key', () =>
+  assert.strictEqual(findProfilesArray(REQ_RENAMED), REQ_RENAMED.a.b[0].c.wanted));
+t('findProfilesArray leaves unrelated objects alone', () =>
+  assert.strictEqual(findProfilesArray({ x: 1, y: ['nothing', 'to', 'see'] }), null));
+const CYCLE = { params: {} };
+CYCLE.params.self = CYCLE;
+t('findProfilesArray survives a cyclic object', () =>
+  assert.strictEqual(findProfilesArray(CYCLE), null));
+t('hook behaviour: unshift adds WebVTT once', () => {
+  const req = { params: { profiles: ['dfxp-ls-sdh'] } };
+  const p1 = findProfilesArray(req);
+  if (p1 && p1.indexOf('webvtt-lssdh-ios8') === -1) p1.unshift('webvtt-lssdh-ios8');
+  const p2 = findProfilesArray(req);
+  if (p2 && p2.indexOf('webvtt-lssdh-ios8') === -1) p2.unshift('webvtt-lssdh-ios8');
+  assert.deepStrictEqual(req.params.profiles, ['webvtt-lssdh-ios8', 'dfxp-ls-sdh']);
+});
 
 // ---- reading Netflix's own rendered caption out of the DOM ----
 const text = (s) => ({ nodeType: 3, nodeValue: s });

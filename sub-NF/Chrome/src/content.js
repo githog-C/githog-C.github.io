@@ -152,10 +152,22 @@
     return m ? m[1] : null;
   }
 
+  // Netflix marks a player DOM node with data-videoid. Current Subadub reads
+  // the playing title's id from here rather than the URL — the /watch/ URL
+  // can lag behind (autoplay into the next episode) or hold a different id
+  // than the manifest was keyed under.
+  function movieIdFromDom() {
+    try {
+      const el = document.querySelector('*[data-videoid]');
+      const v = el && el.dataset ? el.dataset.videoid : null;
+      return v ? String(v) : null;
+    } catch (_) { return null; }
+  }
+
   function currentCatalogue() {
-    const id = currentMovieId || movieIdFromUrl() || lastMovieId;
-    if (id && catalogues.has(id)) { currentMovieId = id; return catalogues.get(id); }
-    if (lastMovieId && catalogues.has(lastMovieId)) { currentMovieId = lastMovieId; return catalogues.get(lastMovieId); }
+    for (const id of [currentMovieId, movieIdFromUrl(), movieIdFromDom(), lastMovieId]) {
+      if (id && catalogues.has(id)) { currentMovieId = id; return catalogues.get(id); }
+    }
     return null;
   }
 
@@ -658,7 +670,7 @@
   function onNav() {
     if (location.pathname === lastPath) return;
     lastPath = location.pathname;
-    currentMovieId = movieIdFromUrl();
+    currentMovieId = movieIdFromUrl() || movieIdFromDom();
     // A new episode means a new movieId and a new manifest: drop the old cues.
     active.primary = { url: null, cues: [], lang: null, label: '' };
     active.secondary = { url: null, cues: [], lang: null, label: '' };
@@ -691,7 +703,7 @@
   // ---------- boot ----------
   function boot() {
     const start = () => {
-      currentMovieId = movieIdFromUrl();
+      currentMovieId = movieIdFromUrl() || movieIdFromDom();
       startLoop();
       hookVideo();
       watchMenu();
