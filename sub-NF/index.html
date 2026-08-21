@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sub-NF — Netflix bilingual subtitles</title>
+<style>
+  :root {
+    --bg:#0b0b0b; --panel:#161616; --line:#282828; --text:#f3f3f3;
+    --muted:#9b9b9b; --red:#e50914; --pale:#ebebeb; --warm:#f3e9c8;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:"Helvetica Neue",Roboto,Arial,"Noto Sans TC",system-ui,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:820px; margin:0 auto; padding:48px 22px 80px; }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .bar { height:14px; border-radius:7px; display:inline-block; }
+  .bar-red { width:40px; background:var(--red); }
+  .bar-pale { width:26px; background:var(--pale); }
+  h1 { font-size:clamp(30px,6vw,46px); margin:.2em 0 .1em; letter-spacing:.5px; }
+  .lede { color:var(--muted); font-size:clamp(15px,2.6vw,18px); margin:0 0 28px; }
+  .demo {
+    position:relative; background:linear-gradient(160deg,#1e1e1e,#0d0d0d);
+    border:1px solid var(--line); border-radius:14px; height:210px; overflow:hidden;
+    display:flex; align-items:flex-end; justify-content:center; margin:0 0 34px;
+  }
+  .demo .cap { text-align:center; padding-bottom:22px; text-shadow:0 2px 6px rgba(0,0,0,.9),0 0 3px rgba(0,0,0,.9); }
+  .demo .l1 { font-size:clamp(18px,3.5vw,24px); font-weight:600; }
+  .demo .l2 { font-size:clamp(15px,3vw,20px); color:var(--warm); }
+  .demo .tag { position:absolute; top:12px; left:14px; font-size:12px; color:var(--muted); letter-spacing:2px; }
+  h2 { font-size:22px; margin:34px 0 10px; }
+  p { margin:.5em 0; }
+  .muted { color:var(--muted); }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:18px 0 8px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 16px 18px; }
+  .card h3 { margin:.1em 0 .3em; font-size:17px; }
+  .card .ok { color:#6cd06c; } .card .no { color:#ff6b6b; }
+  .card ul { margin:.4em 0 0; padding-left:18px; } .card li { margin:.15em 0; font-size:14px; color:var(--muted); }
+  a { color:#ff8a8a; text-decoration:none; } a:hover { text-decoration:underline; }
+  .verdict { background:#1a1210; border:1px solid #4a1c1c; border-radius:12px; padding:16px 18px; margin:8px 0 6px; }
+  .verdict strong { color:#ffb3b3; }
+  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#000; border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow:auto; font-size:13px; }
+  .foot { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  table { border-collapse:collapse; width:100%; margin:10px 0; font-size:14px; }
+  th,td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="bar bar-red"></span><span class="bar bar-pale"></span></div>
+  <h1>sub-NF</h1>
+  <p class="lede">兩種字幕語言同時顯示在 Netflix 上，取自 Netflix 自己的字幕軌。為語言學習而做。</p>
+
+  <div class="demo">
+    <span class="tag">SUB-NF</span>
+    <div class="cap">
+      <div class="l1">Are you telling me you built this?</div>
+      <div class="l2">你是說這是你做的？</div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <p style="margin:0"><strong>老實說：</strong>「做一個讓 <em>Netflix App</em> 直接顯示雙語字幕的原生 iOS App」<strong>做不到</strong>——不是難，是 iOS 的沙盒根本不允許：任何 App 都不能讀取或覆蓋另一個 App 的畫面，而唯一的螢幕擷取 API 對 Netflix 這種 DRM 影片只會給你黑畫面。詳見 <a href="./iOS/FEASIBILITY.md">iOS/FEASIBILITY.md</a>。</p>
+    <p style="margin:.5em 0 0" class="muted">所以本專案交付「在瀏覽器裡看 Netflix」時可行的做法——這是最接近原目標、且能上架的方案。iOS 版就是一個 Safari 擴充功能。</p>
+  </div>
+
+  <h2>三種打包，同一個引擎</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Chrome <span class="ok">✓</span></h3>
+      <p class="muted">Chrome / Edge / Brave 等 Chromium。</p>
+      <ul><li>載入未封裝資料夾即用</li><li><a href="./Chrome/">Chrome/</a></li></ul>
+    </div>
+    <div class="card">
+      <h3>Safari (macOS) <span class="ok">✓</span></h3>
+      <p class="muted">用 Xcode 包一次就能啟用。</p>
+      <ul><li>相同的擴充功能程式碼</li><li><a href="./Safari/">Safari/</a></li></ul>
+    </div>
+    <div class="card">
+      <h3>iOS (Safari) <span class="ok">✓</span></h3>
+      <p class="muted">iPhone / iPad 的 Safari，iOS 15+。</p>
+      <ul><li>在 Safari 看片，非 Netflix App</li><li><a href="./iOS/">iOS/</a></li></ul>
+    </div>
+    <div class="card">
+      <h3>Netflix App（原生 iOS）<span class="no">✗</span></h3>
+      <p class="muted">iOS 沙盒不允許跨 App 覆蓋。</p>
+      <ul><li>唯有越獄能改，且無法上架</li><li><a href="./iOS/FEASIBILITY.md">為什麼</a></li></ul>
+    </div>
+  </div>
+
+  <h2>運作原理</h2>
+  <p>Netflix 本來就會把字幕軌下載到瀏覽器來畫字幕。擴充功能用一段注入頁面的程式攔住 <code>JSON.parse</code>，抓到 Netflix 的播放 manifest（裡面列出每一條字幕軌與其 WebVTT 下載網址），下載你選的兩種語言、解析 WebVTT，然後畫一層跟著影片時間走的兩行字幕。<strong>完全不碰影像、聲音或 DRM，也不儲存、不散布任何字幕或影片。</strong></p>
+
+  <h2>快速開始（Chrome）</h2>
+  <pre>1. chrome://extensions → 開啟「開發人員模式」→「載入未封裝項目」→ 選 Chrome/ 資料夾
+2. 在 netflix.com 打開一部片，按播放
+3. 點 sub-NF 圖示，選兩種語言</pre>
+  <p class="muted">Safari 與 iOS 需要用 Xcode 打包一次，步驟見各自資料夾的 README / BUILD。</p>
+
+  <h2>可行性一覽</h2>
+  <table>
+    <tr><th>目標</th><th>可行？</th><th>方式</th></tr>
+    <tr><td>Netflix <b>iOS App</b> 雙語字幕</td><td>✗</td><td>無公開 API；需跨 App 覆蓋＋讀取，皆被禁止。只有越獄可行，但不能上架。</td></tr>
+    <tr><td>Netflix 在 <b>iOS Safari</b> 雙語字幕</td><td>✓</td><td>Safari 擴充功能（iOS 15+）——<a href="./iOS/">iOS/</a></td></tr>
+    <tr><td>Netflix 在 <b>桌面 Chrome / Safari</b></td><td>✓</td><td><a href="./Chrome/">Chrome/</a>、<a href="./Safari/">Safari/</a></td></tr>
+  </table>
+
+  <div class="foot">
+    <p>個人、私人的語言學習用途。不下載、不儲存、不散布字幕或影片，不破解任何保護措施。請遵守 Netflix 使用條款與當地著作權法。「Netflix」為 Netflix, Inc. 之商標；本工具與其無任何從屬或背書關係。</p>
+    <p>MIT，見專案根目錄 LICENSE。 · <a href="https://github.com/githog-C/githog-C.github.io/tree/main/sub-NF">原始碼</a></p>
+  </div>
+</div>
+</body>
+</html>

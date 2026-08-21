@@ -1,0 +1,78 @@
+:root {
+  --bg: #141414;
+  --panel: #1c1c1c;
+  --line: #2c2c2c;
+  --text: #f2f2f2;
+  --muted: #9a9a9a;
+  --red: #e50914;
+  --pale: #ebebeb;
+  --accent: #e50914;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  width: 320px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Netflix Sans", "Helvetica Neue", Roboto, Arial, "Noto Sans TC", sans-serif;
+  font-size: 13px;
+  padding: 12px 14px 14px;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.brand { display: flex; align-items: center; gap: 6px; }
+.brand h1 { font-size: 16px; margin: 0 0 0 4px; letter-spacing: 0.3px; }
+.dot { width: 20px; height: 7px; border-radius: 4px; display: inline-block; }
+.dot-red { background: var(--red); }
+.dot-pale { background: var(--pale); width: 14px; }
+
+.status {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  min-height: 15px;
+}
+.status.warn { color: #f5c518; }
+.status.ok { color: #6cd06c; }
+
+.row { margin: 9px 0; }
+.row > label { display: block; color: var(--muted); margin-bottom: 4px; font-size: 12px; }
+.row.inline { display: flex; align-items: center; justify-content: space-between; }
+.row.inline > label { margin: 0; }
+
+select {
+  width: 100%;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+output { color: var(--text); font-variant-numeric: tabular-nums; }
+
+details { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 4px; }
+summary { cursor: pointer; color: var(--muted); padding: 6px 0; font-size: 12px; user-select: none; }
+
+footer { margin-top: 10px; }
+.hint { color: var(--muted); font-size: 11px; line-height: 1.4; display: block; }
+
+/* toggle switch */
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; inset: 0; cursor: pointer;
+  background: #555; border-radius: 24px; transition: 0.15s;
+}
+.slider::before {
+  content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px;
+  background: #fff; border-radius: 50%; transition: 0.15s;
+}
+.switch input:checked + .slider { background: var(--red); }
+.switch input:checked + .slider::before { transform: translateX(20px); }

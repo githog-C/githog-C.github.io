@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sub-NF</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="dot dot-red"></span><span class="dot dot-pale"></span>
+      <h1>sub-NF</h1>
+    </div>
+    <label class="switch" title="開 / 關">
+      <input type="checkbox" id="enabled">
+      <span class="slider"></span>
+    </label>
+  </header>
+
+  <p id="status" class="status"></p>
+
+  <section class="row">
+    <label for="primaryLang">第一語言（上）</label>
+    <select id="primaryLang"></select>
+  </section>
+
+  <section class="row">
+    <label for="secondaryLang">第二語言（下）</label>
+    <select id="secondaryLang"></select>
+  </section>
+
+  <section class="row inline">
+    <label for="swapOrder">上下對調</label>
+    <input type="checkbox" id="swapOrder">
+  </section>
+
+  <section class="row inline">
+    <label for="hideNative">隱藏 Netflix 原生字幕</label>
+    <input type="checkbox" id="hideNative">
+  </section>
+
+  <section class="row inline">
+    <label for="preferCC">優先使用 CC（聽障）字幕</label>
+    <input type="checkbox" id="preferCC">
+  </section>
+
+  <details>
+    <summary>外觀與微調</summary>
+
+    <section class="row">
+      <label for="fontScale">字級 <output id="fontScaleOut"></output></label>
+      <input type="range" id="fontScale" min="0.6" max="2" step="0.05">
+    </section>
+
+    <section class="row">
+      <label for="bottomVh">垂直位置 <output id="bottomVhOut"></output></label>
+      <input type="range" id="bottomVh" min="2" max="40" step="1">
+    </section>
+
+    <section class="row">
+      <label for="gap">兩行間距 <output id="gapOut"></output></label>
+      <input type="range" id="gap" min="0" max="24" step="1">
+    </section>
+
+    <section class="row">
+      <label for="primaryOffsetMs">第一語言時間位移 <output id="primaryOffsetOut"></output></label>
+      <input type="range" id="primaryOffsetMs" min="-5000" max="5000" step="100">
+    </section>
+
+    <section class="row">
+      <label for="secondaryOffsetMs">第二語言時間位移 <output id="secondaryOffsetOut"></output></label>
+      <input type="range" id="secondaryOffsetMs" min="-5000" max="5000" step="100">
+    </section>
+  </details>
+
+  <footer>
+    <span id="hint" class="hint"></span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
