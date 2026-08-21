@@ -1,11 +1,28 @@
-// sub-NF — WebVTT parsing, isolated so it can be unit-tested outside a browser.
-// Exposes globalThis.SubNFVTT = { parseVTT, textAt, parseTime, stripTags }.
-// Also exports via CommonJS when loaded under Node (for tests).
+// sub-NF — subtitle parsing, isolated so it can be unit-tested outside a browser.
+// Exposes globalThis.SubNFVTT; also exports via CommonJS under Node (for tests).
+//
+// Handles both formats Netflix serves:
+//   * WebVTT  (webvtt-lssdh-ios8, webvtt)
+//   * TTML    (imsc1.1, dfxp-ls-sdh, …) — some tracks, notably CLOSEDCAPTIONS,
+//             may offer no WebVTT variant at all.
 (() => {
   'use strict';
   const root = (typeof self !== 'undefined') ? self
     : (typeof globalThis !== 'undefined') ? globalThis : this;
 
+  function safeCP(n) { try { return String.fromCodePoint(n); } catch (_) { return ''; } }
+
+  function decodeEntities(t) {
+    return String(t)
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#(\d+);/g, (_, n) => safeCP(parseInt(n, 10)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => safeCP(parseInt(n, 16)))
+      .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"').replace(/&apos;/gi, "'")
+      .replace(/&amp;/gi, '&');
+  }
+
+  // ---------- WebVTT ----------
   function parseTime(s) {
     if (typeof s !== 'string') return null;
     s = s.trim().replace(',', '.');
@@ -18,29 +35,21 @@
     return h * 3600 + min * 60 + sec + ms / 1000;
   }
 
-  function safeCP(n) { try { return String.fromCodePoint(n); } catch (_) { return ''; } }
-
   function stripTags(t) {
-    return t
-      .replace(/<[^>]+>/g, '')                       // <i>, <c...>, <v ...>, inline timestamps
-      .replace(/\{[^}]*\}/g, '')                     // stray {style} blocks
-      .replace(/[‎‏]/g, '')                // LRM / RLM marks
-      .replace(/&lrm;|&rlm;/gi, '')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&#(\d+);/g, (_, n) => safeCP(parseInt(n, 10)))
-      .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => safeCP(parseInt(n, 16)))
-      .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
-      .replace(/&amp;/gi, '&')
-      .replace(/[ \t]+$/gm, '')
-      .trim();
+    return decodeEntities(
+      String(t)
+        .replace(/<[^>]+>/g, '')            // <i>, <c...>, <v ...>, inline timestamps
+        .replace(/\{[^}]*\}/g, '')          // stray {style} blocks
+        .replace(/[‎‏]/g, '')     // LRM / RLM marks
+        .replace(/&lrm;|&rlm;/gi, '')
+    ).replace(/[ \t]+$/gm, '').trim();
   }
 
   function parseVTT(text) {
     const cues = [];
     if (!text || typeof text !== 'string') return cues;
     text = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
-    const blocks = text.split(/\n{2,}/);
-    for (const block of blocks) {
+    for (const block of text.split(/\n{2,}/)) {
       const lines = block.split('\n');
       let ti = -1;
       for (let i = 0; i < lines.length; i++) {
@@ -60,6 +69,69 @@
     return cues;
   }
 
+  // ---------- TTML / DFXP / IMSC ----------
+  // Regex-based on purpose: no DOMParser, so it runs and is testable under Node.
+  function ttmlTime(s, tickRate) {
+    s = String(s == null ? '' : s).trim();
+    if (!s) return null;
+    let m = s.match(/^(\d+):(\d{2}):(\d{2})(?:[.,](\d{1,3}))?$/);
+    if (m) {
+      return (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])
+        + (m[4] ? parseInt((m[4] + '000').slice(0, 3), 10) / 1000 : 0);
+    }
+    m = s.match(/^(\d+(?:\.\d+)?)t$/i);                       // ticks
+    if (m) return parseFloat(m[1]) / (tickRate || 10000000);
+    m = s.match(/^(\d+(?:\.\d+)?)(ms|h|m|s)$/i);              // ms before m/s
+    if (m) {
+      const v = parseFloat(m[1]);
+      switch (m[2].toLowerCase()) {
+        case 'h': return v * 3600;
+        case 'm': return v * 60;
+        case 's': return v;
+        case 'ms': return v / 1000;
+      }
+    }
+    return null;
+  }
+
+  function parseTTML(text) {
+    const cues = [];
+    if (!text || typeof text !== 'string') return cues;
+    let tickRate = 10000000;
+    const tr = text.match(/tickRate\s*=\s*["'](\d+)["']/i);
+    if (tr) tickRate = parseInt(tr[1], 10) || tickRate;
+
+    const re = /<p\b([^>]*)>([\s\S]*?)<\/p\s*>/gi;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const attrs = m[1] || '';
+      const b = attrs.match(/\bbegin\s*=\s*["']([^"']*)["']/i);
+      const e = attrs.match(/\bend\s*=\s*["']([^"']*)["']/i);
+      if (!b || !e) continue;
+      const start = ttmlTime(b[1], tickRate);
+      const end = ttmlTime(e[1], tickRate);
+      if (start == null || end == null || end < start) continue;
+      const body = decodeEntities(
+        String(m[2])
+          .replace(/<br\s*\/?>/gi, '\n')   // line break BEFORE tags are stripped
+          .replace(/<[^>]+>/g, '')
+      );
+      const cueText = body.split('\n').map((l) => l.replace(/\s+/g, ' ').trim())
+        .filter((l) => l.length).join('\n');
+      if (cueText) cues.push({ start, end, text: cueText });
+    }
+    cues.sort((a, b) => a.start - b.start);
+    return cues;
+  }
+
+  // Pick the parser by sniffing the payload rather than trusting the format name.
+  function parseSubtitle(text) {
+    if (!text || typeof text !== 'string') return [];
+    if (/^\s*﻿?WEBVTT/.test(text) || text.indexOf('-->') !== -1) return parseVTT(text);
+    if (/<tt[\s>]/i.test(text) || /<p\b[^>]*\bbegin\s*=/i.test(text)) return parseTTML(text);
+    return parseVTT(text);
+  }
+
   // Text of all cues active at time t (joins overlapping cues within a window).
   function textAt(cues, t) {
     if (!cues || !cues.length) return '';
@@ -76,12 +148,9 @@
     return out.join('\n');
   }
 
-  // Read the text out of one of Netflix's own rendered caption nodes.
-  // Netflix puts each caption line in a nested <span>, and a line break is a
-  // <br> *inside* the following span, so textContent alone glues the lines
-  // together. Walk the tree instead and turn <br> into a newline.
-  // Pure: only uses nodeType / nodeValue / tagName / childNodes, so it can be
-  // tested with a plain object tree under Node.
+  // Read text out of one of Netflix's own rendered caption nodes. A <br> sits
+  // inside the *following* span there, so textContent glues the lines together;
+  // walk the tree instead. Pure: only nodeType / nodeValue / tagName / childNodes.
   function textFromNode(node) {
     if (!node) return '';
     let s = '';
@@ -97,7 +166,6 @@
     return s;
   }
 
-  // Tidy the result of textFromNode into displayable caption text.
   function cleanNative(s) {
     return String(s || '')
       .replace(/ /g, ' ')
@@ -107,7 +175,11 @@
       .join('\n');
   }
 
-  const exp = { parseVTT, textAt, parseTime, stripTags, textFromNode, cleanNative };
+  const exp = {
+    parseVTT, parseTTML, parseSubtitle, textAt,
+    parseTime, ttmlTime, stripTags, decodeEntities,
+    textFromNode, cleanNative,
+  };
   root.SubNFVTT = exp;
   if (typeof module !== 'undefined' && module.exports) module.exports = exp;
 })();

@@ -1,32 +1,32 @@
 // sub-NF — page-world hook (runs in Netflix's own JS context).
 //
 // Job: get the list of subtitle tracks Netflix has for the title playing now,
-// each with a WebVTT download URL. We never touch video, audio, or DRM — only
-// the caption metadata Netflix already ships to the browser to draw subtitles.
+// each with a downloadable URL. We never touch video, audio, or DRM — only the
+// caption metadata Netflix already ships to the browser to draw subtitles.
 //
-// There is no single reliable way to get that list, so we try FOUR, and take
+// There is no single reliable way to get that list, so we try FOUR and take
 // whichever answers first:
 //
-//   1. netflix.appContext ... getTimedTextTrackList()  — the player's own API.
-//      Works no matter where the manifest was parsed (including a Worker),
-//      which is why it is tried first and polled on demand.
+//   1. netflix.appContext … getTimedTextTrackList()  — the player's own API.
 //   2. JSON.parse hook — Netflix parses its player manifest through it.
-//   3. Response.prototype.json / .text hooks — catches a manifest that is
-//      read straight off a fetch() without going through JSON.parse.
-//   4. XMLHttpRequest load hook — same, for the XHR path.
+//   3. Response.prototype.json / .text hooks.
+//   4. XMLHttpRequest load hook.
 //
-// Paths 2-4 only see main-thread parsing. Path 1 is the insurance policy: if
-// Netflix decrypts and parses the manifest inside a Web Worker, no main-thread
-// hook can see it, but the player object still knows its own track list.
+// Paths 2-4 only see main-thread parsing, and the manifest goes by ONCE: miss
+// it and it is gone. Whatever we capture is therefore cached by the content
+// script rather than re-requested.
 //
-// The pure parts are exported under Node for unit tests; the hooks only
-// install inside a real page.
+// The pure parts are exported under Node for unit tests; the hooks only install
+// inside a real page.
 (() => {
   'use strict';
   const isBrowser = (typeof window !== 'undefined' && typeof document !== 'undefined');
 
-  // Only WebVTT is worth taking: plain text, trivial to parse.
-  const FORMATS = ['webvtt-lssdh-ios8', 'webvtt'];
+  // Preference order. Anything WebVTT-ish first (plain text, trivial to parse),
+  // then the TTML family — some tracks, notably CLOSEDCAPTIONS, offer no WebVTT
+  // variant at all, and dropping them is why whole languages went missing.
+  const EXACT_FORMATS = ['webvtt-lssdh-ios8', 'webvtt'];
+  const FUZZY_FORMATS = [/webvtt/i, /imsc/i, /dfxp/i, /ttml/i, /simplesdh/i];
 
   function pickUrl(downloadable) {
     if (!downloadable) return null;
@@ -46,35 +46,63 @@
     return null;
   }
 
+  // Find the best downloadable on one track: exact preferred keys, then any key
+  // whose name looks like a format we can parse.
+  function pickFormat(dls) {
+    if (!dls || typeof dls !== 'object') return null;
+    for (const f of EXACT_FORMATS) {
+      if (dls[f]) {
+        const u = pickUrl(dls[f]);
+        if (u) return { url: u, fmt: f };
+      }
+    }
+    const keys = Object.keys(dls);
+    for (const rx of FUZZY_FORMATS) {
+      for (const k of keys) {
+        if (!rx.test(k)) continue;
+        const u = pickUrl(dls[k]);
+        if (u) return { url: u, fmt: k };
+      }
+    }
+    return null;
+  }
+
   // Pure: normalise a list of Netflix timed-text track objects.
-  // Handles both shapes we see: manifest tracks (language /
-  // languageDescription) and player-API tracks (bcp47 / displayName).
+  //
+  // Two things here are load-bearing, both learned the hard way:
+  //   * Track types arrive UPPERCASE in real manifests (SUBTITLES,
+  //     CLOSEDCAPTIONS) but lowercase elsewhere — always compare lowercased,
+  //     and accept both kinds rather than only "subtitles".
+  //   * The try/catch is PER TRACK. It used to sit outside the loop, so one
+  //     malformed track threw and silently zeroed the entire batch — which left
+  //     the renderer with no cues at all.
   function normaliseTracks(list) {
     const tracks = [];
     if (!Array.isArray(list)) return tracks;
     for (const t of list) {
-      if (!t || t.isNoneTrack) continue;
-      const dls = t.ttDownloadables || t.downloadables || {};
-      let url = null, fmt = null;
-      for (const f of FORMATS) {
-        if (dls[f]) {
-          const u = pickUrl(dls[f]);
-          if (u) { url = u; fmt = f; break; }
-        }
-      }
-      if (!url) continue;
-      const language = t.language || t.bcp47 || 'und';
-      const type = t.rawTrackType || t.trackType || 'subtitles';
-      tracks.push({
-        id: String(t.new_track_id || t.trackId || t.track_id || (language + ':' + type)),
-        language,
-        label: t.languageDescription || t.displayName || language,
-        type,
-        cc: type === 'closedcaptions' || t.rawTrackType === 'closedcaptions',
-        forced: !!t.isForcedNarrative,
-        url,
-        fmt,
-      });
+      try {
+        if (!t || t.isNoneTrack) continue;
+        const rawType = String(t.rawTrackType || t.trackType || 'subtitles').toLowerCase();
+        if (rawType === 'none') continue;
+        const found = pickFormat(t.ttDownloadables || t.downloadables);
+        if (!found) continue;
+        const language = t.language || t.bcp47 || 'und';
+        const cc = rawType.indexOf('closedcaption') !== -1
+          || rawType === 'assistive'
+          || String(t.trackType || '').toLowerCase() === 'assistive';
+        tracks.push({
+          // Netflix's own id: same language can appear twice (CC + SUBTITLES),
+          // so a language-derived key would collide.
+          id: String(t.new_track_id || t.trackId || t.track_id || (language + ':' + rawType)),
+          language,
+          label: t.languageDescription || t.displayName || language,
+          type: rawType,
+          cc: !!cc,
+          forced: !!t.isForcedNarrative,
+          url: found.url,
+          fmt: found.fmt,
+        });
+      } catch (_) { /* one bad track must never lose the rest */ }
     }
     return tracks;
   }
@@ -86,19 +114,19 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { pickUrl, normaliseTracks, tracksFromManifest };
+    module.exports = { pickUrl, pickFormat, normaliseTracks, tracksFromManifest };
   }
   if (!isBrowser) return; // under Node (tests) we stop here
 
   if (window.__subnfInjected) return;   // MAIN-world content script and the
   window.__subnfInjected = true;        // injected <script> both land here
 
-  const seen = new Set();               // movieId:trackCount, to avoid spam
+  const seen = new Set();
   const diag = { manifest: 0, playerApi: 0, json: 0, response: 0, xhr: 0 };
 
   function send(movieId, tracks, source) {
     if (!tracks || !tracks.length) return false;
-    const key = String(movieId) + ':' + tracks.length + ':' + source;
+    const key = String(movieId) + ':' + tracks.map((t) => t.id).join(',');
     if (seen.has(key)) return false;
     seen.add(key);
     window.postMessage({
@@ -128,8 +156,16 @@
     for (const sid of ids) {
       let p = null;
       try { p = vp.getVideoPlayerBySessionId(sid); } catch (_) { continue; }
-      if (p) fn(p, sid);
+      if (p) { try { fn(p, sid); } catch (_) {} }
     }
+  }
+
+  function trackListOf(p) {
+    try {
+      return (p.getTimedTextTrackList && p.getTimedTextTrackList())
+        || (p.getTimedTextTracks && p.getTimedTextTracks())
+        || null;
+    } catch (_) { return null; }
   }
 
   function currentMovieId() {
@@ -144,13 +180,7 @@
   function harvestFromPlayerApi() {
     let found = false;
     eachPlayer((p) => {
-      let list = null;
-      try {
-        list = (p.getTimedTextTrackList && p.getTimedTextTrackList())
-          || (p.getTimedTextTracks && p.getTimedTextTracks())
-          || null;
-      } catch (_) { return; }
-      const tracks = normaliseTracks(list);
+      const tracks = normaliseTracks(trackListOf(p));
       if (!tracks.length) return;
       let mid = null;
       try { mid = p.getMovieId ? String(p.getMovieId()) : null; } catch (_) {}
@@ -234,7 +264,6 @@
     const d = e.data;
     if (!d || d.__subnf !== true || d.dir !== 'content') return;
 
-    // "which movie is on screen, and do you have tracks for it?"
     if (d.kind === 'poll') {
       harvestFromPlayerApi();
       window.postMessage({
@@ -243,6 +272,19 @@
         hasPlayerApi: !!videoPlayerApi(),
         diag,
       }, '*');
+      return;
+    }
+
+    // Genuinely switch Netflix's own subtitles off, via the player's own API,
+    // by selecting its "none" track. Our cues are already downloaded and keyed
+    // to the video clock, so they keep working with the native track off --
+    // which is the entire point.
+    if (d.kind === 'nativeOff') {
+      eachPlayer((p) => {
+        const list = trackListOf(p) || [];
+        const none = list.find((t) => t && t.isNoneTrack);
+        if (none && p.setTimedTextTrack) p.setTimedTextTrack(none);
+      });
       return;
     }
 

@@ -7,7 +7,7 @@
   const NATIVE = '__native__';
 
   const DEFAULTS = {
-    enabled: true, primaryLang: NATIVE, secondaryLang: 'en',
+    enabled: true, primaryLang: 'en', secondaryLang: 'zh-Hant',
     hideNative: true, preferCC: false, fontScale: 1.0, bottomVh: 12, gap: 4,
     primaryOffsetMs: 0, secondaryOffsetMs: 0, swapOrder: false,
   };
@@ -138,6 +138,10 @@
       const p = d.pageDiag;
       list.appendChild(row('各路徑', `api=${p.playerApi || 0} json=${p.json || 0} resp=${p.response || 0} xhr=${p.xhr || 0}`));
     }
+    const c = d.cues || {};
+    list.appendChild(row('上行 cue 數', c.primary || 0, cls((c.primary || 0) > 0)));
+    list.appendChild(row('下行 cue 數', c.secondary || 0, cls((c.secondary || 0) > 0)));
+    list.appendChild(row('用了快取軌道', yn(d.fromCache), ''));
     list.appendChild(row('原生字幕可讀', yn(state.nativeVisible), cls(state.nativeVisible)));
     list.appendChild(row('下載成功 / 失敗', `${d.fetchOk || 0} / ${d.fetchFail || 0}`, cls((d.fetchOk || 0) > 0 || (d.fetchFail || 0) === 0)));
     if (d.lastError) list.appendChild(row('最後錯誤', d.lastError, 'bad'));

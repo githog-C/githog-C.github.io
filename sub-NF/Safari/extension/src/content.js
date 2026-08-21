@@ -1,29 +1,33 @@
 // sub-NF — content script (isolated world).
 //
-//   1. Inject the page hook (belt-and-braces: the manifest also declares it as
-//      a MAIN-world content script, and the hook guards against double-install).
-//   2. Keep a per-title catalogue of subtitle tracks, from whichever of the
-//      hook's four capture paths answered.
-//   3. Resolve the two chosen sources, fetch + parse their WebVTT.
-//   4. Render a two-line overlay synced to the <video> clock.
+//   1. Inject the page hook (also declared as a MAIN-world content script; the
+//      hook guards against installing twice).
+//   2. Keep a per-title catalogue of subtitle tracks, cached to storage --
+//      the player manifest goes past ONCE and cannot be re-requested.
+//   3. Download + parse each chosen track into its own cue array.
+//   4. Render two INDEPENDENT lines, each doing its own binary search against
+//      the <video> clock. This is what makes two different languages possible,
+//      and what keeps working when Netflix's own subtitles are switched off.
 //   5. Report state and diagnostics to the popup.
 //
-// One of the two lines can be the special source "__native__": Netflix's own
-// rendered caption, read straight out of the DOM. That path needs no manifest
-// at all, so it always works — pick the language you want in Netflix's own
-// subtitle menu and sub-NF adds the second one above or below it.
+// A line can also be set to the special source "__native__", which mirrors
+// whatever Netflix is drawing right now. That needs no track list, so it is a
+// useful fallback -- but it is NOT the normal path: two lines both set to it
+// would show the same text twice.
 (() => {
   'use strict';
   const api = globalThis.browser ?? globalThis.chrome;
   if (!api || !api.runtime || !api.runtime.id) return;
 
   const NATIVE = '__native__';
+  const CACHE_KEY = 'subnfTracks';
+  const CACHE_TTL = 6 * 60 * 60 * 1000;  // signed CDN URLs are short-lived
 
   const DEFAULTS = {
     enabled: true,
-    primaryLang: NATIVE,   // top line: Netflix's own caption (always available)
-    secondaryLang: 'en',   // bottom line: fetched from a subtitle track
-    hideNative: true,      // hide Netflix's copy once we are drawing it ourselves
+    primaryLang: 'en',        // top line: a real subtitle track
+    secondaryLang: 'zh-Hant', // bottom line: a different real subtitle track
+    hideNative: true,
     preferCC: false,
     fontScale: 1.0,
     bottomVh: 12,
@@ -37,27 +41,24 @@
   const catalogues = new Map();   // movieId -> tracks[]
   let lastMovieId = null;
   let currentMovieId = null;
-  const vttCache = new Map();     // url -> Promise<cues[]>
+  const cueCache = new Map();     // url -> Promise<cues[]>
 
+  // Two fully independent slots. This is the core of the fix: each keeps its
+  // own cue array, so the two lines can never collapse onto one source.
   const active = {
-    primary: { url: null, cues: [], lang: null },
-    secondary: { url: null, cues: [], lang: null },
+    primary: { url: null, cues: [], lang: null, label: '' },
+    secondary: { url: null, cues: [], lang: null, label: '' },
   };
 
-  // What the popup shows when something is not working.
   const diag = {
-    pageHook: false,     // has the page hook ever answered us?
-    hasPlayerApi: false, // is Netflix's player API reachable?
-    pageDiag: null,      // per-path capture counters from the hook
-    trackCount: 0,
-    fetchOk: 0,
-    fetchFail: 0,
-    lastError: '',
-    lastSource: '',
+    pageHook: false, hasPlayerApi: false, pageDiag: null,
+    trackCount: 0, fetchOk: 0, fetchFail: 0,
+    lastError: '', lastSource: '', fromCache: false,
+    cues: { primary: 0, secondary: 0 },
   };
 
   const VTT = globalThis.SubNFVTT || {};
-  const parseVTT = VTT.parseVTT || (() => []);
+  const parseSubtitle = VTT.parseSubtitle || (() => []);
   const textAt = VTT.textAt || (() => '');
   const textFromNode = VTT.textFromNode || (() => '');
   const cleanNative = VTT.cleanNative || ((s) => s);
@@ -71,7 +72,40 @@
     s.addEventListener('load', () => s.remove());
   } catch (_) { /* ignore */ }
 
-  // ---------- messages from the page hook ----------
+  // ---------- 2. catalogue, with a storage-backed cache ----------
+  function saveCatalogue(movieId, tracks) {
+    if (!api.storage || !api.storage.local) return;
+    try {
+      api.storage.local.get(CACHE_KEY, (res) => {
+        const all = (res && res[CACHE_KEY]) || {};
+        all[String(movieId)] = { tracks, at: Date.now() };
+        const keys = Object.keys(all)
+          .sort((a, b) => (all[b].at || 0) - (all[a].at || 0))
+          .slice(0, 12);                       // keep the last dozen titles
+        const trimmed = {};
+        for (const k of keys) trimmed[k] = all[k];
+        api.storage.local.set({ [CACHE_KEY]: trimmed });
+      });
+    } catch (_) { /* ignore */ }
+  }
+
+  function loadCachedCatalogues(done) {
+    if (!api.storage || !api.storage.local) { done(); return; }
+    try {
+      api.storage.local.get(CACHE_KEY, (res) => {
+        const all = (res && res[CACHE_KEY]) || {};
+        const now = Date.now();
+        for (const [id, rec] of Object.entries(all)) {
+          if (!rec || !Array.isArray(rec.tracks)) continue;
+          if (now - (rec.at || 0) > CACHE_TTL) continue;
+          catalogues.set(id, rec.tracks);
+          diag.fromCache = true;
+        }
+        done();
+      });
+    } catch (_) { done(); }
+  }
+
   window.addEventListener('message', (e) => {
     if (e.source !== window) return;
     const d = e.data;
@@ -81,6 +115,7 @@
       diag.pageHook = true;
       diag.lastSource = d.source || '';
       catalogues.set(d.movieId, d.tracks);
+      saveCatalogue(d.movieId, d.tracks);
       lastMovieId = d.movieId;
       if (!currentMovieId) currentMovieId = d.movieId;
       diag.trackCount = (currentCatalogue() || []).length;
@@ -90,7 +125,7 @@
       diag.pageHook = true;
       diag.hasPlayerApi = !!d.hasPlayerApi;
       diag.pageDiag = d.diag || null;
-      if (d.movieId && d.movieId !== currentMovieId && catalogues.has(d.movieId)) {
+      if (d.movieId && d.movieId !== currentMovieId) {
         currentMovieId = d.movieId;
         resolveAndLoad();
       }
@@ -100,11 +135,10 @@
     }
   });
 
-  function pollPage() {
-    window.postMessage({ __subnf: true, dir: 'content', kind: 'poll' }, '*');
-  }
+  const post = (kind, extra) =>
+    window.postMessage({ __subnf: true, dir: 'content', kind, ...(extra || {}) }, '*');
+  const pollPage = () => post('poll');
 
-  // ---------- 2. catalogue ----------
   function movieIdFromUrl() {
     const m = location.pathname.match(/\/watch\/(\d+)/);
     return m ? m[1] : null;
@@ -132,14 +166,15 @@
     const score = (t) => {
       let s = 0;
       if (String(t.language).toLowerCase() === String(wanted).toLowerCase()) s += 100;
-      if (t.forced) s -= 50;
+      if (t.forced) s -= 50;                          // avoid forced-narrative
       if (settings.preferCC ? t.cc : !t.cc) s += 10;
+      if (/webvtt/i.test(t.fmt || '')) s += 5;        // cheapest to parse
       return s;
     };
     return cands.slice().sort((a, b) => score(b) - score(a))[0];
   }
 
-  // ---------- 3. fetch + parse ----------
+  // ---------- 3. download + parse ----------
   let fetchSeq = 0;
   const pageFetchPending = new Map();
 
@@ -150,7 +185,9 @@
         api.runtime.sendMessage({ type: 'subnf-fetch', url }, (resp) => {
           if (settled) return; settled = true;
           if (api.runtime.lastError || !resp || !resp.ok) {
-            diag.lastError = (resp && resp.error) || (api.runtime.lastError && api.runtime.lastError.message) || 'background fetch failed';
+            diag.lastError = (resp && resp.error)
+              || (api.runtime.lastError && api.runtime.lastError.message)
+              || 'background fetch failed';
             resolve(null);
           } else resolve(resp.text);
         });
@@ -172,33 +209,45 @@
         if (!msg || !msg.ok) diag.lastError = (msg && msg.error) || 'page fetch failed';
         resolve(msg && msg.ok ? msg.text : '');
       });
-      window.postMessage({ __subnf: true, dir: 'content', kind: 'fetch', id, url }, '*');
+      post('fetch', { id, url });
     });
   }
 
-  function fetchVtt(url) {
-    if (vttCache.has(url)) return vttCache.get(url);
+  function fetchCues(url) {
+    if (cueCache.has(url)) return cueCache.get(url);
     const p = (async () => {
       let text = await bgFetch(url);
       if (text == null) text = await pageFetch(url);
-      const cues = parseVTT(text || '');
-      if (cues.length) diag.fetchOk++; else diag.fetchFail++;
+      const cues = parseSubtitle(text || '');
+      if (cues.length) diag.fetchOk++;
+      else {
+        diag.fetchFail++;
+        // A cached URL may have expired. Do not memoise the failure, so a later
+        // poll (with a freshly captured URL) can still succeed.
+        cueCache.delete(url);
+      }
       return cues;
     })();
-    vttCache.set(url, p);
+    cueCache.set(url, p);
     return p;
   }
 
   async function loadInto(slot, wanted) {
     if (wanted === NATIVE) {
-      active[slot] = { url: null, cues: [], lang: NATIVE };
+      active[slot] = { url: null, cues: [], lang: NATIVE, label: 'Netflix' };
       return;
     }
     const track = resolveTrack(currentCatalogue(), wanted);
-    if (!track) { active[slot] = { url: null, cues: [], lang: null }; return; }
-    if (track.url === active[slot].url) return;
-    active[slot] = { url: track.url, cues: [], lang: track.language };
-    active[slot].cues = await fetchVtt(track.url);
+    if (!track) {
+      if (active[slot].lang !== null || active[slot].url) {
+        active[slot] = { url: null, cues: [], lang: null, label: '' };
+      }
+      return;
+    }
+    if (track.url === active[slot].url && active[slot].cues.length) return;
+    const cues = await fetchCues(track.url);
+    active[slot] = { url: track.url, cues, lang: track.language, label: track.label };
+    diag.cues[slot] = cues.length;
   }
 
   let loading = false;
@@ -206,24 +255,27 @@
     if (loading) return;
     loading = true;
     try {
-      await loadInto('primary', settings.primaryLang);
-      await loadInto('secondary', settings.secondaryLang);
+      // Both slots resolve independently and in parallel.
+      await Promise.all([
+        loadInto('primary', settings.primaryLang),
+        loadInto('secondary', settings.secondaryLang),
+      ]);
+      applyNativeOff();
       render(true);
       broadcastStateToPopup();
     } finally { loading = false; }
   }
 
-  // ---------- Netflix's own caption, read from the DOM ----------
+  // ---------- Netflix's own caption, read from the DOM (fallback source) ----------
   let nativeCache = '';
   let nativeAt = 0;
   function nativeText(now) {
-    if (now - nativeAt < 80) return nativeCache;  // ~12 Hz is plenty
+    if (now - nativeAt < 80) return nativeCache;   // ~12 Hz is plenty
     nativeAt = now;
     let out = '';
     try {
-      const boxes = document.querySelectorAll('.player-timedtext-text-container');
       const parts = [];
-      for (const b of boxes) {
+      for (const b of document.querySelectorAll('.player-timedtext-text-container')) {
         const t = cleanNative(textFromNode(b));
         if (t) parts.push(t);
       }
@@ -232,6 +284,9 @@
     nativeCache = out;
     return out;
   }
+
+  const usesNative = () =>
+    settings.primaryLang === NATIVE || settings.secondaryLang === NATIVE;
 
   // ---------- 4. overlay ----------
   let overlay = null, lineTop = null, lineBottom = null, hideStyleEl = null;
@@ -254,10 +309,8 @@
     return overlay;
   }
 
-  // Mount into the same positioned box that holds the <video> — that is the
-  // container Netflix positions its own captions against. Mounting on
-  // .watch-video (which is not a containing block) put the overlay in the
-  // wrong coordinate space.
+  // Mount into the positioned box that holds the <video> -- the same container
+  // Netflix positions its own captions against.
   function mountTarget() {
     if (document.fullscreenElement) return document.fullscreenElement;
     const v = document.querySelector('.watch-video video') || document.querySelector('video');
@@ -289,14 +342,16 @@
     lineBottom.style.order = settings.swapOrder ? '1' : '2';
   }
 
-  // If one of our lines IS Netflix's caption, we must keep Netflix rendering it
-  // (so we can read it) while making it invisible. opacity:0 does that;
-  // display:none would risk Netflix skipping its own layout work.
+  // Two different meanings of "hide", depending on whether we still need to
+  // read Netflix's caption:
+  //   * a line IS the native caption -> keep it rendering, make it invisible.
+  //   * neither line is -> genuinely switch the track off via the player API
+  //     (plus CSS as belt-and-braces). Our own cues are already downloaded and
+  //     keyed to the video clock, so they are unaffected.
   function ensureHideStyle() {
-    const usesNative = settings.primaryLang === NATIVE || settings.secondaryLang === NATIVE;
     const want = settings.enabled && settings.hideNative;
     if (want) {
-      const css = usesNative
+      const css = usesNative()
         ? '.player-timedtext{opacity:0 !important;pointer-events:none !important;}'
         : '.player-timedtext{display:none !important;}';
       if (!hideStyleEl) {
@@ -311,12 +366,15 @@
     }
   }
 
+  function applyNativeOff() {
+    if (settings.enabled && settings.hideNative && !usesNative()) post('nativeOff');
+  }
+
   function setLine(el, text) {
     el.textContent = '';
     if (!text) { el.style.display = 'none'; return; }
     el.style.display = '';
-    const parts = text.split('\n');
-    parts.forEach((p, i) => {
+    text.split('\n').forEach((p, i) => {
       if (i) el.appendChild(document.createElement('br'));
       el.appendChild(document.createTextNode(p));
     });
@@ -352,6 +410,17 @@
     if (hideStyleEl) { hideStyleEl.remove(); hideStyleEl = null; }
   }
 
+  // The clock is read every frame, so seeking is handled inherently; these just
+  // force an immediate repaint instead of waiting for the text to change.
+  function hookVideo() {
+    const v = document.querySelector('.watch-video video') || document.querySelector('video');
+    if (!v || v.__subnfHooked) return;
+    v.__subnfHooked = true;
+    for (const ev of ['seeked', 'ratechange', 'play', 'loadedmetadata']) {
+      v.addEventListener(ev, () => { try { render(true); } catch (_) {} });
+    }
+  }
+
   let rafOn = false;
   function loop() {
     try { render(false); } catch (_) {}
@@ -366,8 +435,9 @@
     const tracks = currentCatalogue() || [];
     const seen = new Map();
     for (const t of tracks) {
-      if (!seen.has(t.language)) seen.set(t.language, { language: t.language, label: t.label, cc: !!t.cc });
-      else if (t.cc) seen.get(t.language).cc = true;
+      if (!seen.has(t.language)) {
+        seen.set(t.language, { language: t.language, label: t.label, cc: !!t.cc });
+      } else if (t.cc) seen.get(t.language).cc = true;
     }
     return [...seen.values()];
   }
@@ -381,8 +451,8 @@
       languages: availableLanguages(),
       nativeVisible: !!nativeCache,
       resolved: {
-        primary: settings.primaryLang === NATIVE || !!active.primary.url,
-        secondary: settings.secondaryLang === NATIVE || !!active.secondary.url,
+        primary: settings.primaryLang === NATIVE || active.primary.cues.length > 0,
+        secondary: settings.secondaryLang === NATIVE || active.secondary.cues.length > 0,
       },
       diag,
     };
@@ -424,11 +494,13 @@
     if (location.pathname === lastPath) return;
     lastPath = location.pathname;
     currentMovieId = movieIdFromUrl();
-    active.primary = { url: null, cues: [], lang: null };
-    active.secondary = { url: null, cues: [], lang: null };
+    // A new episode means a new movieId and a new manifest: drop the old cues.
+    active.primary = { url: null, cues: [], lang: null, label: '' };
+    active.secondary = { url: null, cues: [], lang: null, label: '' };
+    diag.cues = { primary: 0, secondary: 0 };
     lastTopText = lastBottomText = '';
     nativeCache = '';
-    setTimeout(() => { pollPage(); resolveAndLoad(); }, 400);
+    setTimeout(() => { hookVideo(); pollPage(); resolveAndLoad(); }, 400);
   }
   for (const m of ['pushState', 'replaceState']) {
     const orig = history[m];
@@ -437,15 +509,18 @@
   window.addEventListener('popstate', onNav);
   setInterval(() => { if (location.pathname !== lastPath) onNav(); }, 1000);
 
-  // Keep asking the page hook until we have a catalogue. The player API only
-  // has a track list once playback has actually started, so a single early
-  // question is never enough.
+  // Keep asking until both slots have what they need. The player API only has a
+  // track list once playback has started, so one early question is never enough.
   setInterval(() => {
     if (!/\/watch\/\d+/.test(location.pathname)) return;
-    const need = !currentCatalogue()
-      || (settings.secondaryLang !== NATIVE && !active.secondary.url)
-      || (settings.primaryLang !== NATIVE && !active.primary.url);
-    if (need) { pollPage(); resolveAndLoad(); }
+    hookVideo();
+    const needs = (which, lang) => lang !== NATIVE && !active[which].cues.length;
+    if (!currentCatalogue()
+      || needs('primary', settings.primaryLang)
+      || needs('secondary', settings.secondaryLang)) {
+      pollPage();
+      resolveAndLoad();
+    }
   }, 2000);
 
   // ---------- boot ----------
@@ -453,13 +528,14 @@
     const start = () => {
       currentMovieId = movieIdFromUrl();
       startLoop();
+      hookVideo();
       pollPage();
       resolveAndLoad();
     };
     if (api.storage && api.storage.local) {
       api.storage.local.get('subnf', (res) => {
         if (res && res.subnf) settings = { ...DEFAULTS, ...res.subnf };
-        start();
+        loadCachedCatalogues(start);
       });
     } else start();
   }

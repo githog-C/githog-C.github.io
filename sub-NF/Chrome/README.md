@@ -24,9 +24,9 @@ The extension reads that same data — it never touches the video, audio, or DRM
 | Piece | World | Job |
 |---|---|---|
 | `src/inject.js` | page (MAIN) | Gets the subtitle track list, four different ways (below). Forwards it over `window.postMessage`. |
-| `src/content.js` | isolated | Resolves your two chosen sources, fetches + parses their WebVTT, and renders a two-line overlay synced to `video.currentTime`. |
+| `src/content.js` | isolated | Resolves the two chosen sources, downloads + parses each into its **own** cue array, and renders two independent lines synced to `video.currentTime`. |
 | `src/background.js` | service worker | Fetches a WebVTT file from Netflix's caption CDN. Doing it here sidesteps page CORS. Returns plain text, stores nothing. |
-| `src/vtt.js` | isolated | WebVTT parsing + reading Netflix's own caption out of the DOM. Split out so it is unit-testable (`node test/run-tests.js`). |
+| `src/vtt.js` | isolated | WebVTT **and TTML** parsing, plus reading Netflix's own caption out of the DOM. Split out so it is unit-testable (`node test/run-tests.js`). |
 | `popup/` | — | Source pickers, appearance controls, diagnostics. |
 
 ### Getting the track list is the hard part — so there are four paths
@@ -52,20 +52,51 @@ hook can see it, but the player object still knows its own track list.
 (It is also injected as a `<script>` tag for browsers without MAIN-world
 support; a guard stops it installing twice.)
 
-### The path that always works: `Netflix 目前顯示的字幕`
+### Two independent lines
 
-Either line can be set to the special source **“Netflix 目前顯示的字幕”**, which
-reads Netflix's own rendered caption straight out of the DOM
-(`.player-timedtext`). It needs no manifest, no track list, and no download — so
-it works even when all four capture paths fail.
+Each line keeps **its own cue array**, parsed from its own downloaded track and
+looked up by binary search against `video.currentTime` every animation frame.
+That independence is the whole point: it is what lets the two lines show two
+different languages, and what keeps them working when Netflix's own subtitles
+are switched off entirely.
 
-Pick the language you want for that line in **Netflix's own subtitle menu**, and
-sub-NF puts your second language on the other line. This is the default for the
-top line, so the extension does something useful immediately.
+With **隱藏 Netflix 原生字幕** on, the extension really does turn Netflix's track
+off — it calls `setTimedTextTrack()` with the player's own "none" track, rather
+than just hiding the element. Our cues are already downloaded and keyed to the
+video clock, so they are unaffected.
 
-When a line is using this source, Netflix's own caption is hidden with
-`opacity: 0` rather than `display: none` — Netflix has to keep rendering it for
-us to be able to read it.
+### The fallback source: `Netflix 目前顯示的字幕`
+
+Either line can instead mirror whatever Netflix is drawing, read out of
+`.player-timedtext`. It needs no track list at all, so it still works if every
+capture path fails — but it is a fallback, not the normal path: setting *both*
+lines to it just shows the same text twice. When a line is using it, Netflix's
+caption is hidden with `opacity: 0` rather than switched off, since Netflix has
+to keep rendering it for us to read it.
+
+### Why tracks used to come back empty
+
+Three bugs in the extractor, all fixed and all now covered by tests:
+
+- **Track types arrive UPPERCASE** in real manifests (`SUBTITLES`,
+  `CLOSEDCAPTIONS`); the comparison was case-sensitive and only looked for
+  `subtitles`, so real tracks were dropped.
+- **The `try/catch` sat outside the loop.** One malformed track threw and
+  silently zeroed the *entire* batch. It is now per track.
+- **Only WebVTT was accepted.** Tracks offering just a TTML variant
+  (`imsc1.1`, `dfxp-ls-sdh`) were discarded, so whole languages went missing.
+  There is now a format fallback chain and a TTML parser.
+
+With no cues at all, the renderer had nothing to draw but Netflix's own caption
+— which is why both lines showed the same text, and why turning the native
+subtitles off left the overlay blank.
+
+### The manifest goes past once
+
+It cannot be re-requested, so whatever any path captures is cached in
+`chrome.storage.local`, keyed by movie id (last 12 titles, 6-hour TTL, since the
+CDN URLs are short-lived signed links). An expired URL is not memoised as a
+failure, so a later poll with a fresh URL can still succeed.
 
 ## Controls
 
@@ -94,7 +125,8 @@ The popup has a **診斷** panel. Open it on the playing tab and read down:
 | Netflix 播放器 API | Netflix's player object was not reachable; capture path 1 is unavailable. Start playback and wait a few seconds. |
 | 抓到字幕軌 | No track list from any of the four paths. Set one line to **Netflix 目前顯示的字幕** — that path does not need a track list. |
 | 各路徑 | Which capture path answered (`api` / `json` / `resp` / `xhr`). All zero means Netflix changed something. |
-| 原生字幕可讀 | Netflix is not currently drawing a caption — turn subtitles on in Netflix's own menu. |
+| 上行 / 下行 cue 數 | That line has no cues: its language has no track on this title, or the download failed. |
+| 原生字幕可讀 | Only matters if a line is set to the native mirror. |
 | 下載成功 / 失敗 | A track was found but its WebVTT could not be fetched; **最後錯誤** gives the reason. |
 
 ## Limits and failure modes
@@ -107,8 +139,9 @@ The popup has a **診斷** panel. Open it on the playing tab and read down:
   DOM-reading path that depends on none of them. Track extraction is isolated in
   `normaliseTracks()` and `tracksFromManifest()`, both unit-tested, so a fix is
   a small, well-covered edit.
-- Subtitle download URLs are short-lived signed CDN links; the extension
-  re-reads them rather than caching across sessions.
+- Subtitle download URLs are short-lived signed CDN links. The captured track
+  list is cached for 6 hours; past that a stale URL simply fails and the next
+  poll re-captures a fresh one.
 
 ## Tests
 
@@ -116,8 +149,10 @@ The popup has a **診斷** panel. Open it on the playing tab and read down:
 node test/run-tests.js
 ```
 
-Covers WebVTT time/entity/tag parsing, cue lookup (including overlaps), and
-manifest track extraction. No dependencies, no build step.
+62 cases covering WebVTT and TTML parsing, cue lookup (including overlaps), and
+track extraction — with explicit regression tests for uppercase track types, a
+throwing track not zeroing the batch, and same-language CC/SUBTITLES pairs. No
+dependencies, no build step.
 
 ## Please use it responsibly
 
