@@ -52,6 +52,36 @@ hook can see it, but the player object still knows its own track list.
 (It is also injected as a `<script>` tag for browsers without MAIN-world
 support; a guard stops it installing twice.)
 
+### Picking the two languages in Netflix's own menu
+
+The natural place to choose subtitles is Netflix's own **Audio & Subtitles**
+menu, so that is where sub-NF puts the control. Each subtitle row grows a small
+pill on the right:
+
+| Pill | Meaning |
+|---|---|
+| `+` | not in use — click to add this language |
+| `1` | feeding the top line |
+| `2` | feeding the bottom line |
+
+Click to tick, click again to untick. **Two can be ticked at once**; ticking a
+third drops the oldest. Clicking the row *itself* still does Netflix's normal
+thing (switch its own single track) — only the pill belongs to us, and it stops
+the event in the capture phase so Netflix's handler on the `<li>` never sees it.
+
+Rows are matched through `data-uia` (`subtitle-item-English (CC)`), which is a
+stable identifier, rather than the visible label, which is localised. The
+` (CC)` suffix is Netflix's own `"{LANGUAGE} (CC)"` template, so it is stripped
+back to a display name plus a CC flag. The **Off** row simply matches no track
+of ours and is skipped — which works in every interface language without
+hard-coding the word.
+
+A pill pins that *exact* track (`primaryTrackId`), which is how the CC and
+non-CC variants of one language stay distinguishable. The language code is kept
+alongside as the durable fallback, because track ids change between episodes
+and language codes do not. Choosing a language in the popup instead releases
+the pin.
+
 ### Two independent lines
 
 Each line keeps **its own cue array**, parsed from its own downloaded track and
@@ -100,10 +130,10 @@ failure, so a later poll with a fresh URL can still succeed.
 
 ## Controls
 
-- **On/off**, and **第一語言 / 第二語言** — the two sources, top and bottom.
-  Each dropdown offers **Netflix 目前顯示的字幕** plus the languages this title
-  actually has, once playback has started; before that it shows a
-  common-language fallback.
+- **On/off**, and **第一語言 / 第二語言** — the two sources, top and bottom. Each
+  dropdown offers **（不顯示）**, **Netflix 目前顯示的字幕**, and the languages this
+  title actually has once playback has started; before that, a common-language
+  fallback. The same choice can be made from Netflix's own menu (above).
 - **上下對調** — swap which language is on top.
 - **隱藏 Netflix 原生字幕** — hide Netflix's built-in caption line so you do not
   get it three times.
@@ -149,10 +179,11 @@ The popup has a **診斷** panel. Open it on the playing tab and read down:
 node test/run-tests.js
 ```
 
-62 cases covering WebVTT and TTML parsing, cue lookup (including overlaps), and
-track extraction — with explicit regression tests for uppercase track types, a
-throwing track not zeroing the batch, and same-language CC/SUBTITLES pairs. No
-dependencies, no build step.
+75 cases covering WebVTT and TTML parsing, cue lookup (including overlaps),
+track extraction, and menu-row matching — with explicit regression tests for
+uppercase track types, a throwing track not zeroing the batch, same-language
+CC/SUBTITLES pairs, and the localised **Off** row. No dependencies, no build
+step.
 
 ## Please use it responsibly
 

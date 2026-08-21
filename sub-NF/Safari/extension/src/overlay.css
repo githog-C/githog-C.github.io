@@ -57,3 +57,58 @@
 
 /* When the browser is actually in fullscreen, vw units track the full screen,
    which is what we want, so no special-case needed. */
+
+/* ---- the pill sub-NF adds to each row of Netflix's own Subtitles menu ---- */
+/* Netflix's <li> is not a containing block, so give it one. Everything else is
+   scoped to our own class so the menu's own layout is untouched. */
+li.subnf-row {
+  position: relative !important;
+}
+
+li.subnf-row .subnf-pick {
+  position: absolute !important;
+  right: 14px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 5 !important;
+
+  min-width: 26px !important;
+  height: 26px !important;
+  padding: 0 7px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+
+  font-family: "Netflix Sans", "Helvetica Neue", Roboto, Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 24px !important;
+  text-align: center !important;
+
+  color: rgba(255, 255, 255, 0.55) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: none !important;
+}
+
+li.subnf-row .subnf-pick:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: #fff !important;
+}
+
+/* line 1 — matches the top overlay line (white) */
+li.subnf-row .subnf-pick[data-subnf-slot="1"] {
+  color: #fff !important;
+  background: #e50914 !important;
+  border-color: #e50914 !important;
+}
+
+/* line 2 — matches the bottom overlay line (warm tint) */
+li.subnf-row .subnf-pick[data-subnf-slot="2"] {
+  color: #141414 !important;
+  background: #f3e9c8 !important;
+  border-color: #f3e9c8 !important;
+}

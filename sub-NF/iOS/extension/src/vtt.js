@@ -175,7 +175,44 @@
       .join('\n');
   }
 
+  // ---------- Netflix's own Audio & Subtitles menu ----------
+  // Rows are identified by data-uia, which is a stable identifier; the visible
+  // label is localised. Forms seen:
+  //   subtitle-item-selected-Off
+  //   subtitle-item-English (CC)
+  //   subtitle-item-Chinese (Traditional)
+  // The " (CC)" suffix is Netflix's own i18n template "{LANGUAGE} (CC)", so it
+  // can be stripped back to the display name plus a cc flag.
+  function parseMenuUia(uia) {
+    const s = String(uia == null ? '' : uia);
+    if (s.indexOf('subtitle-item-') !== 0) return null;
+    let rest = s.slice('subtitle-item-'.length);
+    let selected = false;
+    if (rest.indexOf('selected-') === 0) { selected = true; rest = rest.slice('selected-'.length); }
+    let cc = false;
+    const m = rest.match(/^(.*)\s*\(CC\)\s*$/);
+    if (m) { cc = true; rest = m[1]; }
+    const name = rest.trim();
+    if (!name) return null;
+    return { name, cc, selected };
+  }
+
+  // Match a menu row to one of our tracks. Compares the display name Netflix
+  // renders, preferring the variant whose CC flag agrees. Returns null for rows
+  // with no matching track -- which is how the "Off" row is skipped in every
+  // interface language, without hard-coding the word.
+  function matchTrackByMenu(tracks, info) {
+    if (!Array.isArray(tracks) || !info || !info.name) return null;
+    const norm = (x) => String(x == null ? '' : x).trim().toLowerCase();
+    const want = norm(info.name);
+    const cands = tracks.filter(
+      (t) => t && (norm(t.displayName) === want || norm(t.label) === want));
+    if (!cands.length) return null;
+    return cands.find((t) => !!t.cc === !!info.cc) || cands[0];
+  }
+
   const exp = {
+    parseMenuUia, matchTrackByMenu,
     parseVTT, parseTTML, parseSubtitle, textAt,
     parseTime, ttmlTime, stripTags, decodeEntities,
     textFromNode, cleanNative,

@@ -3,7 +3,7 @@
 const assert = require('assert');
 const {
   parseVTT, parseTTML, parseSubtitle, textAt, parseTime, ttmlTime,
-  stripTags, textFromNode, cleanNative,
+  stripTags, textFromNode, cleanNative, parseMenuUia, matchTrackByMenu,
 } = require('../src/vtt.js');
 const { pickUrl, pickFormat, tracksFromManifest, normaliseTracks } = require('../src/inject.js');
 
@@ -204,5 +204,48 @@ t('cleanNative collapses runs of whitespace', () =>
   assert.strictEqual(cleanNative('  a   b  \n\n   c '), 'a b\nc'));
 t('cleanNative on empty -> empty', () => assert.strictEqual(cleanNative(''), ''));
 t('textFromNode on null -> empty', () => assert.strictEqual(textFromNode(null), ''));
+
+// ---- decorating Netflix's own Audio & Subtitles menu ----
+// data-uia values taken verbatim from a live player menu. The visible label is
+// localised; data-uia is not, which is why matching goes through it.
+t('parseMenuUia ignores audio rows', () =>
+  assert.strictEqual(parseMenuUia('audio-item-selected-English [Original]'), null));
+t('parseMenuUia reads the selected Off row', () =>
+  assert.deepStrictEqual(parseMenuUia('subtitle-item-selected-Off'),
+    { name: 'Off', cc: false, selected: true }));
+t('parseMenuUia splits the (CC) suffix off', () =>
+  assert.deepStrictEqual(parseMenuUia('subtitle-item-English (CC)'),
+    { name: 'English', cc: true, selected: false }));
+t('parseMenuUia keeps a non-CC parenthetical intact', () =>
+  assert.deepStrictEqual(parseMenuUia('subtitle-item-Chinese (Traditional)'),
+    { name: 'Chinese (Traditional)', cc: false, selected: false }));
+t('parseMenuUia on junk -> null', () => assert.strictEqual(parseMenuUia('nope'), null));
+t('parseMenuUia on null -> null', () => assert.strictEqual(parseMenuUia(null), null));
+
+const MENU_TRACKS = [
+  { id: 'T:1:en', language: 'en', displayName: 'English', label: 'English', cc: true },
+  { id: 'T:2:zh', language: 'zh-Hant', displayName: 'Chinese (Traditional)', label: '中文（繁體）', cc: false },
+];
+const byUia = (u) => matchTrackByMenu(MENU_TRACKS, parseMenuUia(u));
+t('matchTrackByMenu finds the CC row', () =>
+  assert.strictEqual(byUia('subtitle-item-English (CC)').id, 'T:1:en'));
+t('matchTrackByMenu finds the localised row', () =>
+  assert.strictEqual(byUia('subtitle-item-Chinese (Traditional)').id, 'T:2:zh'));
+t('matchTrackByMenu returns null for Off (so it is skipped in any language)', () =>
+  assert.strictEqual(byUia('subtitle-item-selected-Off'), null));
+t('matchTrackByMenu returns null for 關閉 too', () =>
+  assert.strictEqual(byUia('subtitle-item-selected-關閉'), null));
+
+// One language offering both CC and plain: the CC flag has to break the tie.
+const PAIR = [
+  { id: 'plain', language: 'en', displayName: 'English', label: 'English', cc: false },
+  { id: 'cc', language: 'en', displayName: 'English', label: 'English', cc: true },
+];
+t('matchTrackByMenu prefers the CC variant for a (CC) row', () =>
+  assert.strictEqual(matchTrackByMenu(PAIR, parseMenuUia('subtitle-item-English (CC)')).id, 'cc'));
+t('matchTrackByMenu prefers the plain variant otherwise', () =>
+  assert.strictEqual(matchTrackByMenu(PAIR, parseMenuUia('subtitle-item-English')).id, 'plain'));
+t('matchTrackByMenu with no catalogue -> null', () =>
+  assert.strictEqual(matchTrackByMenu(null, { name: 'English' }), null));
 
 console.log(`\n${pass} passed` + (process.exitCode ? ', with failures' : ''));

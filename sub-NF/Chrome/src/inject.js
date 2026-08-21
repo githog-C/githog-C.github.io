@@ -96,6 +96,8 @@
           id: String(t.new_track_id || t.trackId || t.track_id || (language + ':' + rawType)),
           language,
           label: t.languageDescription || t.displayName || language,
+          // What Netflix renders in its own Audio & Subtitles menu.
+          displayName: String(t.displayName || t.languageDescription || language),
           type: rawType,
           cc: !!cc,
           forced: !!t.isForcedNarrative,

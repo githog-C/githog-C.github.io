@@ -5,6 +5,7 @@
   const api = globalThis.browser ?? globalThis.chrome;
 
   const NATIVE = '__native__';
+  const NONE = '__none__';
 
   const DEFAULTS = {
     enabled: true, primaryLang: 'en', secondaryLang: 'zh-Hant',
@@ -33,6 +34,7 @@
 
   function fillSelect(select, langs, value) {
     const map = new Map();
+    map.set(NONE, '（不顯示）');
     // The always-available source: whatever Netflix itself is drawing.
     map.set(NATIVE, 'Netflix 目前顯示的字幕');
     for (const l of langs) map.set(l.code, l.label);
@@ -41,7 +43,7 @@
     for (const [code, label] of map) {
       const opt = document.createElement('option');
       opt.value = code;
-      opt.textContent = code === NATIVE ? label : `${label} — ${code}`;
+      opt.textContent = (code === NATIVE || code === NONE) ? label : `${label} — ${code}`;
       if (code === value) opt.selected = true;
       select.appendChild(opt);
     }
@@ -163,7 +165,7 @@
     const s = state && state.resolved && state.resolved.secondary;
     if (p && s) {
       setStatus('雙語字幕已就緒。', 'ok');
-      hintEl.textContent = '「Netflix 目前顯示的字幕」那一行，語言由 Netflix 自己的字幕選單決定。';
+      hintEl.textContent = '也可以直接在 Netflix 的「音訊與字幕」選單裡，用每列右側的圓鈕勾選兩種語言。';
     } else if (state && state.hasCatalogue) {
       setStatus('已載入語言清單，但所選語言此片可能沒有。', 'warn');
       hintEl.textContent = '換一個語言，或把其中一行設成「Netflix 目前顯示的字幕」。';

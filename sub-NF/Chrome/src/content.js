@@ -19,7 +19,8 @@
   const api = globalThis.browser ?? globalThis.chrome;
   if (!api || !api.runtime || !api.runtime.id) return;
 
-  const NATIVE = '__native__';
+  const NATIVE = '__native__';   // mirror whatever Netflix is drawing
+  const NONE = '__none__';       // this line shows nothing
   const CACHE_KEY = 'subnfTracks';
   const CACHE_TTL = 6 * 60 * 60 * 1000;  // signed CDN URLs are short-lived
 
@@ -27,6 +28,11 @@
     enabled: true,
     primaryLang: 'en',        // top line: a real subtitle track
     secondaryLang: 'zh-Hant', // bottom line: a different real subtitle track
+    // Pin an exact track (from Netflix's own menu). Takes precedence over the
+    // language code, which stays as the durable fallback: track ids change
+    // between episodes, language codes do not.
+    primaryTrackId: null,
+    secondaryTrackId: null,
     hideNative: true,
     preferCC: false,
     fontScale: 1.0,
@@ -62,6 +68,8 @@
   const textAt = VTT.textAt || (() => '');
   const textFromNode = VTT.textFromNode || (() => '');
   const cleanNative = VTT.cleanNative || ((s) => s);
+  const parseMenuUia = VTT.parseMenuUia || (() => null);
+  const matchTrackByMenu = VTT.matchTrackByMenu || (() => null);
 
   // ---------- 1. inject page hook (fallback for browsers without MAIN world) ----------
   try {
@@ -159,8 +167,12 @@
     return a.split('-')[0] === b.split('-')[0]; // "zh" matches "zh-Hant"
   }
 
-  function resolveTrack(tracks, wanted) {
-    if (!tracks || !wanted || wanted === NATIVE) return null;
+  function resolveTrack(tracks, wanted, pinnedId) {
+    if (!tracks || !wanted || wanted === NATIVE || wanted === NONE) return null;
+    if (pinnedId) {
+      const exact = tracks.find((t) => t.id === pinnedId);
+      if (exact) return exact;            // else fall through to the language
+    }
     const cands = tracks.filter((t) => langMatches(t, wanted));
     if (!cands.length) return null;
     const score = (t) => {
@@ -237,7 +249,13 @@
       active[slot] = { url: null, cues: [], lang: NATIVE, label: 'Netflix' };
       return;
     }
-    const track = resolveTrack(currentCatalogue(), wanted);
+    if (!wanted || wanted === NONE) {
+      active[slot] = { url: null, cues: [], lang: NONE, label: '' };
+      diag.cues[slot] = 0;
+      return;
+    }
+    const pin = slot === 'primary' ? settings.primaryTrackId : settings.secondaryTrackId;
+    const track = resolveTrack(currentCatalogue(), wanted, pin);
     if (!track) {
       if (active[slot].lang !== null || active[slot].url) {
         active[slot] = { url: null, cues: [], lang: null, label: '' };
@@ -262,6 +280,7 @@
       ]);
       applyNativeOff();
       render(true);
+      decorateMenu();
       broadcastStateToPopup();
     } finally { loading = false; }
   }
@@ -366,8 +385,18 @@
     }
   }
 
+  let lastNativeOff = 0;
   function applyNativeOff() {
-    if (settings.enabled && settings.hideNative && !usesNative()) post('nativeOff');
+    if (!settings.enabled || !settings.hideNative || usesNative()) return;
+    // Never switch Netflix's own subtitles off unless we actually have
+    // something to show in their place -- otherwise a failed load would leave
+    // the viewer with no subtitles at all. Throttled so that using Netflix's
+    // own menu does not feel like it is fighting us.
+    if (!active.primary.cues.length && !active.secondary.cues.length) return;
+    const now = Date.now();
+    if (now - lastNativeOff < 3000) return;
+    lastNativeOff = now;
+    post('nativeOff');
   }
 
   function setLine(el, text) {
@@ -382,6 +411,7 @@
 
   function sourceText(which, t, now) {
     const src = which === 'primary' ? settings.primaryLang : settings.secondaryLang;
+    if (!src || src === NONE) return '';
     if (src === NATIVE) return nativeText(now);
     const off = (which === 'primary' ? settings.primaryOffsetMs : settings.secondaryOffsetMs) / 1000;
     return textAt(active[which].cues, t - off);
@@ -430,6 +460,137 @@
 
   document.addEventListener('fullscreenchange', () => { if (overlay) mount(); });
 
+  // ---------- 4b. decorate Netflix's own Audio & Subtitles menu ----------
+  // Rather than duplicating a language picker in the popup, the two lines are
+  // chosen right where you already pick subtitles. Each row Netflix offers gets
+  // a small pill: click it to tick that language onto line 1, click again to
+  // untick. Two can be ticked at once -- ticking a third drops the oldest.
+  //
+  // Clicking the ROW itself still does Netflix's own thing (switch its single
+  // track); only the pill is ours, and it stops the event before Netflix's own
+  // handler on the <li> can see it.
+
+  function slotOfTrack(track) {
+    if (!track) return 0;
+    const cat = currentCatalogue();
+    const slots = [['primary', 1], ['secondary', 2]];
+    for (const [which, n] of slots) {
+      const id = which === 'primary' ? settings.primaryTrackId : settings.secondaryTrackId;
+      const lang = which === 'primary' ? settings.primaryLang : settings.secondaryLang;
+      if (id) {
+        const exact = cat && cat.find((t) => t.id === id);
+        if (exact) { if (exact.id === track.id) return n; continue; }
+        // stale pin (new episode) -> fall through to the language
+      }
+      if (!lang || lang === NONE || lang === NATIVE) continue;
+      const resolved = resolveTrack(cat, lang, null);
+      if (resolved && resolved.id === track.id) return n;
+    }
+    return 0;
+  }
+
+  const slotEmpty = (which) => {
+    const l = which === 'primary' ? settings.primaryLang : settings.secondaryLang;
+    return !l || l === NONE;
+  };
+
+  function toggleTrack(track) {
+    if (!track) return;
+    const next = { ...settings };
+    const slot = slotOfTrack(track);
+    if (slot === 1) {
+      next.primaryLang = NONE; next.primaryTrackId = null;
+    } else if (slot === 2) {
+      next.secondaryLang = NONE; next.secondaryTrackId = null;
+    } else if (slotEmpty('primary')) {
+      next.primaryLang = track.language; next.primaryTrackId = track.id;
+    } else if (slotEmpty('secondary')) {
+      next.secondaryLang = track.language; next.secondaryTrackId = track.id;
+    } else {
+      // Both taken: the older selection (line 1) drops out, line 2 moves up.
+      next.primaryLang = settings.secondaryLang;
+      next.primaryTrackId = settings.secondaryTrackId;
+      next.secondaryLang = track.language;
+      next.secondaryTrackId = track.id;
+    }
+    settings = next;
+    if (api.storage && api.storage.local) api.storage.local.set({ subnf: settings });
+    applySettingsChange();
+    decorateMenu();
+  }
+
+  function onPillEvent(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    if (e.type !== 'click') return;                 // mousedown is only blocked
+    const id = e.currentTarget && e.currentTarget.dataset.subnfTrack;
+    const cat = currentCatalogue();
+    const track = cat && cat.find((t) => t.id === id);
+    if (track) toggleTrack(track);
+  }
+
+  function ensurePill(li, track) {
+    let pill = li.querySelector('.subnf-pick');
+    if (!pill) {
+      pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'subnf-pick';
+      // Capture phase, so Netflix's own handler on the <li> never sees it.
+      pill.addEventListener('click', onPillEvent, true);
+      pill.addEventListener('mousedown', onPillEvent, true);
+      li.appendChild(pill);
+      li.classList.add('subnf-row');
+    }
+    const slot = slotOfTrack(track);
+    const text = slot ? String(slot) : '+';
+    const label = slot
+      ? `sub-NF：第 ${slot} 行（點一下取消）`
+      : 'sub-NF：加為雙語字幕的一行';
+    if (pill.dataset.subnfTrack !== track.id) pill.dataset.subnfTrack = track.id;
+    if (pill.dataset.subnfSlot !== String(slot)) pill.dataset.subnfSlot = String(slot);
+    if (pill.textContent !== text) pill.textContent = text;
+    if (pill.title !== label) { pill.title = label; pill.setAttribute('aria-label', label); }
+  }
+
+  let decorating = false;
+  function decorateMenu() {
+    if (decorating) return;
+    const rows = document.querySelectorAll('li[data-uia^="subtitle-item-"]');
+    if (!rows.length) return;
+    const cat = currentCatalogue();
+    decorating = true;
+    try {
+      for (const li of rows) {
+        // A row that matches no track of ours is Netflix's "Off" entry (whose
+        // label is localised) -- skipping by "no match" avoids hard-coding it.
+        const info = parseMenuUia(li.getAttribute('data-uia'));
+        const track = (info && cat) ? matchTrackByMenu(cat, info) : null;
+        if (!track) {
+          const stale = li.querySelector('.subnf-pick');
+          if (stale) { stale.remove(); li.classList.remove('subnf-row'); }
+          continue;
+        }
+        ensurePill(li, track);
+      }
+    } catch (_) { /* never break Netflix's menu */ }
+    decorating = false;
+  }
+
+  let menuTimer = 0;
+  function watchMenu() {
+    try {
+      new MutationObserver(() => {
+        if (decorating || menuTimer) return;
+        menuTimer = setTimeout(() => {
+          menuTimer = 0;
+          if (document.querySelector('[data-uia="selector-audio-subtitle"]')) decorateMenu();
+        }, 100);
+      }).observe(document.body || document.documentElement,
+        { childList: true, subtree: true });
+    } catch (_) { /* ignore */ }
+  }
+
   // ---------- 5. popup ----------
   function availableLanguages() {
     const tracks = currentCatalogue() || [];
@@ -466,7 +627,11 @@
     if (!msg) return;
     if (msg.type === 'subnf-get-state') { pollPage(); sendResponse(stateForPopup()); return true; }
     if (msg.type === 'subnf-set-settings') {
-      settings = { ...settings, ...msg.settings };
+      const inc = msg.settings || {};
+      // A language picked in the popup wins over a pin made in Netflix's menu.
+      if (inc.primaryLang !== undefined && inc.primaryLang !== settings.primaryLang) inc.primaryTrackId = null;
+      if (inc.secondaryLang !== undefined && inc.secondaryLang !== settings.secondaryLang) inc.secondaryTrackId = null;
+      settings = { ...settings, ...inc };
       api.storage && api.storage.local && api.storage.local.set({ subnf: settings });
       applySettingsChange();
       sendResponse(stateForPopup());
@@ -529,6 +694,7 @@
       currentMovieId = movieIdFromUrl();
       startLoop();
       hookVideo();
+      watchMenu();
       pollPage();
       resolveAndLoad();
     };
