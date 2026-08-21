@@ -70,6 +70,9 @@
         currentMovieId = d.movieId;
         resolveAndLoad();
       }
+    } else if (d.kind === 'vtt') {
+      const cb = pageFetchPending.get(d.id);
+      if (cb) cb(d);
     }
   });
 
@@ -115,14 +118,48 @@
     return cands.slice().sort((a, b) => score(b) - score(a))[0];
   }
 
+  // Two ways to fetch a subtitle file:
+  //   1. the background worker (host_permissions, no page CORS) — preferred;
+  //   2. failing that, the page hook fetches it in Netflix's own origin.
+  // Whichever returns text first wins.
+  let fetchSeq = 0;
+  const pageFetchPending = new Map(); // id -> resolver
+
+  function bgFetch(url) {
+    return new Promise((resolve) => {
+      let settled = false;
+      try {
+        api.runtime.sendMessage({ type: 'subnf-fetch', url }, (resp) => {
+          if (settled) return; settled = true;
+          if (api.runtime.lastError || !resp || !resp.ok) resolve(null);
+          else resolve(resp.text);
+        });
+      } catch (_) { resolve(null); }
+    });
+  }
+
+  function pageFetch(url) {
+    return new Promise((resolve) => {
+      const id = 'f' + (++fetchSeq);
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return; done = true; pageFetchPending.delete(id); resolve('');
+      }, 15000);
+      pageFetchPending.set(id, (msg) => {
+        if (done) return; done = true; clearTimeout(timer); pageFetchPending.delete(id);
+        resolve(msg && msg.ok ? msg.text : '');
+      });
+      window.postMessage({ __subnf: true, dir: 'content', kind: 'fetch', id, url }, '*');
+    });
+  }
+
   function fetchVtt(url) {
     if (vttCache.has(url)) return vttCache.get(url);
-    const p = new Promise((resolve) => {
-      api.runtime.sendMessage({ type: 'subnf-fetch', url }, (resp) => {
-        if (api.runtime.lastError || !resp || !resp.ok) { resolve([]); return; }
-        resolve(parseVTT(resp.text));
-      });
-    });
+    const p = (async () => {
+      let text = await bgFetch(url);
+      if (text == null) text = await pageFetch(url); // fallback in page context
+      return parseVTT(text || '');
+    })();
     vttCache.set(url, p);
     return p;
   }

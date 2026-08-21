@@ -100,13 +100,7 @@
     return val;
   };
 
-  // Best-effort: answer "which movie is actually on screen right now?" by
-  // asking Netflix's player registry. Falls back to null; the content script
-  // then uses the /watch/<id> URL or the most recently seen manifest.
-  window.addEventListener('message', (e) => {
-    const d = e.data;
-    if (!d || d.__subnf !== true || d.dir !== 'content' || d.kind !== 'whichMovie') return;
-    let id = null;
+  function currentMovieId() {
     try {
       const app = window.netflix
         && window.netflix.appContext
@@ -118,9 +112,31 @@
         const ids = vp.getAllPlayerSessionIds() || [];
         const sid = ids.find((s) => /watch|main/i.test(String(s))) || ids[0];
         const player = sid && vp.getVideoPlayerBySessionId(sid);
-        if (player && player.getMovieId) id = String(player.getMovieId());
+        if (player && player.getMovieId) return String(player.getMovieId());
       }
     } catch (_) { /* ignore */ }
-    window.postMessage({ __subnf: true, dir: 'page', kind: 'movieId', movieId: id }, '*');
+    return null;
+  }
+
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.__subnf !== true || d.dir !== 'content') return;
+
+    // Best-effort: which movie is actually on screen right now?
+    if (d.kind === 'whichMovie') {
+      window.postMessage({ __subnf: true, dir: 'page', kind: 'movieId', movieId: currentMovieId() }, '*');
+      return;
+    }
+
+    // Fallback subtitle fetch, done in the page's own origin/network context.
+    // The content script prefers the background worker for this; it only asks
+    // us if that route fails (e.g. a CORS quirk on the caption CDN).
+    if (d.kind === 'fetch' && typeof d.url === 'string') {
+      fetch(d.url, { credentials: 'omit' })
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
+        .then((text) => window.postMessage({ __subnf: true, dir: 'page', kind: 'vtt', id: d.id, ok: true, text }, '*'))
+        .catch((err) => window.postMessage({ __subnf: true, dir: 'page', kind: 'vtt', id: d.id, ok: false, error: String(err && err.message || err) }, '*'));
+      return;
+    }
   });
 })();
