@@ -17,6 +17,11 @@
   pointer-events: none !important;
   box-sizing: border-box !important;
   text-align: center !important;
+  direction: ltr !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 #subnf-overlay .subnf-line {

@@ -1,22 +1,31 @@
 // sub-NF — page-world hook (runs in Netflix's own JS context).
 //
-// Netflix asks its player-config service for a "manifest" that, among other
-// things, lists every timed-text (subtitle / CC) track for a title together
-// with signed download URLs for each format. The web player parses that
-// manifest with JSON.parse. We wrap JSON.parse, watch for anything shaped like
-// a manifest, and forward just the subtitle track list (language + label +
-// WebVTT download URL) to the content script via window.postMessage.
+// Job: get the list of subtitle tracks Netflix has for the title playing now,
+// each with a WebVTT download URL. We never touch video, audio, or DRM — only
+// the caption metadata Netflix already ships to the browser to draw subtitles.
 //
-// We do NOT touch video, audio, DRM, or licences — only the subtitle track
-// metadata Netflix already ships to the browser to render captions.
+// There is no single reliable way to get that list, so we try FOUR, and take
+// whichever answers first:
 //
-// The pure parts (pickUrl, tracksFromManifest) are exported under Node for
-// unit tests; the JSON.parse hook only installs inside a real page.
+//   1. netflix.appContext ... getTimedTextTrackList()  — the player's own API.
+//      Works no matter where the manifest was parsed (including a Worker),
+//      which is why it is tried first and polled on demand.
+//   2. JSON.parse hook — Netflix parses its player manifest through it.
+//   3. Response.prototype.json / .text hooks — catches a manifest that is
+//      read straight off a fetch() without going through JSON.parse.
+//   4. XMLHttpRequest load hook — same, for the XHR path.
+//
+// Paths 2-4 only see main-thread parsing. Path 1 is the insurance policy: if
+// Netflix decrypts and parses the manifest inside a Web Worker, no main-thread
+// hook can see it, but the player object still knows its own track list.
+//
+// The pure parts are exported under Node for unit tests; the hooks only
+// install inside a real page.
 (() => {
   'use strict';
-  const isBrowser = (typeof window !== 'undefined');
+  const isBrowser = (typeof window !== 'undefined' && typeof document !== 'undefined');
 
-  // Only WebVTT is worth grabbing: it is plain text and trivial to parse.
+  // Only WebVTT is worth taking: plain text, trivial to parse.
   const FORMATS = ['webvtt-lssdh-ios8', 'webvtt'];
 
   function pickUrl(downloadable) {
@@ -37,15 +46,15 @@
     return null;
   }
 
-  // Pure: given a Netflix manifest "result", return normalised subtitle tracks.
-  function tracksFromManifest(result) {
-    const movieId = result && result.movieId;
-    const list = result && result.timedtexttracks;
-    if (!movieId || !Array.isArray(list)) return [];
+  // Pure: normalise a list of Netflix timed-text track objects.
+  // Handles both shapes we see: manifest tracks (language /
+  // languageDescription) and player-API tracks (bcp47 / displayName).
+  function normaliseTracks(list) {
     const tracks = [];
+    if (!Array.isArray(list)) return tracks;
     for (const t of list) {
       if (!t || t.isNoneTrack) continue;
-      const dls = t.ttDownloadables || {};
+      const dls = t.ttDownloadables || t.downloadables || {};
       let url = null, fmt = null;
       for (const f of FORMATS) {
         if (dls[f]) {
@@ -54,11 +63,12 @@
         }
       }
       if (!url) continue;
+      const language = t.language || t.bcp47 || 'und';
       const type = t.rawTrackType || t.trackType || 'subtitles';
       tracks.push({
-        id: String(t.new_track_id || t.track_id || (t.language + ':' + type)),
-        language: t.language || 'und',
-        label: t.languageDescription || t.language || 'Unknown',
+        id: String(t.new_track_id || t.trackId || t.track_id || (language + ':' + type)),
+        language,
+        label: t.languageDescription || t.displayName || language,
         type,
         cc: type === 'closedcaptions' || t.rawTrackType === 'closedcaptions',
         forced: !!t.isForcedNarrative,
@@ -69,68 +79,175 @@
     return tracks;
   }
 
+  // Pure: given a Netflix manifest "result", return its subtitle tracks.
+  function tracksFromManifest(result) {
+    if (!result || !result.movieId || !Array.isArray(result.timedtexttracks)) return [];
+    return normaliseTracks(result.timedtexttracks);
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { pickUrl, tracksFromManifest };
+    module.exports = { pickUrl, normaliseTracks, tracksFromManifest };
   }
   if (!isBrowser) return; // under Node (tests) we stop here
 
-  if (window.__subnfInjected) return;
-  window.__subnfInjected = true;
+  if (window.__subnfInjected) return;   // MAIN-world content script and the
+  window.__subnfInjected = true;        // injected <script> both land here
 
-  function emit(result) {
-    const movieId = result && result.movieId;
-    const tracks = tracksFromManifest(result);
-    if (tracks.length) {
-      window.postMessage(
-        { __subnf: true, dir: 'page', kind: 'tracks', movieId: String(movieId), tracks },
-        '*'
-      );
-    }
+  const seen = new Set();               // movieId:trackCount, to avoid spam
+  const diag = { manifest: 0, playerApi: 0, json: 0, response: 0, xhr: 0 };
+
+  function send(movieId, tracks, source) {
+    if (!tracks || !tracks.length) return false;
+    const key = String(movieId) + ':' + tracks.length + ':' + source;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    window.postMessage({
+      __subnf: true, dir: 'page', kind: 'tracks',
+      movieId: String(movieId), tracks, source,
+    }, '*');
+    return true;
   }
 
-  const _parse = JSON.parse;
-  JSON.parse = function () {
-    const val = _parse.apply(this, arguments);
-    try {
-      if (val && typeof val === 'object') {
-        if (val.result && val.result.timedtexttracks) emit(val.result);
-        else if (val.timedtexttracks && val.movieId) emit(val);
-      }
-    } catch (_) { /* never let our hook break the site */ }
-    return val;
-  };
-
-  function currentMovieId() {
+  // ---------- path 1: the player's own API ----------
+  function videoPlayerApi() {
     try {
       const app = window.netflix
         && window.netflix.appContext
         && window.netflix.appContext.state
         && window.netflix.appContext.state.playerApp;
       const nfApi = app && app.getAPI && app.getAPI();
-      const vp = nfApi && nfApi.videoPlayer;
-      if (vp && vp.getAllPlayerSessionIds && vp.getVideoPlayerBySessionId) {
-        const ids = vp.getAllPlayerSessionIds() || [];
-        const sid = ids.find((s) => /watch|main/i.test(String(s))) || ids[0];
-        const player = sid && vp.getVideoPlayerBySessionId(sid);
-        if (player && player.getMovieId) return String(player.getMovieId());
-      }
-    } catch (_) { /* ignore */ }
-    return null;
+      return (nfApi && nfApi.videoPlayer) || null;
+    } catch (_) { return null; }
   }
 
+  function eachPlayer(fn) {
+    const vp = videoPlayerApi();
+    if (!vp || !vp.getAllPlayerSessionIds || !vp.getVideoPlayerBySessionId) return;
+    let ids = [];
+    try { ids = vp.getAllPlayerSessionIds() || []; } catch (_) { return; }
+    for (const sid of ids) {
+      let p = null;
+      try { p = vp.getVideoPlayerBySessionId(sid); } catch (_) { continue; }
+      if (p) fn(p, sid);
+    }
+  }
+
+  function currentMovieId() {
+    let id = null;
+    eachPlayer((p) => {
+      if (id) return;
+      try { if (p.getMovieId) id = String(p.getMovieId()); } catch (_) {}
+    });
+    return id;
+  }
+
+  function harvestFromPlayerApi() {
+    let found = false;
+    eachPlayer((p) => {
+      let list = null;
+      try {
+        list = (p.getTimedTextTrackList && p.getTimedTextTrackList())
+          || (p.getTimedTextTracks && p.getTimedTextTracks())
+          || null;
+      } catch (_) { return; }
+      const tracks = normaliseTracks(list);
+      if (!tracks.length) return;
+      let mid = null;
+      try { mid = p.getMovieId ? String(p.getMovieId()) : null; } catch (_) {}
+      if (!mid) return;
+      diag.playerApi = tracks.length;
+      if (send(mid, tracks, 'playerApi')) found = true;
+    });
+    return found;
+  }
+
+  // ---------- paths 2-4: watch anything that looks like a manifest ----------
+  function scan(value, source) {
+    if (!value || typeof value !== 'object') return;
+    let result = null;
+    if (value.result && value.result.timedtexttracks) result = value.result;
+    else if (value.timedtexttracks && value.movieId) result = value;
+    if (!result) return;
+    const tracks = tracksFromManifest(result);
+    if (!tracks.length) return;
+    diag.manifest++;
+    diag[source] = (diag[source] || 0) + 1;
+    send(result.movieId, tracks, source);
+  }
+
+  const _parse = JSON.parse;
+  JSON.parse = function () {
+    const val = _parse.apply(this, arguments);
+    try { scan(val, 'json'); } catch (_) { /* never break the site */ }
+    return val;
+  };
+
+  try {
+    const RP = window.Response && window.Response.prototype;
+    if (RP && RP.json) {
+      const _json = RP.json;
+      RP.json = function () {
+        return _json.apply(this, arguments).then((v) => {
+          try { scan(v, 'response'); } catch (_) {}
+          return v;
+        });
+      };
+    }
+    if (RP && RP.text) {
+      const _text = RP.text;
+      RP.text = function () {
+        return _text.apply(this, arguments).then((s) => {
+          try {
+            if (typeof s === 'string' && s.indexOf('timedtexttracks') !== -1) {
+              scan(_parse(s), 'response');
+            }
+          } catch (_) {}
+          return s;
+        });
+      };
+    }
+  } catch (_) { /* ignore */ }
+
+  try {
+    const XP = window.XMLHttpRequest && window.XMLHttpRequest.prototype;
+    if (XP && XP.send) {
+      const _send = XP.send;
+      XP.send = function () {
+        this.addEventListener('load', () => {
+          try {
+            const t = this.responseType;
+            if (t === 'json') { scan(this.response, 'xhr'); return; }
+            if (t && t !== 'text') return;
+            const s = this.responseText;
+            if (typeof s === 'string' && s.indexOf('timedtexttracks') !== -1) {
+              scan(_parse(s), 'xhr');
+            }
+          } catch (_) {}
+        });
+        return _send.apply(this, arguments);
+      };
+    }
+  } catch (_) { /* ignore */ }
+
+  // ---------- requests from the content script ----------
   window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || d.__subnf !== true || d.dir !== 'content') return;
 
-    // Best-effort: which movie is actually on screen right now?
-    if (d.kind === 'whichMovie') {
-      window.postMessage({ __subnf: true, dir: 'page', kind: 'movieId', movieId: currentMovieId() }, '*');
+    // "which movie is on screen, and do you have tracks for it?"
+    if (d.kind === 'poll') {
+      harvestFromPlayerApi();
+      window.postMessage({
+        __subnf: true, dir: 'page', kind: 'status',
+        movieId: currentMovieId(),
+        hasPlayerApi: !!videoPlayerApi(),
+        diag,
+      }, '*');
       return;
     }
 
-    // Fallback subtitle fetch, done in the page's own origin/network context.
-    // The content script prefers the background worker for this; it only asks
-    // us if that route fails (e.g. a CORS quirk on the caption CDN).
+    // Fetch a subtitle file in Netflix's own origin. The content script tries
+    // the background worker first and only asks us if that route failed.
     if (d.kind === 'fetch' && typeof d.url === 'string') {
       fetch(d.url, { credentials: 'omit' })
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))

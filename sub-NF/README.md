@@ -42,12 +42,15 @@ are copies). Only the packaging differs: Chrome loads a folder directly; Safari
 and iOS must be wrapped in a signed app with Xcode.
 
 How it works, in one paragraph: Netflix already downloads subtitle tracks to the
-browser to draw captions. A page-world hook wraps `JSON.parse` and catches
-Netflix's player *manifest*, which lists every subtitle track and its WebVTT
-download URL. The extension fetches the two languages you chose, parses the
-WebVTT, and renders a two-line overlay synced to the video clock. It never
-touches the video, audio, or DRM, and it stores/redistributes nothing. Details
-and the failure modes are in [`Chrome/README.md`](./Chrome/README.md).
+browser to draw captions. A page-world hook gets that track list — via Netflix's
+own player API, or by watching `JSON.parse` / `fetch` / `XHR` for the player
+manifest — then the extension fetches the two languages you chose, parses the
+WebVTT, and renders a two-line overlay synced to the video clock. Either line
+can instead be set to **Netflix 目前顯示的字幕**, which reads Netflix's own
+rendered caption straight out of the page and so needs no track list at all.
+It never touches the video, audio, or DRM, and it stores/redistributes nothing.
+Details, the diagnostics panel, and the failure modes are in
+[`Chrome/README.md`](./Chrome/README.md).
 
 ## Quick start (Chrome)
 

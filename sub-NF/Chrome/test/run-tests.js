@@ -1,8 +1,8 @@
 // Node unit tests for the pure logic in src/vtt.js and src/inject.js.
 // Run: node test/run-tests.js
 const assert = require('assert');
-const { parseVTT, textAt, parseTime, stripTags } = require('../src/vtt.js');
-const { pickUrl, tracksFromManifest } = require('../src/inject.js');
+const { parseVTT, textAt, parseTime, stripTags, textFromNode, cleanNative } = require('../src/vtt.js');
+const { pickUrl, tracksFromManifest, normaliseTracks } = require('../src/inject.js');
 
 let pass = 0;
 function t(name, fn) {
@@ -107,5 +107,57 @@ t('tracksFromManifest english url', () => assert.strictEqual(mt[0].url, 'https:/
 t('tracksFromManifest cc flag', () => assert.strictEqual(mt[1].cc, true));
 t('tracksFromManifest label preserved', () => assert.strictEqual(mt[1].label, '中文（繁體）'));
 t('tracksFromManifest bad input -> []', () => assert.deepStrictEqual(tracksFromManifest({}), []));
+
+// ---- normaliseTracks against the player-API track shape ----
+// getTimedTextTrackList() returns bcp47/displayName rather than
+// language/languageDescription, so the normaliser must accept both.
+const PLAYER_API_TRACKS = [
+  { isNoneTrack: true },
+  {
+    trackId: 'T:2:en', bcp47: 'en', displayName: 'English', trackType: 'PRIMARY',
+    ttDownloadables: { 'webvtt-lssdh-ios8': { urls: [{ url: 'https://cdn.nflxvideo.net/api-en.vtt' }] } },
+  },
+  {
+    trackId: 'T:3:zh', bcp47: 'zh-Hant', displayName: '中文（繁體）', trackType: 'PRIMARY',
+    downloadables: { webvtt: { urls: [{ url: 'https://cdn.nflxvideo.net/api-zh.vtt' }] } },
+  },
+];
+const pat = normaliseTracks(PLAYER_API_TRACKS);
+t('normaliseTracks reads player-API shape', () => assert.strictEqual(pat.length, 2));
+t('normaliseTracks maps bcp47 -> language', () => assert.strictEqual(pat[0].language, 'en'));
+t('normaliseTracks maps displayName -> label', () => assert.strictEqual(pat[1].label, '中文（繁體）'));
+t('normaliseTracks accepts downloadables key', () => assert.strictEqual(pat[1].url, 'https://cdn.nflxvideo.net/api-zh.vtt'));
+t('normaliseTracks non-array -> []', () => assert.deepStrictEqual(normaliseTracks(null), []));
+
+// ---- reading Netflix's own rendered caption out of the DOM ----
+// Fake node tree mirroring real markup from a live Netflix player. Note the
+// <br> sits INSIDE the second span, so textContent would glue the two lines
+// together — textFromNode must turn it into a newline.
+const text = (s) => ({ nodeType: 3, nodeValue: s });
+const elem = (tag, kids) => ({ nodeType: 1, tagName: tag, childNodes: kids || [] });
+
+// <div><span><span>-而你是？</span><span><br>-現在 你唯一的選擇</span></span></div>
+const ZH_BOX = elem('DIV', [
+  elem('SPAN', [
+    elem('SPAN', [text('-而你是？')]),
+    elem('SPAN', [elem('BR'), text('-現在 你唯一的選擇')]),
+  ]),
+]);
+t('textFromNode turns a nested <br> into a newline', () =>
+  assert.strictEqual(textFromNode(ZH_BOX), '-而你是？\n-現在 你唯一的選擇'));
+t('cleanNative keeps both caption lines', () =>
+  assert.strictEqual(cleanNative(textFromNode(ZH_BOX)), '-而你是？\n-現在 你唯一的選擇'));
+
+// <div><span><span>who are trying to kill you.</span></span></div>
+const EN_BOX = elem('DIV', [
+  elem('SPAN', [elem('SPAN', [text('who are trying to kill you.')])]),
+]);
+t('textFromNode reads a single-line caption', () =>
+  assert.strictEqual(cleanNative(textFromNode(EN_BOX)), 'who are trying to kill you.'));
+
+t('cleanNative collapses runs of whitespace', () =>
+  assert.strictEqual(cleanNative('  a   b  \n\n   c '), 'a b\nc'));
+t('cleanNative on empty -> empty', () => assert.strictEqual(cleanNative(''), ''));
+t('textFromNode on null -> empty', () => assert.strictEqual(textFromNode(null), ''));
 
 console.log(`\n${pass} passed` + (process.exitCode ? ', with failures' : ''));

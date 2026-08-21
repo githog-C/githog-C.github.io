@@ -4,8 +4,10 @@
   'use strict';
   const api = globalThis.browser ?? globalThis.chrome;
 
+  const NATIVE = '__native__';
+
   const DEFAULTS = {
-    enabled: true, primaryLang: 'en', secondaryLang: 'zh-Hant',
+    enabled: true, primaryLang: NATIVE, secondaryLang: 'en',
     hideNative: true, preferCC: false, fontScale: 1.0, bottomVh: 12, gap: 4,
     primaryOffsetMs: 0, secondaryOffsetMs: 0, swapOrder: false,
   };
@@ -29,18 +31,17 @@
   let tabId = null;
   let onNetflix = false;
 
-  function q(sel) { return document.querySelector(sel); }
-
   function fillSelect(select, langs, value) {
     const map = new Map();
+    // The always-available source: whatever Netflix itself is drawing.
+    map.set(NATIVE, 'Netflix 目前顯示的字幕');
     for (const l of langs) map.set(l.code, l.label);
-    // guarantee the current value is present
     if (value && !map.has(value)) map.set(value, value);
     select.innerHTML = '';
     for (const [code, label] of map) {
       const opt = document.createElement('option');
       opt.value = code;
-      opt.textContent = `${label} — ${code}`;
+      opt.textContent = code === NATIVE ? label : `${label} — ${code}`;
       if (code === value) opt.selected = true;
       select.appendChild(opt);
     }
@@ -111,26 +112,63 @@
     }
   }
 
+  function row(k, v, cls) {
+    const li = document.createElement('li');
+    const ke = document.createElement('span');
+    ke.className = 'k'; ke.textContent = k + ':';
+    const ve = document.createElement('span');
+    ve.className = 'v' + (cls ? ' ' + cls : ''); ve.textContent = String(v);
+    li.appendChild(ke); li.appendChild(ve);
+    return li;
+  }
+
+  function renderDiag(state) {
+    const list = el('diagList');
+    list.innerHTML = '';
+    if (!state) { list.appendChild(row('狀態', '沒有連上 Netflix 分頁', 'bad')); return; }
+    const d = state.diag || {};
+    const yn = (b) => (b ? '是' : '否');
+    const cls = (b) => (b ? 'good' : 'bad');
+    list.appendChild(row('播放頁', yn(state.onWatch), cls(state.onWatch)));
+    list.appendChild(row('頁面掛鉤有回應', yn(d.pageHook), cls(d.pageHook)));
+    list.appendChild(row('Netflix 播放器 API', yn(d.hasPlayerApi), cls(d.hasPlayerApi)));
+    list.appendChild(row('抓到字幕軌', d.trackCount || 0, cls((d.trackCount || 0) > 0)));
+    list.appendChild(row('來源', d.lastSource || '（無）', cls(!!d.lastSource)));
+    if (d.pageDiag) {
+      const p = d.pageDiag;
+      list.appendChild(row('各路徑', `api=${p.playerApi || 0} json=${p.json || 0} resp=${p.response || 0} xhr=${p.xhr || 0}`));
+    }
+    list.appendChild(row('原生字幕可讀', yn(state.nativeVisible), cls(state.nativeVisible)));
+    list.appendChild(row('下載成功 / 失敗', `${d.fetchOk || 0} / ${d.fetchFail || 0}`, cls((d.fetchOk || 0) > 0 || (d.fetchFail || 0) === 0)));
+    if (d.lastError) list.appendChild(row('最後錯誤', d.lastError, 'bad'));
+  }
+
   function applyState(state) {
     const langs = languagesFromState(state);
     fillSelect(el('primaryLang'), langs, settings.primaryLang);
     fillSelect(el('secondaryLang'), langs, settings.secondaryLang);
     reflect();
+    renderDiag(onNetflix ? state : null);
 
     if (!onNetflix) {
       setStatus('打開 netflix.com 的播放頁即可套用。', 'warn');
       hintEl.textContent = '目前設定已儲存，下次在 Netflix 播放時自動生效。';
       return;
     }
-    if (state && state.hasCatalogue) {
-      const p = state.resolved && state.resolved.primary;
-      const s = state.resolved && state.resolved.secondary;
-      if (p && s) setStatus('雙語字幕已就緒。', 'ok');
-      else setStatus('已載入語言清單，但所選語言此片可能沒有。', 'warn');
-      hintEl.textContent = '語言清單來自本片實際可用的字幕軌。';
+    const p = state && state.resolved && state.resolved.primary;
+    const s = state && state.resolved && state.resolved.secondary;
+    if (p && s) {
+      setStatus('雙語字幕已就緒。', 'ok');
+      hintEl.textContent = '「Netflix 目前顯示的字幕」那一行，語言由 Netflix 自己的字幕選單決定。';
+    } else if (state && state.hasCatalogue) {
+      setStatus('已載入語言清單，但所選語言此片可能沒有。', 'warn');
+      hintEl.textContent = '換一個語言，或把其中一行設成「Netflix 目前顯示的字幕」。';
+    } else if (state && state.onWatch) {
+      setStatus('尚未取得字幕軌，請先播放幾秒。', 'warn');
+      hintEl.textContent = '若一直抓不到，把其中一行設成「Netflix 目前顯示的字幕」仍可運作，並展開下方診斷。';
     } else {
-      setStatus('請先在此頁開始播放，讓字幕軌載入。', 'warn');
-      hintEl.textContent = '按下播放後幾秒，語言清單就會出現。';
+      setStatus('請打開一部片的播放頁。', 'warn');
+      hintEl.textContent = '';
     }
   }
 
@@ -151,7 +189,6 @@
     });
   }
 
-  // Content script may broadcast fresh state when a title's tracks load.
   api.runtime.onMessage.addListener((msg) => {
     if (msg && msg.type === 'subnf-state') {
       if (msg.settings) settings = { ...DEFAULTS, ...msg.settings };
@@ -160,12 +197,13 @@
   });
 
   function boot() {
-    api.storage && api.storage.local && api.storage.local.get('subnf', (res) => {
-      if (res && res.subnf) settings = { ...DEFAULTS, ...res.subnf };
-      bind();
-      reflect();
-      loadFromTab();
-    });
+    const start = () => { bind(); reflect(); loadFromTab(); };
+    if (api.storage && api.storage.local) {
+      api.storage.local.get('subnf', (res) => {
+        if (res && res.subnf) settings = { ...DEFAULTS, ...res.subnf };
+        start();
+      });
+    } else start();
   }
   boot();
 })();

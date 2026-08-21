@@ -76,7 +76,38 @@
     return out.join('\n');
   }
 
-  const exp = { parseVTT, textAt, parseTime, stripTags };
+  // Read the text out of one of Netflix's own rendered caption nodes.
+  // Netflix puts each caption line in a nested <span>, and a line break is a
+  // <br> *inside* the following span, so textContent alone glues the lines
+  // together. Walk the tree instead and turn <br> into a newline.
+  // Pure: only uses nodeType / nodeValue / tagName / childNodes, so it can be
+  // tested with a plain object tree under Node.
+  function textFromNode(node) {
+    if (!node) return '';
+    let s = '';
+    const kids = node.childNodes || [];
+    for (let i = 0; i < kids.length; i++) {
+      const n = kids[i];
+      if (!n) continue;
+      if (n.nodeType === 3) s += (n.nodeValue || '');
+      else if (n.nodeType === 1) {
+        s += (String(n.tagName).toUpperCase() === 'BR') ? '\n' : textFromNode(n);
+      }
+    }
+    return s;
+  }
+
+  // Tidy the result of textFromNode into displayable caption text.
+  function cleanNative(s) {
+    return String(s || '')
+      .replace(/ /g, ' ')
+      .split('\n')
+      .map((l) => l.replace(/\s+/g, ' ').trim())
+      .filter((l) => l.length)
+      .join('\n');
+  }
+
+  const exp = { parseVTT, textAt, parseTime, stripTags, textFromNode, cleanNative };
   root.SubNFVTT = exp;
   if (typeof module !== 'undefined' && module.exports) module.exports = exp;
 })();
