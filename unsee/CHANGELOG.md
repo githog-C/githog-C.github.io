@@ -1,5 +1,22 @@
 # unsee — changelog
 
+## 1.0.3 — 2026-08-25
+
+**1.0.2 would not load.** Chrome rejected the manifest with nothing but
+`Invalid value for 'web_accessible_resources[0]'. Invalid match pattern.`
+
+The `matches` under `web_accessible_resources` were copied from the content-script
+matches, which restrict the path to `/search*`. Those keys do not take the same
+patterns: web-accessible-resource patterns are host-level and the path must be
+exactly `/*`. Fixed by deriving them from the content-script list with the path
+replaced.
+
+Added `test/check-manifest.js`, which would have caught it before the browser did:
+it validates every match pattern in the manifest against both rules — wildcards only
+as the leftmost label, `/*` paths for web-accessible resources — and checks that
+every file the manifest names is actually present. Verified against a deliberately
+broken manifest: it reports all four planted faults and exits non-zero.
+
 ## 1.0.2 — 2026-08-25
 
 **The button was invisible.** 1.0.1 placed it correctly and then rendered it to

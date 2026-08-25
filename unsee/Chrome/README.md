@@ -21,8 +21,18 @@ Works the same in Edge, Brave and any other Chromium browser.
 | DuckDuckGo | `duckduckgo.com`, plus the `html.` and `lite.` front ends |
 
 To add another Google country domain, add one line to `matches` in `manifest.json`.
-Match patterns may not put a wildcard mid-host, so `www.google.*` is not valid —
-each domain needs its own entry.
+
+Two match-pattern traps, both of which cost a load failure with only
+"Invalid match pattern" to go on:
+
+- A wildcard may only be the **leftmost label**. `www.google.*` is invalid, so each
+  country domain needs its own entry.
+- `web_accessible_resources` patterns are **host-level**: the path must be exactly
+  `/*`. Reusing a content-script pattern like `*://*.google.com/search*` there
+  rejects the whole manifest.
+
+`node test/check-manifest.js` checks both, plus that every file the manifest names
+actually exists.
 
 ## The default list: `blocklist.txt`
 
@@ -139,11 +149,13 @@ browsers and nothing else sees it.
 | `src/styles.css` | The only CSS injected into the page |
 | `popup/` | The rule list UI |
 | `test/run-tests.js` | 60 assertions over `matcher.js` |
+| `test/check-manifest.js` | Manifest lint: match patterns and file references |
 
 ## Tests
 
 ```
-node test/run-tests.js
+node test/run-tests.js      # 60 assertions over matcher.js
+node test/check-manifest.js # match patterns and file references
 ```
 
 No dependencies, no network, no browser. The DOM strategy was separately checked

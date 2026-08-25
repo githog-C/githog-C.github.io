@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "unsee — hide sites from search results",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Hide chosen sites from your own Google, Bing and DuckDuckGo results. Local only: no account, no server, no tracking.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -51,11 +51,11 @@
         "blocklist.txt"
       ],
       "matches": [
-        "*://*.google.com/search*",
-        "*://*.google.com.tw/search*",
-        "*://*.google.co.jp/search*",
-        "*://*.google.co.uk/search*",
-        "*://*.bing.com/search*",
+        "*://*.bing.com/*",
+        "*://*.google.co.jp/*",
+        "*://*.google.co.uk/*",
+        "*://*.google.com.tw/*",
+        "*://*.google.com/*",
         "*://duckduckgo.com/*",
         "*://html.duckduckgo.com/*",
         "*://lite.duckduckgo.com/*"
