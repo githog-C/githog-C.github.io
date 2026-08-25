@@ -30,8 +30,9 @@
   .demo .host { color:var(--muted); font-size:12.5px; }
   .demo .title { color:#9db8ff; }
   .demo .gone { color:var(--muted); opacity:.45; text-decoration:line-through; }
-  .demo .btn { color:var(--muted); font-size:12px; border:1px solid var(--line);
-               border-radius:999px; padding:1px 8px; margin-left:8px; white-space:nowrap; }
+  .demo .ctl { display:inline-flex; align-items:center; gap:2px; margin-left:8px; vertical-align:middle; color:var(--muted); }
+  .demo .ctl svg { display:block; }
+  .demo .mark { opacity:.85; }
   .demo .bar { display:inline-block; color:var(--muted); font-size:12.5px;
                border:1px solid var(--line); border-radius:999px; padding:3px 12px; margin-top:6px; }
 
@@ -66,7 +67,7 @@
 
   <div class="demo">
     <div class="row">
-      <div class="host">example-blog.test<span class="btn">不看 example-blog.test</span></div>
+      <div class="host">example-blog.test<span class="ctl" title="Google 的三點選單，右邊是 unsee"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg><svg class="mark" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><line x1="4.5" y1="19.5" x2="19.5" y2="4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line></svg></span></div>
       <div class="title">手沖咖啡的水溫到底該幾度</div>
     </div>
     <div class="row">
@@ -74,7 +75,7 @@
       <div class="title gone">（已隱藏）</div>
     </div>
     <div class="row">
-      <div class="host">another-site.test<span class="btn">不看 another-site.test</span></div>
+      <div class="host">another-site.test<span class="ctl"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg><svg class="mark" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle><line x1="4.5" y1="19.5" x2="19.5" y2="4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line></svg></span></div>
       <div class="title">濾杯選擇指南</div>
     </div>
     <span class="bar">unsee 隱藏了 1 筆結果　顯示</span>
@@ -97,9 +98,9 @@
   <ol>
     <li><code>chrome://extensions</code> → 開啟「開發人員模式」→「載入未封裝項目」→ 選 <a href="./Chrome/">Chrome/</a> 資料夾</li>
     <li>去 Google 搜尋任何東西</li>
-    <li>每一筆結果旁邊會多一個小小的「<strong>不看 &lt;網域&gt;</strong>」，按下去就沒了——這次沒了，以後也沒了</li>
+    <li>每一筆結果會在 Google 自己那顆三點選單的<strong>右邊</strong>多一個小小的 unsee 圖示，按下去就沒了——這次沒了，以後也沒了</li>
   </ol>
-  <p class="muted">點擴充功能圖示可以打開清單，手動增刪。</p>
+  <p class="muted">點擴充功能圖示可以打開清單，手動增刪。清單裡的「啟用」是整個功能的總開關：不打勾就完全不作用——不隱藏任何東西，也不會在結果頁上留下任何按鈕。</p>
 
   <h2>規則怎麼寫</h2>
   <p>就照你平常唸出來的樣子寫：<code>threads.com</code>。</p>
@@ -131,6 +132,7 @@
     <tr><td>Google</td><td><code>google.com/url?q=…</code></td><td><code>q</code> 參數</td></tr>
     <tr><td>Bing</td><td><code>bing.com/ck/a?…&amp;u=a1&lt;base64url&gt;</code></td><td><code>u</code> 參數，base64url 解碼後</td></tr>
   </table>
+  <p class="muted">那顆按鈕的位置也是量出來的，不是猜的：Google 把自己的三點選單放在一個 28px 固定寬的欄位裡，外層是同時裝著網址列的 flex 列。按鈕就插在那一欄<strong>後面</strong>成為同層的 flex 子元素，落在三點右邊、間距 2px，底下不壓任何東西。三點本身是靠 <strong>SVG 路徑資料</strong>認出來的，不靠 class（會換）也不靠 <code>aria-label</code>（會隨介面語言翻譯）。另外那個 flex 列<strong>高度是 0</strong>、三點欄是溢出顯示的，所以按鈕必須對齊 <code>flex-start</code>；對齊 center 會往上跑 9px——那正是第一版踩到的坑。</p>
   <p class="muted">隱藏用的是 <code>display:none</code>，節點不會從 DOM 移除，頁面自己的版面與腳本不受干擾，要放回來也只是翻一個屬性。而且隱藏了幾筆會明白寫在上面，可以隨時展開——不會有東西無聲消失。</p>
 
   <h2>隱私</h2>

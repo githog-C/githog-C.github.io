@@ -15,26 +15,51 @@
   if (!M) return;
 
   const HIDDEN_ATTR = 'data-unsee-hidden';
-  const TAGGED_ATTR = 'data-unsee-tagged';
+  const MOUNTED_ATTR = 'data-unsee-mounted';
+  const BTN_CLASS = 'unsee-hide-btn';
+
+  /* Google's "about this result" kebab menu, identified by its path data so the
+     lookup survives class renames and works in any interface language. */
+  const KEBAB_PATH = /^M12 8c1\.1 0 2-\.9 2-2/;
+
+  /**
+   * Where to put our button on a Google result: as the flex sibling immediately
+   * after the column holding the kebab, so it lands to its right and overlaps
+   * nothing. That row is zero-height and the kebab column overflows it, which is
+   * why the button aligns to flex-start rather than centre.
+   */
+  function googleAnchor(block) {
+    for (const svg of block.querySelectorAll('svg')) {
+      const path = svg.querySelector('path');
+      if (!path || !KEBAB_PATH.test(path.getAttribute('d') || '')) continue;
+      let column = svg.closest('div[role="button"]');
+      if (!column) continue;
+      for (let i = 0; i < 4 && column; i++) column = column.parentElement;
+      if (!column || !column.parentElement) continue;
+      if (getComputedStyle(column.parentElement).display !== 'flex') continue;
+      return column;
+    }
+    return null;
+  }
 
   const ENGINES = [
     {
       id: 'google',
       test: (h) => /^(www\.)?google(\.[a-z]{2,3}){1,2}$/.test(h),
       roots: ['#rso', '#botstuff', '#search'],
-      hostLine: '.byrV5b, cite, .tjvcx',
+      anchor: googleAnchor,
     },
     {
       id: 'bing',
       test: (h) => /^(www\.)?bing\.com$/.test(h),
       roots: ['#b_results'],
-      hostLine: 'cite, .b_attribution',
+      anchor: null,
     },
     {
       id: 'duckduckgo',
       test: (h) => /^(html\.|lite\.)?duckduckgo\.com$/.test(h),
       roots: ['ol.react-results--main', '#links', '.results'],
-      hostLine: '[data-testid="result-extras-url-link"], .result__url',
+      anchor: null,
     },
   ];
 
@@ -49,8 +74,8 @@
   /* ---------- hiding ---------- */
 
   /** The result block containing this link: the ancestor that is a child of root. */
-  function blockFor(anchor, root) {
-    let node = anchor;
+  function blockFor(link, root) {
+    let node = link;
     while (node && node.parentElement && node.parentElement !== root) {
       node = node.parentElement;
     }
@@ -58,28 +83,36 @@
   }
 
   function sweep() {
+    // Unticking "啟用" turns the whole thing off: nothing hidden, no buttons and
+    // no bar. The checkbox is the on/off line for the feature as a whole, not
+    // just for the hiding half of it.
+    if (!enabled) {
+      teardown();
+      return;
+    }
+
     let count = 0;
     const seen = new Set();
 
     for (const selector of engine.roots) {
       const roots = document.querySelectorAll(selector);
       for (const root of roots) {
-        for (const anchor of root.querySelectorAll('a[href]')) {
-          const host = M.hostOfResultLink(anchor.getAttribute('href'));
+        for (const link of root.querySelectorAll('a[href]')) {
+          const host = M.hostOfResultLink(link.getAttribute('href'));
           if (!host) continue;
 
-          const block = blockFor(anchor, root);
+          const block = blockFor(link, root);
           if (!block || seen.has(block)) continue;
+          seen.add(block);
 
           const rule = M.findMatchingRule(host, rules);
-          if (rule && enabled) {
-            seen.add(block);
+          if (rule) {
             block.setAttribute(HIDDEN_ATTR, rule);
             count++;
-          } else if (block.hasAttribute(HIDDEN_ATTR)) {
+          } else {
             block.removeAttribute(HIDDEN_ATTR);
+            mountButton(block, host);
           }
-          if (!rule) tagBlock(block, host);
         }
       }
       if (count) break; // the first root that produced results is the real one
@@ -90,27 +123,77 @@
     renderBar();
   }
 
+  /** Remove every trace of ourselves from the page. */
+  function teardown() {
+    document.querySelectorAll('[' + HIDDEN_ATTR + ']')
+      .forEach((el) => el.removeAttribute(HIDDEN_ATTR));
+    document.querySelectorAll('[' + MOUNTED_ATTR + ']')
+      .forEach((el) => el.removeAttribute(MOUNTED_ATTR));
+    document.querySelectorAll('.' + BTN_CLASS).forEach((el) => el.remove());
+    document.documentElement.removeAttribute('data-unsee-reveal');
+    const bar = document.getElementById('unsee-bar');
+    if (bar) bar.remove();
+    lastCount = 0;
+  }
+
   /* ---------- the inline "hide this site" affordance ---------- */
 
-  function tagBlock(block, host) {
-    if (!host || block.getAttribute(TAGGED_ATTR) === host) return;
-    block.setAttribute(TAGGED_ATTR, host);
+  /** The unsee mark, drawn inline so it inherits the page's text colour. */
+  function markSvg() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', '13');
+    svg.setAttribute('height', '13');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
 
-    const anchorLine = engine.hostLine ? block.querySelector(engine.hostLine) : null;
-    const mount = anchorLine || block.querySelector('cite');
-    if (!mount || mount.querySelector('.unsee-hide-btn')) return;
+    const ring = document.createElementNS(NS, 'circle');
+    ring.setAttribute('cx', '12');
+    ring.setAttribute('cy', '12');
+    ring.setAttribute('r', '7');
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', 'currentColor');
+    ring.setAttribute('stroke-width', '2');
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'unsee-hide-btn';
-    btn.textContent = '不看 ' + host;
-    btn.title = '把 ' + host + ' 加入 unsee 清單';
-    btn.addEventListener('click', (ev) => {
+    const strike = document.createElementNS(NS, 'line');
+    strike.setAttribute('x1', '4.5');
+    strike.setAttribute('y1', '19.5');
+    strike.setAttribute('x2', '19.5');
+    strike.setAttribute('y2', '4.5');
+    strike.setAttribute('stroke', 'currentColor');
+    strike.setAttribute('stroke-width', '2');
+    strike.setAttribute('stroke-linecap', 'round');
+
+    svg.append(ring, strike);
+    return svg;
+  }
+
+  function mountButton(block, host) {
+    if (!engine.anchor || !host) return;
+    if (block.getAttribute(MOUNTED_ATTR) === host) return;
+
+    const previous = block.querySelector('.' + BTN_CLASS);
+    if (previous) previous.remove();
+
+    const anchor = engine.anchor(block);
+    if (!anchor) return;
+
+    const label = '不看 ' + host;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = BTN_CLASS;
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.appendChild(markSvg());
+    button.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       addRuleAndSweep(host);
     });
-    mount.appendChild(btn);
+
+    anchor.insertAdjacentElement('afterend', button);
+    block.setAttribute(MOUNTED_ATTR, host);
   }
 
   function addRuleAndSweep(host) {
@@ -169,7 +252,7 @@
 
   let pending = null;
   const observer = new MutationObserver(() => {
-    if (pending) return;
+    if (!enabled || pending) return;
     pending = setTimeout(() => {
       pending = null;
       sweep();

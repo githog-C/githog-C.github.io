@@ -13,6 +13,42 @@ html[data-unsee-reveal] [data-unsee-hidden] {
   outline-offset: 2px;
 }
 
+/* The per-result button. It is inserted as the flex sibling right after the
+   column holding the engine's own kebab menu, so it sits to the kebab's right
+   and covers nothing. That flex row is zero-height — the kebab column overflows
+   it — which is why this aligns to flex-start instead of centre. */
+.unsee-hide-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  opacity: .55;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.unsee-hide-btn:hover,
+.unsee-hide-btn:focus-visible {
+  opacity: 1;
+  background: rgba(128, 128, 128, .18);
+}
+
+.unsee-hide-btn svg {
+  display: block;
+  pointer-events: none;
+}
+
+/* The "N hidden" bar above the results. */
 #unsee-bar {
   display: flex;
   align-items: center;
@@ -28,8 +64,7 @@ html[data-unsee-reveal] [data-unsee-hidden] {
   opacity: .75;
 }
 
-#unsee-bar .unsee-bar-toggle,
-.unsee-hide-btn {
+#unsee-bar .unsee-bar-toggle {
   border: 0;
   background: transparent;
   padding: 0 2px;
@@ -42,11 +77,6 @@ html[data-unsee-reveal] [data-unsee-hidden] {
   text-underline-offset: 2px;
 }
 
-#unsee-bar .unsee-bar-toggle:hover,
-.unsee-hide-btn:hover {
+#unsee-bar .unsee-bar-toggle:hover {
   opacity: 1;
-}
-
-.unsee-hide-btn {
-  margin-inline-start: 8px;
 }

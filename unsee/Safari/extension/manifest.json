@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "unsee — hide sites from search results",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Hide chosen sites from your own Google, Bing and DuckDuckGo results. Local only: no account, no server, no tracking.",
   "icons": {
     "16": "icons/icon-16.png",

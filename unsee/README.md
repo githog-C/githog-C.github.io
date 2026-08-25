@@ -33,8 +33,8 @@ in Google Search; the old one was retired years ago. That gap is what this fills
 
 1. `chrome://extensions` → Developer mode → **Load unpacked** → pick [`Chrome/`](./Chrome/)
 2. Search on Google.
-3. Every result grows a small **不看 <網域>** link. Click it. Gone — here and from
-   then on.
+3. Every result grows a small round **unsee mark**, just right of Google's own
+   kebab menu. Click it. Gone — here and from then on.
 
 The extension icon opens the list, where rules can be added by hand or removed.
 
