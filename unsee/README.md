@@ -52,6 +52,10 @@ what it currently contributes, read-only.
 
 It ships with every example commented out, so it blocks nothing until you say so.
 
+The copy published here is a blank template. A working list is personal, so it is kept
+in the private source copy only — `blocklist.txt` is the one file that differs between
+the two, and the only one.
+
 ## How a rule matches
 
 Write the domain the way you would say it: `threads.com`.

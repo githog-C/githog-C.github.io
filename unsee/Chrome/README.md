@@ -66,6 +66,11 @@ extension** at `chrome://extensions` — it is a file, not a live settings panel
 popup shows what the file currently contributes, read-only.
 
 Lines the parser cannot make sense of are reported in the popup and logged to the
+
+The copy published on the public site is a **blank template** — every example in it is
+commented out. A working list is personal (it says what someone refuses to look at),
+so it lives in the private source copy only. `blocklist.txt` is therefore the one file
+that legitimately differs between the two copies; everything else stays byte-identical.
 console, never silently dropped.
 
 ## The 啟用 checkbox
