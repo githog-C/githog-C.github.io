@@ -38,6 +38,20 @@ in Google Search; the old one was retired years ago. That gap is what this fills
 
 The extension icon opens the list, where rules can be added by hand or removed.
 
+## Two places rules come from
+
+The per-result button and the popup write to browser storage — that is the quick,
+one-click path.
+
+`Chrome/blocklist.txt` is the other: a plain file you edit, one entry per line, `#`
+to comment a line out. It takes **domains and keywords in the same list** and works
+out which is which from the line itself, so `threads.com` is a domain and `限時特價`
+is a keyword without either being declared. Keywords match the result text, not the
+host. Editing the file takes effect after reloading the extension; the popup shows
+what it currently contributes, read-only.
+
+It ships with every example commented out, so it blocks nothing until you say so.
+
 ## How a rule matches
 
 Write the domain the way you would say it: `threads.com`.
@@ -64,8 +78,8 @@ browser's own extension storage.
 cd Chrome && node test/run-tests.js
 ```
 
-42 assertions over the matching logic — normalisation, the subdomain boundary,
-redirect unwrapping for all three engines, and rule-list housekeeping. No
+60 assertions over the matching logic — normalisation, the subdomain boundary,
+redirect unwrapping for all three engines, rule-list housekeeping, the blocklist file parser and keyword matching. No
 dependencies.
 
 The DOM strategy was verified separately against live result pages: on a mixed

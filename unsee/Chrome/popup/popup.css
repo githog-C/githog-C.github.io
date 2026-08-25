@@ -89,4 +89,33 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 #rule-list button:hover { color: var(--accent); }
 
+#defaults { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+#defaults h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#defaults h2 code { color: var(--muted); font-size: 11px; }
+
+#defaults-list { list-style: none; margin: 8px 0 0; padding: 0; }
+
+#defaults-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+#defaults-list .kind { color: var(--muted); font-size: 11px; white-space: nowrap; }
+#defaults-list .problem { color: var(--accent); font-size: 12px; }
+
 footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }

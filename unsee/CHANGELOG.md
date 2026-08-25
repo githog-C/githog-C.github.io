@@ -1,5 +1,27 @@
 # unsee — changelog
 
+## 1.0.2 — 2026-08-25
+
+**The button was invisible.** 1.0.1 placed it correctly and then rendered it to
+nobody: the flex row it is inserted into is `visibility: hidden`, and Google's own
+kebab opts back in by declaring `visibility: visible` on itself. A child that says
+nothing inherits `hidden` — laid out perfectly, 20×20, in exactly the right place,
+and completely unseeable. The button now declares its own visibility.
+
+**Defaults now come from a file you edit.** `blocklist.txt` sits in the extension
+folder. One entry per line, in any order; `#` comments a line out. Whether a line is
+a domain or a keyword is worked out from the line itself — anything that is a valid
+hostname is a domain, everything else is a keyword — so nothing has to be declared.
+Prefix with `domain:` or `keyword:` on the rare line where that guess would be wrong.
+
+- Keywords match against the result's own text, case-insensitively.
+- The popup lists what the file currently contributes, read-only.
+- Rules added from the button or the popup are unaffected and stay in storage.
+- The file ships with every example commented out, so it blocks nothing until asked.
+- Editing it takes effect after reloading the extension — it is a file, not a UI.
+
+18 further assertions cover the file parser and keyword matching (60 in total).
+
 ## 1.0.1 — 2026-08-25
 
 Both fixes came from the first real use.

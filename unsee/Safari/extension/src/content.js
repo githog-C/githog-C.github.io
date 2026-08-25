@@ -66,7 +66,9 @@
   const engine = ENGINES.find((e) => e.test(M.normalizeHost(location.hostname)));
   if (!engine) return;
 
-  let rules = [];
+  let rules = [];          // added from the popup or the per-result button
+  let fileDomains = [];    // from blocklist.txt, the hand-edited file
+  let fileKeywords = [];
   let enabled = true;
   let revealed = false;
   let lastCount = 0;
@@ -105,9 +107,9 @@
           if (!block || seen.has(block)) continue;
           seen.add(block);
 
-          const rule = M.findMatchingRule(host, rules);
-          if (rule) {
-            block.setAttribute(HIDDEN_ATTR, rule);
+          const reason = reasonToHide(block, host);
+          if (reason) {
+            block.setAttribute(HIDDEN_ATTR, reason);
             count++;
           } else {
             block.removeAttribute(HIDDEN_ATTR);
@@ -121,6 +123,23 @@
     document.documentElement.toggleAttribute('data-unsee-reveal', revealed);
     lastCount = count;
     renderBar();
+  }
+
+  /**
+   * Why this result should go, or null to keep it. Domains are checked first
+   * because they are cheap and exact; the keyword pass reads the block's text
+   * and is what catches results whose host is fine but whose content is not.
+   */
+  function reasonToHide(block, host) {
+    const byDomain = M.findMatchingRule(host, rules)
+      || M.findMatchingRule(host, fileDomains);
+    if (byDomain) return byDomain;
+
+    if (fileKeywords.length) {
+      const keyword = M.findMatchingKeyword(block.innerText || '', fileKeywords);
+      if (keyword) return '關鍵字：' + keyword;
+    }
+    return null;
   }
 
   /** Remove every trace of ourselves from the page. */
@@ -235,11 +254,31 @@
 
   /* ---------- wiring ---------- */
 
+  /**
+   * blocklist.txt ships inside the extension, so it is read once per page and
+   * a change to it takes effect after reloading the extension. That is the
+   * whole point of it being a file: it is edited in a text editor, not in a UI.
+   * If it cannot be read the extension carries on with the stored rules alone.
+   */
+  function loadFile() {
+    return fetch(chrome.runtime.getURL('blocklist.txt'))
+      .then((response) => (response.ok ? response.text() : ''))
+      .then((text) => {
+        const parsed = M.parseBlocklistFile(text);
+        fileDomains = parsed.domains;
+        fileKeywords = parsed.keywords;
+        if (parsed.problems.length) {
+          console.warn('[unsee] blocklist.txt:', parsed.problems);
+        }
+      })
+      .catch(() => { /* no file, no defaults; the stored rules still apply */ });
+  }
+
   function load() {
     chrome.storage.sync.get({ rules: [], enabled: true }, (stored) => {
       rules = Array.isArray(stored.rules) ? stored.rules : [];
       enabled = stored.enabled !== false;
-      sweep();
+      loadFile().then(sweep);
     });
   }
 

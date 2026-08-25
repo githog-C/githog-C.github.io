@@ -74,4 +74,45 @@
     enabledEl.checked = stored.enabled !== false;
     render();
   });
+
+  /* The file-backed defaults, shown read-only so you can see what is in force
+     without opening the file. Editing happens in the file, not here. */
+  const summaryEl = document.getElementById('defaults-summary');
+  const defaultsEl = document.getElementById('defaults-list');
+
+  fetch(chrome.runtime.getURL('blocklist.txt'))
+    .then((response) => (response.ok ? response.text() : ''))
+    .then((text) => {
+      const parsed = M.parseBlocklistFile(text);
+      const entries = parsed.domains.map((d) => ({ kind: '網址', value: d }))
+        .concat(parsed.keywords.map((k) => ({ kind: '關鍵字', value: k })));
+
+      summaryEl.textContent = entries.length
+        ? '網址 ' + parsed.domains.length + ' 筆、關鍵字 ' + parsed.keywords.length + ' 筆。'
+        : '目前是空的。檔案裡的範例都還是註解狀態，拿掉行首的 # 就會生效。';
+
+      for (const entry of entries) {
+        const li = document.createElement('li');
+        const value = document.createElement('span');
+        value.className = 'host';
+        value.textContent = entry.value;
+        const kind = document.createElement('span');
+        kind.className = 'kind';
+        kind.textContent = entry.kind;
+        li.append(value, kind);
+        defaultsEl.appendChild(li);
+      }
+
+      if (parsed.problems.length) {
+        const li = document.createElement('li');
+        li.className = 'problem';
+        li.textContent = '有 ' + parsed.problems.length
+          + ' 行看不懂，已跳過（第 '
+          + parsed.problems.map((p) => p.line).join('、') + ' 行）';
+        defaultsEl.appendChild(li);
+      }
+    })
+    .catch(() => {
+      summaryEl.textContent = '讀不到 blocklist.txt，預設清單這次沒有生效。';
+    });
 })();

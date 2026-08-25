@@ -135,6 +135,82 @@
     return (Array.isArray(rules) ? rules : []).filter((r) => normalizeHost(r) !== target);
   }
 
+  /**
+   * Read blocklist.txt — the file a person edits by hand.
+   *
+   * One entry per line, in any order. Blank lines and lines starting with #
+   * are ignored. Whether a line is a domain or a keyword is worked out from
+   * the line itself, so nothing has to be declared: anything that is a valid
+   * hostname is a domain, everything else is a keyword. "threads.com" is a
+   * domain; "限時特價" and "3.5 折" are keywords.
+   *
+   * When that guess would be wrong — an English keyword that happens to look
+   * like a host, say "e.g." — prefix the line with "keyword:" or "domain:"
+   * to say so outright.
+   */
+  function parseBlocklistFile(text) {
+    const domains = [];
+    const keywords = [];
+    const problems = [];
+
+    const lines = String(text == null ? '' : text)
+      .replace(/^﻿/, '')
+      .split(/\r?\n/);
+
+    lines.forEach((raw, index) => {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) return;
+
+      let body = line;
+      let forced = null;
+      const prefix = /^(domain|keyword)\s*:\s*/i.exec(line);
+      if (prefix) {
+        forced = prefix[1].toLowerCase();
+        body = line.slice(prefix[0].length).trim();
+      }
+      if (!body) {
+        problems.push({ line: index + 1, text: line, reason: 'empty-after-prefix' });
+        return;
+      }
+
+      if (forced === 'keyword') {
+        keywords.push(body.toLowerCase());
+        return;
+      }
+
+      const parsed = parseRuleInput(body);
+      if (forced === 'domain') {
+        if (parsed.ok) domains.push(parsed.rule);
+        else problems.push({ line: index + 1, text: line, reason: parsed.reason });
+        return;
+      }
+
+      if (parsed.ok) domains.push(parsed.rule);
+      else keywords.push(body.toLowerCase());
+    });
+
+    return {
+      domains: dedupe(domains).sort(),
+      keywords: dedupe(keywords).sort(),
+      problems,
+    };
+  }
+
+  function dedupe(list) {
+    return list.filter((item, i) => list.indexOf(item) === i);
+  }
+
+  /** The first keyword present in the text, or null. Case-insensitive. */
+  function findMatchingKeyword(text, keywords) {
+    if (!Array.isArray(keywords) || !keywords.length) return null;
+    const haystack = String(text == null ? '' : text).toLowerCase();
+    if (!haystack) return null;
+    for (const keyword of keywords) {
+      if (keyword && haystack.indexOf(keyword) !== -1) return keyword;
+    }
+    return null;
+  }
+
   return {
     normalizeHost,
     hostMatchesRule,
@@ -144,5 +220,7 @@
     parseRuleInput,
     addRule,
     removeRule,
+    parseBlocklistFile,
+    findMatchingKeyword,
   };
 });

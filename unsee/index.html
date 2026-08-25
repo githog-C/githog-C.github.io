@@ -102,6 +102,18 @@
   </ol>
   <p class="muted">點擴充功能圖示可以打開清單，手動增刪。清單裡的「啟用」是整個功能的總開關：不打勾就完全不作用——不隱藏任何東西，也不會在結果頁上留下任何按鈕。</p>
 
+  <h2>兩個來源：按鈕，和一個你自己改的檔案</h2>
+  <p>按鈕與清單介面寫進瀏覽器儲存空間，那是隨手一鍵的路徑。另一條是 <code>Chrome/blocklist.txt</code>——一個純文字檔，用你慣用的編輯器改。</p>
+  <pre># 前面加 # 就是關掉這一條
+threads.com
+限時特價
+keyword: e.g.
+domain: example.com</pre>
+  <p>一行一個，順序無所謂，加在檔案最前面跟最後面完全一樣。空行與 <code>#</code> 開頭的行會被忽略。</p>
+  <p><strong>網址和關鍵字放同一份清單，不必宣告哪個是哪個</strong>：長得像網域的（<code>threads.com</code>）當網址，其餘一律當關鍵字（<code>限時特價</code>、<code>3.5 折</code>）。只有英文關鍵字剛好長得像網域時會判斷錯（<code>e.g.</code>），那一行前面加 <code>keyword:</code> 或 <code>domain:</code> 講明就好。</p>
+  <p>網址的行為與其他規則相同，含子網域；關鍵字則比對<strong>結果本身的文字</strong>，不分大小寫——專門對付網域沒問題但內容不想看的那種。</p>
+  <p class="muted">檔案每頁讀一次，<strong>改完要到 <code>chrome://extensions</code> 按重新載入才生效</strong>——它是檔案，不是即時設定面板。清單介面會唯讀列出這個檔案目前提供了什麼，看不懂的行會回報而不是默默丟掉。預設所有範例都是註解狀態，不主動擋任何東西。</p>
+
   <h2>規則怎麼寫</h2>
   <p>就照你平常唸出來的樣子寫：<code>threads.com</code>。</p>
   <p>它會連同底下所有子網域一起隱藏（<code>www.threads.com</code>、<code>cdn.eu.threads.com</code>），但<strong>不會</strong>誤傷只是字尾長得像的 <code>notthreads.com</code>——中間那個點就是分界線。</p>
@@ -140,7 +152,7 @@
 
   <h2>測試</h2>
   <pre>cd Chrome &amp;&amp; node test/run-tests.js</pre>
-  <p class="muted">42 條斷言涵蓋網域正規化、子網域分界、三個引擎的轉址拆解與清單維護，零相依套件。DOM 策略另外在真實結果頁上驗過：一頁 11 個結果區塊、掛兩條規則，精準隱藏 1 筆，其餘 10 個網域完全沒被動到。</p>
+  <p class="muted">60 條斷言涵蓋網域正規化、子網域分界、三個引擎的轉址拆解、清單維護，以及 blocklist.txt 的解析與關鍵字比對，零相依套件。DOM 策略另外在真實結果頁上驗過：一頁 11 個結果區塊、掛兩條規則，精準隱藏 1 筆，其餘 10 個網域完全沒被動到。</p>
 
   <div class="foot">
     <p>MIT。<a href="https://github.com/githog-C/githog-C.github.io/tree/main/unsee">原始碼</a>　·　<a href="../index.html">回上層</a></p>

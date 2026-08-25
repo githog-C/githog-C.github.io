@@ -70,6 +70,39 @@ eq(m.addRule(['b.test'], 'a.test'), ['a.test', 'b.test'], 'stays sorted');
 eq(m.removeRule(['a.test', 'threads.com'], 'https://www.threads.com/'), ['a.test'], 'removes by any spelling of the host');
 eq(m.removeRule([], 'threads.com'), [], 'removing from empty is safe');
 
+/* parseBlocklistFile — the file a person edits by hand */
+const parsed = m.parseBlocklistFile([
+  '# 我的預設遮蔽清單',
+  '',
+  'threads.com',
+  '  www.Example.COM  ',
+  '限時特價',
+  '3.5 折',
+  'keyword: e.g.',
+  'domain: another.test',
+  '# threads.com   <- 註解掉的不算',
+].join('\n'));
+eq(parsed.domains, ['another.test', 'example.com', 'threads.com'], 'domains are collected, normalised and sorted');
+eq(parsed.keywords, ['3.5 折', 'e.g.', '限時特價'], 'keywords are collected, lowercased and sorted');
+eq(parsed.problems, [], 'a well-formed file reports no problems');
+eq(m.parseBlocklistFile('').domains, [], 'an empty file yields nothing');
+eq(m.parseBlocklistFile(null).keywords, [], 'null is safe');
+eq(m.parseBlocklistFile('a.test\r\nb.test').domains, ['a.test', 'b.test'], 'CRLF line endings are handled');
+eq(m.parseBlocklistFile('threads.com\nthreads.com').domains, ['threads.com'], 'duplicates collapse');
+eq(m.parseBlocklistFile('domain: not a host').problems.length, 1, 'a forced domain that is not a host is reported, not silently kept');
+eq(m.parseBlocklistFile('domain: not a host').keywords, [], 'and it is not quietly demoted to a keyword either');
+eq(m.parseBlocklistFile('keyword: threads.com').domains, [], 'an explicit keyword is never treated as a domain');
+eq(m.parseBlocklistFile('keyword: threads.com').keywords, ['threads.com'], 'an explicit keyword stays a keyword');
+
+/* findMatchingKeyword */
+eq(m.findMatchingKeyword('本季限時特價開跑', ['限時特價']), '限時特價', 'finds a keyword inside a title');
+eq(m.findMatchingKeyword('Big SALE today', ['sale']), 'sale', 'matching is case-insensitive');
+eq(m.findMatchingKeyword('nothing here', ['sale']), null, 'no match returns null');
+eq(m.findMatchingKeyword('anything', []), null, 'an empty keyword list never matches');
+eq(m.findMatchingKeyword('', ['sale']), null, 'empty text never matches');
+eq(m.findMatchingKeyword(null, ['sale']), null, 'null text is safe');
+eq(m.findMatchingKeyword('anything', null), null, 'null keyword list is safe');
+
 if (failures.length) {
   console.error('FAIL ' + failures.length + ' of ' + (pass + failures.length));
   failures.forEach((f) => console.error('  - ' + f));

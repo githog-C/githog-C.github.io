@@ -16,8 +16,14 @@ html[data-unsee-reveal] [data-unsee-hidden] {
 /* The per-result button. It is inserted as the flex sibling right after the
    column holding the engine's own kebab menu, so it sits to the kebab's right
    and covers nothing. That flex row is zero-height — the kebab column overflows
-   it — which is why this aligns to flex-start instead of centre. */
+   it — which is why this aligns to flex-start instead of centre.
+
+   visibility is declared, not inherited, and that is load-bearing: the row we
+   insert into is itself visibility:hidden, and Google's own kebab opts back in
+   by declaring visible on itself. A child that says nothing inherits hidden and
+   is laid out perfectly while being completely invisible. */
 .unsee-hide-btn {
+  visibility: visible;
   display: inline-flex;
   align-items: center;
   justify-content: center;

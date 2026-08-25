@@ -24,6 +24,40 @@ To add another Google country domain, add one line to `matches` in `manifest.jso
 Match patterns may not put a wildcard mid-host, so `www.google.*` is not valid —
 each domain needs its own entry.
 
+## The default list: `blocklist.txt`
+
+Rules can come from two places. The button and the popup write to browser storage.
+`blocklist.txt`, in this folder, is the other one — a plain file, edited in a text
+editor.
+
+```
+# comment out a line to switch it off
+threads.com
+限時特價
+keyword: e.g.
+domain: example.com
+```
+
+One entry per line, in any order — the top of the file is as good as the bottom.
+Blank lines and `#` lines are ignored.
+
+Nothing has to be declared as a domain or a keyword: **anything that is a valid
+hostname is treated as a domain, everything else as a keyword.** `threads.com` is a
+domain; `限時特價` and `3.5 折` are keywords. The guess only goes wrong on an English
+keyword that happens to look like a host (`e.g.`), and the `keyword:` / `domain:`
+prefixes exist for exactly that line.
+
+Domains behave like any other rule, subdomains included. Keywords are matched
+case-insensitively against the result's own text, so they catch results whose host is
+fine but whose content is not.
+
+The file is read once per page. **Editing it takes effect after reloading the
+extension** at `chrome://extensions` — it is a file, not a live settings panel. The
+popup shows what the file currently contributes, read-only.
+
+Lines the parser cannot make sense of are reported in the popup and logged to the
+console, never silently dropped.
+
 ## The 啟用 checkbox
 
 It is the on/off line for the whole feature, not just for the hiding. Untick it
@@ -99,11 +133,12 @@ browsers and nothing else sees it.
 | Path | What it is |
 |---|---|
 | `manifest.json` | MV3 manifest |
+| `blocklist.txt` | The hand-edited default list: domains and keywords, one per line |
 | `src/matcher.js` | All the matching logic. Pure functions, no DOM, no `chrome.*` |
 | `src/content.js` | Engine adapters, the DOM sweep, the status bar |
 | `src/styles.css` | The only CSS injected into the page |
 | `popup/` | The rule list UI |
-| `test/run-tests.js` | 42 assertions over `matcher.js` |
+| `test/run-tests.js` | 60 assertions over `matcher.js` |
 
 ## Tests
 
