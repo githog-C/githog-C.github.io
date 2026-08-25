@@ -75,13 +75,30 @@
 
   /* ---------- hiding ---------- */
 
-  /** The result block containing this link: the ancestor that is a child of root. */
-  function blockFor(link, root) {
-    let node = link;
-    while (node && node.parentElement && node.parentElement !== root) {
-      node = node.parentElement;
-    }
-    return node && node.parentElement === root ? node : null;
+  /**
+   * How many distinct outbound sites are inside this element — capped at 2,
+   * because the only question being asked is "more than one?".
+   *
+   * Results are swept repeatedly (the observer fires a lot), and the climb asks
+   * about every ancestor of every link, so this is memoised for the duration of
+   * one sweep. The cache must not outlive the sweep: the page changes under us.
+   */
+  function makeHostCounter() {
+    const cache = new Map();
+    return function countHosts(element) {
+      const cached = cache.get(element);
+      if (cached !== undefined) return cached;
+
+      const hosts = new Set();
+      for (const link of element.querySelectorAll('a[href]')) {
+        const host = M.hostOfResultLink(link.getAttribute('href'));
+        if (!host || engine.test(host)) continue; // the engine's own links do not count
+        hosts.add(host);
+        if (hosts.size > 1) break;
+      }
+      cache.set(element, hosts.size);
+      return hosts.size;
+    };
   }
 
   function sweep() {
@@ -95,15 +112,16 @@
 
     let count = 0;
     const seen = new Set();
+    const countHosts = makeHostCounter();
 
     for (const selector of engine.roots) {
       const roots = document.querySelectorAll(selector);
       for (const root of roots) {
         for (const link of root.querySelectorAll('a[href]')) {
           const host = M.hostOfResultLink(link.getAttribute('href'));
-          if (!host) continue;
+          if (!host || engine.test(host)) continue;
 
-          const block = blockFor(link, root);
+          const block = M.climbToResultBlock(link, root, countHosts);
           if (!block || seen.has(block)) continue;
           seen.add(block);
 

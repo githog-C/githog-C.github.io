@@ -1,5 +1,28 @@
 # unsee — changelog
 
+## 1.0.4 — 2026-08-25
+
+**Hiding one result could take several others with it.** Google sometimes groups
+results into a single container — an image strip, a discussions-and-forums cluster.
+Climbing from a link all the way to a child of the results container landed on that
+whole group, so blocking one site in it hid every site in it, and the counter said
+"1 hidden" while several results had gone.
+
+Measured on a live page: one such container held six distinct sites.
+
+The climb now stops the moment the next level up would bring in a second site: that
+parent is a group, not a result. An ordinary result is unaffected — its whole block
+links to one site, so the climb reaches exactly the element it always did, which is
+asserted in the tests rather than assumed.
+
+Revealing hidden results no longer forces `display: block` back on. It simply stops
+applying `none`, so an item that is a flex or grid child keeps its own layout.
+
+Host counting is memoised per sweep and stops at two, since the only question is
+"more than one?".
+
+7 further assertions cover the climb against a stand-in tree (67 in total).
+
 ## 1.0.3 — 2026-08-25
 
 **1.0.2 would not load.** Chrome rejected the manifest with nothing but

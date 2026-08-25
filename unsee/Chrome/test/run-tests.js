@@ -103,6 +103,64 @@ eq(m.findMatchingKeyword('', ['sale']), null, 'empty text never matches');
 eq(m.findMatchingKeyword(null, ['sale']), null, 'null text is safe');
 eq(m.findMatchingKeyword('anything', null), null, 'null keyword list is safe');
 
+/* climbToResultBlock — picking the element that is one result */
+
+// A tiny stand-in for the DOM: each node knows its parent and how many distinct
+// outbound sites live inside it. That is all the climb actually looks at.
+function tree(spec) {
+  const nodes = {};
+  for (const name of Object.keys(spec)) nodes[name] = { name, hosts: spec[name].hosts };
+  for (const name of Object.keys(spec)) {
+    const parent = spec[name].parent;
+    nodes[name].parentElement = parent ? nodes[parent] : null;
+  }
+  return nodes;
+}
+const countHosts = (node) => node.hosts;
+
+// An ordinary result: every level covers the one site, so the climb should reach
+// the child of the results container exactly as it always did.
+const plain = tree({
+  root:  { hosts: 9, parent: null },
+  block: { hosts: 1, parent: 'root' },
+  inner: { hosts: 1, parent: 'block' },
+  link:  { hosts: 1, parent: 'inner' },
+});
+eq(m.climbToResultBlock(plain.link, plain.root, countHosts).name, 'block',
+   'an ordinary result still climbs to the child of the results container');
+
+// A cluster: the group holds two sites, so the climb must stop at the item.
+const cluster = tree({
+  root:    { hosts: 9, parent: null },
+  group:   { hosts: 2, parent: 'root' },
+  itemA:   { hosts: 1, parent: 'group' },
+  innerA:  { hosts: 1, parent: 'itemA' },
+  linkA:   { hosts: 1, parent: 'innerA' },
+});
+eq(m.climbToResultBlock(cluster.linkA, cluster.root, countHosts).name, 'itemA',
+   'inside a group, the climb stops at the single item and never takes the group');
+
+// The boundary can sit at any depth.
+const deep = tree({
+  root:  { hosts: 9, parent: null },
+  group: { hosts: 3, parent: 'root' },
+  a:     { hosts: 1, parent: 'group' },
+  b:     { hosts: 1, parent: 'a' },
+  c:     { hosts: 1, parent: 'b' },
+  link:  { hosts: 1, parent: 'c' },
+});
+eq(m.climbToResultBlock(deep.link, deep.root, countHosts).name, 'a',
+   'the climb goes as high as it can without crossing the group boundary');
+
+// A link that is already a direct child of the container stays put.
+const shallow = tree({ root: { hosts: 9, parent: null }, link: { hosts: 1, parent: 'root' } });
+eq(m.climbToResultBlock(shallow.link, shallow.root, countHosts).name, 'link',
+   'a link directly under the container is its own block');
+
+eq(m.climbToResultBlock(plain.root, plain.root, countHosts), null, 'the container itself is not a result');
+eq(m.climbToResultBlock(null, plain.root, countHosts), null, 'a missing start is safe');
+eq(m.climbToResultBlock(plain.link, null, countHosts), null, 'a missing container is safe');
+
 if (failures.length) {
   console.error('FAIL ' + failures.length + ' of ' + (pass + failures.length));
   failures.forEach((f) => console.error('  - ' + f));

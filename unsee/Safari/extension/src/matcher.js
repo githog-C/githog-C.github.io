@@ -200,6 +200,32 @@
     return list.filter((item, i) => list.indexOf(item) === i);
   }
 
+  /**
+   * Find the element that represents *one* result, starting from a link inside it.
+   *
+   * Climbing all the way to a child of the results container is wrong: Google
+   * sometimes groups several results into one container (an image strip, a
+   * "discussions and forums" cluster), and hiding that container takes every
+   * result in it — including sites nobody asked to hide — while counting as one.
+   *
+   * So climb only while the next level up still covers a single site. The moment
+   * a parent would bring in a second site, stop: that parent is a group, not a
+   * result. For an ordinary result nothing changes, because the whole block links
+   * to one site only and the climb reaches the same element as before.
+   *
+   * `countHosts(element)` returns how many distinct outbound sites are inside it;
+   * it may stop counting at 2, since that is all this needs to know.
+   */
+  function climbToResultBlock(start, root, countHosts) {
+    if (!start || !root || start === root) return null;
+    let node = start;
+    while (node.parentElement && node.parentElement !== root) {
+      if (countHosts(node.parentElement) > 1) break;
+      node = node.parentElement;
+    }
+    return node;
+  }
+
   /** The first keyword present in the text, or null. Case-insensitive. */
   function findMatchingKeyword(text, keywords) {
     if (!Array.isArray(keywords) || !keywords.length) return null;
@@ -222,5 +248,6 @@
     removeRule,
     parseBlocklistFile,
     findMatchingKeyword,
+    climbToResultBlock,
   };
 });

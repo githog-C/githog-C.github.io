@@ -1,13 +1,18 @@
 /* unsee — the only styles injected into the search results page. */
 
 /* Hidden results are collapsed, not removed: the page keeps its own layout
-   logic intact, and "reveal" is a single attribute flip away. */
-[data-unsee-hidden] {
+   logic intact, and "reveal" is a single attribute flip away.
+
+   Revealing deliberately does not touch `display` at all — it simply stops
+   applying `none`. Forcing a value back on (`display: block`) would flatten
+   whatever layout the page had given that element, and now that a hidden thing
+   can be one item inside a group rather than a whole block, that element is
+   quite likely a flex or grid child. */
+html:not([data-unsee-reveal]) [data-unsee-hidden] {
   display: none !important;
 }
 
 html[data-unsee-reveal] [data-unsee-hidden] {
-  display: block !important;
   opacity: .55;
   outline: 1px dashed rgba(128, 128, 128, .55);
   outline-offset: 2px;
