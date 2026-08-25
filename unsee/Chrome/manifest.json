@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "unsee — hide sites from search results",
+  "version": "1.0.0",
+  "description": "Hide chosen sites from your own Google, Bing and DuckDuckGo results. Local only: no account, no server, no tracking.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.google.com/search*",
+        "*://*.google.com.tw/search*",
+        "*://*.google.co.jp/search*",
+        "*://*.google.co.uk/search*",
+        "*://*.bing.com/search*",
+        "*://duckduckgo.com/*",
+        "*://html.duckduckgo.com/*",
+        "*://lite.duckduckgo.com/*"
+      ],
+      "js": [
+        "src/matcher.js",
+        "src/content.js"
+      ],
+      "css": [
+        "src/styles.css"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "unsee",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  }
+}

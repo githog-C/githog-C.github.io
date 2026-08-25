@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>unsee</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>unsee</h1>
+    <label class="switch">
+      <input type="checkbox" id="enabled" checked>
+      <span>啟用</span>
+    </label>
+  </header>
+
+  <form id="add-form">
+    <input type="text" id="rule-input" placeholder="threads.com" autocomplete="off" spellcheck="false">
+    <button type="submit">加入</button>
+  </form>
+  <p class="hint" id="hint">輸入網域或直接貼網址。加入 <code>threads.com</code> 會連同它底下所有子網域一起隱藏。</p>
+
+  <ul id="rule-list"></ul>
+  <p class="empty" id="empty">清單是空的。搜尋結果頁每一筆右邊都有「不看 …」可以直接加。</p>
+
+  <footer>只在你自己的瀏覽器裡生效，不會送出任何資料，也不會告訴任何人你搜了什麼。</footer>
+
+  <script src="../src/matcher.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

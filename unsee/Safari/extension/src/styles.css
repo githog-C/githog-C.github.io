@@ -1,0 +1,52 @@
+/* unsee — the only styles injected into the search results page. */
+
+/* Hidden results are collapsed, not removed: the page keeps its own layout
+   logic intact, and "reveal" is a single attribute flip away. */
+[data-unsee-hidden] {
+  display: none !important;
+}
+
+html[data-unsee-reveal] [data-unsee-hidden] {
+  display: block !important;
+  opacity: .55;
+  outline: 1px dashed rgba(128, 128, 128, .55);
+  outline-offset: 2px;
+}
+
+#unsee-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+  padding: 6px 12px;
+  border: 1px solid rgba(128, 128, 128, .35);
+  border-radius: 999px;
+  width: fit-content;
+  font-size: 13px;
+  line-height: 1.5;
+  color: inherit;
+  opacity: .75;
+}
+
+#unsee-bar .unsee-bar-toggle,
+.unsee-hide-btn {
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  opacity: .7;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#unsee-bar .unsee-bar-toggle:hover,
+.unsee-hide-btn:hover {
+  opacity: 1;
+}
+
+.unsee-hide-btn {
+  margin-inline-start: 8px;
+}

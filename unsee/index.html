@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unsee — 把不想看到的網站從搜尋結果裡拿掉</title>
+<style>
+  :root {
+    --bg:#0c0c0d; --panel:#161618; --line:#2a2a2e; --text:#f2f0ec;
+    --muted:#96949a; --accent:#b03a2e; --warm:#e8ded0; --ok:#6cd06c;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:"Helvetica Neue",Roboto,Arial,"Noto Sans TC",system-ui,sans-serif;
+    line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:820px; margin:0 auto; padding:48px 22px 80px; }
+  .brand { display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+  .dot { width:15px; height:15px; border-radius:50%; border:2px solid var(--warm); display:inline-block; position:relative; }
+  .dot::after { content:""; position:absolute; left:-4px; top:6px; width:23px; height:2px; background:var(--accent); transform:rotate(-45deg); }
+  h1 { font-size:clamp(30px,6vw,46px); margin:.15em 0 .1em; letter-spacing:1px; }
+  .lede { color:var(--muted); font-size:clamp(15px,2.6vw,18px); margin:0 0 30px; }
+
+  .demo { background:linear-gradient(160deg,#1b1b1e,#0d0d0e); border:1px solid var(--line);
+          border-radius:14px; padding:18px 20px; margin:0 0 34px; font-size:14px; }
+  .demo .row { padding:9px 0; border-bottom:1px dashed rgba(150,148,154,.22); }
+  .demo .row:last-child { border-bottom:0; }
+  .demo .host { color:var(--muted); font-size:12.5px; }
+  .demo .title { color:#9db8ff; }
+  .demo .gone { color:var(--muted); opacity:.45; text-decoration:line-through; }
+  .demo .btn { color:var(--muted); font-size:12px; border:1px solid var(--line);
+               border-radius:999px; padding:1px 8px; margin-left:8px; white-space:nowrap; }
+  .demo .bar { display:inline-block; color:var(--muted); font-size:12.5px;
+               border:1px solid var(--line); border-radius:999px; padding:3px 12px; margin-top:6px; }
+
+  h2 { font-size:22px; margin:38px 0 10px; }
+  p { margin:.55em 0; }
+  .muted { color:var(--muted); }
+  a { color:#ff9a8a; text-decoration:none; } a:hover { text-decoration:underline; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em;
+         background:#000; border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+  pre { background:#000; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+        overflow:auto; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+  th,td { border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:18px 0 4px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 16px 18px; }
+  .card h3 { margin:.1em 0 .35em; font-size:17px; }
+  .card p { font-size:14px; color:var(--muted); margin:.2em 0; }
+  .ok { color:var(--ok); }
+  .note { background:#151113; border:1px solid #3d2320; border-radius:12px; padding:15px 18px; margin:14px 0; }
+  .note strong { color:#ffb3a6; }
+  .foot { margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  ol { padding-left:20px; } li { margin:.3em 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand"><span class="dot"></span></div>
+  <h1>unsee</h1>
+  <p class="lede">把你不想再看到的網站，從<strong>你自己的</strong>搜尋結果裡拿掉。全部在瀏覽器裡完成，不上傳、不回報、不影響任何其他人看到的結果。</p>
+
+  <div class="demo">
+    <div class="row">
+      <div class="host">example-blog.test<span class="btn">不看 example-blog.test</span></div>
+      <div class="title">手沖咖啡的水溫到底該幾度</div>
+    </div>
+    <div class="row">
+      <div class="host gone">threads.com</div>
+      <div class="title gone">（已隱藏）</div>
+    </div>
+    <div class="row">
+      <div class="host">another-site.test<span class="btn">不看 another-site.test</span></div>
+      <div class="title">濾杯選擇指南</div>
+    </div>
+    <span class="bar">unsee 隱藏了 1 筆結果　顯示</span>
+  </div>
+
+  <h2>兩件常被混為一談的事</h2>
+  <p>「把這個網站從 Google 拿掉」其實有兩種完全不同的意思，這個工具只做其中一種。</p>
+  <table>
+    <tr><th></th><th>請 Google 移除</th><th>unsee</th></tr>
+    <tr><td>誰看不到</td><td>所有人</td><td><strong>只有你</strong></td></tr>
+    <tr><td>決定權在</td><td>Google，且需審查</td><td>你的瀏覽器</td></tr>
+    <tr><td>需要什麼理由</td><td>未經同意的個資、依法移除、內容過時</td><td>你不想看到，就這樣</td></tr>
+    <tr><td>能不能反悔</td><td>要再申請，慢</td><td>取消勾選，立刻</td></tr>
+  </table>
+  <div class="note">
+    <p style="margin:0"><strong>順帶一提：</strong>Google 搜尋結果上那顆「移除搜尋結果」按鈕屬於左欄——它開的是<em>全球下架申請表</em>，理由只有三種。Google 早年那個「封鎖特定網站」的個人黑名單功能已經停用多年，現在沒有原生替代品。這個空缺就是本工具要補的。</p>
+  </div>
+
+  <h2>三十秒開始用</h2>
+  <ol>
+    <li><code>chrome://extensions</code> → 開啟「開發人員模式」→「載入未封裝項目」→ 選 <a href="./Chrome/">Chrome/</a> 資料夾</li>
+    <li>去 Google 搜尋任何東西</li>
+    <li>每一筆結果旁邊會多一個小小的「<strong>不看 &lt;網域&gt;</strong>」，按下去就沒了——這次沒了，以後也沒了</li>
+  </ol>
+  <p class="muted">點擴充功能圖示可以打開清單，手動增刪。</p>
+
+  <h2>規則怎麼寫</h2>
+  <p>就照你平常唸出來的樣子寫：<code>threads.com</code>。</p>
+  <p>它會連同底下所有子網域一起隱藏（<code>www.threads.com</code>、<code>cdn.eu.threads.com</code>），但<strong>不會</strong>誤傷只是字尾長得像的 <code>notthreads.com</code>——中間那個點就是分界線。</p>
+  <p class="muted">另外提醒：<code>threads.com</code> 與 <code>thread.com</code> 是兩個毫不相干的網站，前者是 Meta 的 Threads，後者是英國的服飾造型訂閱服務。擋掉一個不會動到另一個。</p>
+
+  <h2>兩種打包</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Chrome <span class="ok">✓</span></h3>
+      <p>Chrome / Edge / Brave 等 Chromium。</p>
+      <p>載入未封裝資料夾即用。</p>
+      <p><a href="./Chrome/">Chrome/</a></p>
+    </div>
+    <div class="card">
+      <h3>Safari</h3>
+      <p>macOS。原始碼與 Chrome 版逐位元相同，但 Safari 不吃裸資料夾，要用 Xcode 包一次。</p>
+      <p><strong>尚未實際建置</strong>——步驟與那個一定會踩到的 bundle id 陷阱寫在 <a href="./Safari/BUILD.md">BUILD.md</a>。</p>
+      <p><a href="./Safari/">Safari/</a></p>
+    </div>
+  </div>
+
+  <h2>它怎麼找到「一筆結果」</h2>
+  <p>搜尋頁的 class 名稱換得非常勤——寫這份的當週，Google 的結果區塊叫 <code>MjjYud</code>，下週就未必。所以這裡不靠 class，改用<strong>結構</strong>：在支援的三個引擎上，一筆結果都是結果容器的直屬子節點（Google 是 <code>#rso</code>、Bing 是 <code>#b_results</code>、DuckDuckGo 是 <code>ol.react-results--main</code>）。取一條連結往上爬到容器的直屬子節點，那一整塊就是一筆結果。容器 id 比 class 穩定得多。</p>
+  <p>被包在轉址器裡的連結會先拆開再比對，免得每一筆都變成「這是 bing.com」：</p>
+  <table>
+    <tr><th>引擎</th><th>包裝</th><th>真正的目的地藏在</th></tr>
+    <tr><td>DuckDuckGo</td><td><code>duckduckgo.com/l/?uddg=…</code></td><td><code>uddg</code> 參數</td></tr>
+    <tr><td>Google</td><td><code>google.com/url?q=…</code></td><td><code>q</code> 參數</td></tr>
+    <tr><td>Bing</td><td><code>bing.com/ck/a?…&amp;u=a1&lt;base64url&gt;</code></td><td><code>u</code> 參數，base64url 解碼後</td></tr>
+  </table>
+  <p class="muted">隱藏用的是 <code>display:none</code>，節點不會從 DOM 移除，頁面自己的版面與腳本不受干擾，要放回來也只是翻一個屬性。而且隱藏了幾筆會明白寫在上面，可以隨時展開——不會有東西無聲消失。</p>
+
+  <h2>隱私</h2>
+  <p>只要一個權限：<code>storage</code>。沒有背景頁、沒有任何一次網路請求、沒有分析、沒有帳號。它<strong>看不到你搜了什麼</strong>——它只讀頁面上已經存在的那些連結的網域。規則清單留在瀏覽器自己的擴充功能儲存空間裡。</p>
+
+  <h2>測試</h2>
+  <pre>cd Chrome &amp;&amp; node test/run-tests.js</pre>
+  <p class="muted">42 條斷言涵蓋網域正規化、子網域分界、三個引擎的轉址拆解與清單維護，零相依套件。DOM 策略另外在真實結果頁上驗過：一頁 11 個結果區塊、掛兩條規則，精準隱藏 1 筆，其餘 10 個網域完全沒被動到。</p>
+
+  <div class="foot">
+    <p>MIT。<a href="https://github.com/githog-C/githog-C.github.io/tree/main/unsee">原始碼</a>　·　<a href="../index.html">回上層</a></p>
+  </div>
+
+</div>
+</body>
+</html>
