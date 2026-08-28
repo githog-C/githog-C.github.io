@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "sub-NF — Netflix Bilingual Subtitles",
-  "version": "1.4.0",
+  "version": "1.4.7",
   "description": "Show two subtitle languages at once on Netflix, using Netflix's own subtitle tracks. Personal / language-learning use.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -9,7 +9,9 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://www.netflix.com/*",
     "https://*.nflxvideo.net/*",
@@ -22,24 +24,41 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.netflix.com/*"],
-      "js": ["src/inject.js"],
+      "matches": [
+        "https://www.netflix.com/*"
+      ],
+      "js": [
+        "src/inject.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": false
     },
     {
-      "matches": ["https://www.netflix.com/*"],
-      "js": ["src/vtt.js", "src/content.js"],
-      "css": ["src/overlay.css"],
+      "matches": [
+        "https://www.netflix.com/*"
+      ],
+      "js": [
+        "src/hosts.js",
+        "src/vtt.js",
+        "src/textcase.js",
+        "src/content.js"
+      ],
+      "css": [
+        "src/overlay.css"
+      ],
       "run_at": "document_start",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/inject.js"],
-      "matches": ["https://*.netflix.com/*"]
+      "resources": [
+        "src/inject.js"
+      ],
+      "matches": [
+        "https://www.netflix.com/*"
+      ]
     }
   ],
   "action": {

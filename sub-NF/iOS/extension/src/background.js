@@ -4,17 +4,24 @@
 // Netflix's caption CDN on behalf of the content script. Doing the fetch here
 // (with host_permissions for the CDN) sidesteps page CORS. It returns plain
 // text; it never stores or forwards it anywhere else.
+// Classic (non-module) service worker, so importScripts is available. The
+// allowlist lives in one tested place rather than as a regex copied around.
+importScripts('/src/hosts.js');
+
 const api = globalThis.browser ?? globalThis.chrome;
 
 api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'subnf-fetch' || typeof msg.url !== 'string') return;
-  // Accept only Netflix-operated hosts. Caption files are served from the Open
-  // Connect CDN (*.nflxvideo.net) but the exact host varies by ISP and region,
-  // so allow the whole family rather than one name.
-  let host = '';
-  try { host = new URL(msg.url).hostname; } catch (_) { sendResponse({ ok: false, error: 'bad url' }); return; }
-  const allowed = /(^|\.)(nflxvideo\.net|nflxext\.com|nflximg\.net|nflxso\.net|netflix\.com)$/.test(host);
-  if (!allowed) { sendResponse({ ok: false, error: 'host not allowed: ' + host }); return; }
+  // Accept only https URLs on Netflix-operated hosts. See src/hosts.js.
+  // Fail closed, and say so plainly: if importScripts ever fails on a browser
+  // that does not support it, subtitles stop working either way, and a clear
+  // error beats an exception on every request.
+  const H = globalThis.SubNFHosts;
+  if (!H) { sendResponse({ ok: false, error: 'hosts.js did not load' }); return; }
+  if (!H.isNetflixHost(msg.url)) {
+    sendResponse({ ok: false, error: 'url not allowed: ' + String(msg.url).slice(0, 120) });
+    return;
+  }
 
   fetch(msg.url, { credentials: 'omit' })
     .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))

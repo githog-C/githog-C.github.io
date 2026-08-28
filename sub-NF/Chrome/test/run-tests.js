@@ -5,7 +5,14 @@ const {
   parseVTT, parseTTML, parseSubtitle, textAt, parseTime, ttmlTime,
   stripTags, textFromNode, cleanNative, parseMenuUia, matchTrackByMenu,
 } = require('../src/vtt.js');
-const { pickUrl, pickFormat, tracksFromManifest, normaliseTracks, findProfilesArray } = require('../src/inject.js');
+const {
+  pickUrl, pickFormat, tracksFromManifest, normaliseTracks, findProfilesArray,
+  isNetflixHost: injectIsNetflixHost,
+} = require('../src/inject.js');
+const {
+  looksAllCaps, harvestNames, restoreCase, stripSdh, clean, keepUpper,
+} = require('../src/textcase.js');
+const { isNetflixHost, isMovieId, sanitiseTracks } = require('../src/hosts.js');
 
 let pass = 0;
 function t(name, fn) {
@@ -300,5 +307,135 @@ t('matchTrackByMenu prefers the plain variant otherwise', () =>
   assert.strictEqual(matchTrackByMenu(PAIR, parseMenuUia('subtitle-item-English')).id, 'plain'));
 t('matchTrackByMenu with no catalogue -> null', () =>
   assert.strictEqual(matchTrackByMenu(null, { name: 'English' }), null));
+
+
+
+// ---- textcase: the guard ----
+t('looksAllCaps true for shouting', () => assert.strictEqual(looksAllCaps('GET DOWN NOW'), true));
+t('looksAllCaps false for normal prose', () => assert.strictEqual(looksAllCaps('Get down now'), false));
+t('looksAllCaps false for CJK (no Latin letters)', () => assert.strictEqual(looksAllCaps('快趴下'), false));
+t('looksAllCaps false for a lone letter', () => assert.strictEqual(looksAllCaps('A'), false));
+t('looksAllCaps tolerates a stray lowercase', () => assert.strictEqual(looksAllCaps('THE FBIs FILE IS HERE'), true));
+
+// ---- textcase: restoreCase ----
+t('restoreCase leaves correctly-cased text alone', () =>
+  assert.strictEqual(restoreCase('Get down now.'), 'Get down now.'));
+t('restoreCase leaves CJK alone', () =>
+  assert.strictEqual(restoreCase('快趴下'), '快趴下'));
+t('restoreCase sentence-cases and splits on terminals', () =>
+  assert.strictEqual(restoreCase('GET DOWN. STAY THERE! WHY?'), 'Get down. Stay there! Why?'));
+t('restoreCase raises the pronoun I', () =>
+  assert.strictEqual(restoreCase('WHY AM I HERE'), 'Why am I here'));
+t("restoreCase raises I in contractions", () =>
+  assert.strictEqual(restoreCase("I'M SURE I'LL GO"), "I'm sure I'll go"));
+t('restoreCase keeps known acronyms', () =>
+  assert.strictEqual(restoreCase('THE FBI IS ON TV'), 'The FBI is on TV'));
+t('restoreCase title-cases a courtesy title and the surname after it', () =>
+  assert.strictEqual(restoreCase('MR SMITH CALLED.'), 'Mr Smith called.'));
+t('restoreCase does not treat MR as an acronym', () => assert.strictEqual(keepUpper('MR'), false));
+t('restoreCase keeps a vowel-less short token upper', () => assert.strictEqual(keepUpper('NYPD'), true));
+t('restoreCase treats AM as the verb, not the clock', () =>
+  assert.strictEqual(restoreCase('WHY AM I HERE'), 'Why am I here'));
+t('restoreCase treats US as the pronoun', () =>
+  assert.strictEqual(restoreCase('THEY FOUND US.'), 'They found us.'));
+t('restoreCase capitalises after a closing quote', () =>
+  assert.strictEqual(restoreCase('"STOP." THEN HE LEFT.'), '"Stop." Then he left.'));
+
+// ---- textcase: name harvesting from SDH speaker labels ----
+t('harvestNames picks up speaker labels', () => {
+  const n = harvestNames([{ text: 'DARIUS: GET DOWN' }, { text: '- MAYA: RUN' }]);
+  assert.deepStrictEqual([...n].sort(), ['DARIUS', 'MAYA']);
+});
+t('harvestNames skips generic role labels', () => {
+  const n = harvestNames([{ text: 'MAN: HELLO' }, { text: 'NARRATOR: LATER' }]);
+  assert.strictEqual(n.size, 0);
+});
+t('harvestNames feeds restoreCase', () => {
+  const n = harvestNames([{ text: 'DARIUS: GET DOWN' }]);
+  assert.strictEqual(restoreCase('THEN DARIUS RAN.', { names: n }), 'Then Darius ran.');
+});
+t('names are not applied to correctly-cased lines', () => {
+  const n = harvestNames([{ text: 'DARIUS: GET DOWN' }]);
+  assert.strictEqual(restoreCase('then darius ran.', { names: n }), 'then darius ran.');
+});
+
+// ---- textcase: SDH stripping ----
+t('stripSdh removes bracketed sound description', () =>
+  assert.strictEqual(stripSdh('[DOOR CREAKS] GET DOWN'), 'GET DOWN'));
+t('stripSdh removes parenthetical asides', () =>
+  assert.strictEqual(stripSdh('GET DOWN (WHISPERS)'), 'GET DOWN'));
+t('stripSdh removes the speaker label', () =>
+  assert.strictEqual(stripSdh('DARIUS: GET DOWN'), 'GET DOWN'));
+t('stripSdh drops music marks', () =>
+  assert.strictEqual(stripSdh('♪ LA LA ♪'), 'LA LA'));
+
+// ---- textcase: the composed pipeline ----
+t('clean does nothing when both switches are off', () =>
+  assert.strictEqual(clean('DARIUS: GET DOWN', {}), 'DARIUS: GET DOWN'));
+t('clean strips then repairs, in that order', () =>
+  assert.strictEqual(clean('DARIUS: GET DOWN [THUD]', { stripSdh: true, fixAllCaps: true }), 'Get down'));
+
+
+// ---- hosts: the allowlist ----
+const HOST_TABLE = [
+  ['https://a.nflxvideo.net/x.vtt', true],
+  ['https://ipv4-c001.lhr001.gb.isp.nflxvideo.net/range/0-1', true],
+  ['https://www.netflix.com/watch/1', true],
+  ['https://netflix.com/a', true],
+  ['https://assets.nflxext.com/a', true],
+  // suffix spoofing -- what a bare endsWith would let through
+  ['https://evil-netflix.com/a', false],
+  ['https://xnflxvideo.net/a', false],
+  // domain-in-a-subdomain -- what an unanchored regex would let through
+  ['https://netflix.com.attacker.io/a', false],
+  ['https://nflxvideo.net.evil.io/x', false],
+  // scheme
+  ['http://a.nflxvideo.net/x', false],
+  ['javascript:alert(1)', false],
+  ['data:text/plain,hi', false],
+  // junk
+  ['', false], [null, false], [undefined, false], [{}, false], ['not a url', false],
+];
+for (const [url, want] of HOST_TABLE) {
+  t('isNetflixHost ' + JSON.stringify(url) + ' -> ' + want, () =>
+    assert.strictEqual(isNetflixHost(url), want));
+}
+
+// inject.js runs in the page world and cannot see src/hosts.js, so it keeps its
+// own copy. This is what stops the two drifting apart.
+t('inject.js host check agrees with src/hosts.js on every case', () => {
+  for (const [url, want] of HOST_TABLE) {
+    assert.strictEqual(injectIsNetflixHost(url), want, 'disagreed on ' + JSON.stringify(url));
+  }
+});
+
+// ---- hosts: movie ids ----
+t('isMovieId accepts digits', () => assert.strictEqual(isMovieId('81234567'), true));
+t('isMovieId rejects a path', () => assert.strictEqual(isMovieId('../../evil'), false));
+t('isMovieId rejects empty', () => assert.strictEqual(isMovieId(''), false));
+
+// ---- hosts: catalogue sanitising ----
+t('sanitiseTracks drops off-Netflix urls', () => {
+  const out = sanitiseTracks([
+    { id: 'a', language: 'en', url: 'https://a.nflxvideo.net/en.vtt' },
+    { id: 'b', language: 'zh', url: 'https://attacker.io/zh.vtt' },
+  ]);
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].language, 'en');
+});
+t('sanitiseTracks drops non-objects and junk', () =>
+  assert.deepStrictEqual(sanitiseTracks([null, 'x', 5, {}]), []));
+t('sanitiseTracks on a non-array -> []', () => assert.deepStrictEqual(sanitiseTracks('nope'), []));
+t('sanitiseTracks copies rather than passing the input through', () => {
+  const input = [{ id: 'a', language: 'en', url: 'https://a.nflxvideo.net/en.vtt', evil: 1 }];
+  const out = sanitiseTracks(input);
+  assert.notStrictEqual(out[0], input[0]);
+  assert.strictEqual(out[0].evil, undefined);
+});
+t('sanitiseTracks caps the array', () => {
+  const many = Array.from({ length: 500 }, (_, i) =>
+    ({ id: String(i), language: 'en', url: 'https://a.nflxvideo.net/' + i + '.vtt' }));
+  assert.strictEqual(sanitiseTracks(many).length, 100);
+});
 
 console.log(`\n${pass} passed` + (process.exitCode ? ', with failures' : ''));

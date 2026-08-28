@@ -60,6 +60,40 @@ Open a title on `netflix.com`, press play, then click the sub-NF toolbar icon
 to choose your two languages. Behaviour and controls are identical to the Chrome
 build (`../Chrome/README.md`).
 
+## Known converter issue (hit 2026-08-24, Xcode 26.6)
+
+`safari-web-extension-converter` derives the **parent app's** bundle ID from
+`--app-name` (here `…subnf` became `io.github.githog-c.sub-NF`) while the
+extension keeps the `--bundle-identifier` prefix (`io.github.githog-c.subnf.Extension`).
+The mismatch fails the build at `ValidateEmbeddedBinary`:
+
+    error: Embedded binary's bundle identifier is not prefixed with the parent
+    app's bundle identifier.
+
+Fix: in `build/sub-NF/sub-NF.xcodeproj/project.pbxproj`, set the app targets'
+`PRODUCT_BUNDLE_IDENTIFIER` back to the plain prefix — a global replace works:
+
+```sh
+sed -i '' 's/io\.github\.githog-c\.sub-NF/io.github.githog-c.subnf/g' \
+  build/sub-NF/sub-NF.xcodeproj/project.pbxproj
+```
+
+Headless CLI build (no Xcode GUI, ad-hoc signature — Safari then needs
+**Develop → Allow Unsigned Extensions**):
+
+```sh
+cd build/sub-NF
+xcodebuild -scheme "sub-NF" -configuration Release -derivedDataPath ./DerivedData \
+  CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" build
+ditto DerivedData/Build/Products/Release/sub-NF.app /Applications/sub-NF.app
+open /Applications/sub-NF.app   # register the extension, then quit it
+```
+
+The converter also warns that the manifest's `world` key is unsupported — this
+is expected and harmless: `content.js` falls back to a `<script>`-tag injection
+of `inject.js` (declared in `web_accessible_resources`), and the hook guards
+against double-install.
+
 ## Distribution (optional)
 
 To share it beyond your own Mac you must sign it with a paid Apple Developer

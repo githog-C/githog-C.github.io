@@ -172,8 +172,22 @@
     return normaliseTracks(list);
   }
 
+  // inject.js runs in the PAGE world, where it cannot see the isolated world's
+  // globals -- and loading src/hosts.js into the page instead would let page
+  // scripts redefine it. So it keeps its own closure-private copy, and
+  // run-tests.js asserts the two agree on a table of hosts.
+  function isNetflixHost(url) {
+    if (typeof url !== 'string' || !url) return false;
+    let u;
+    try { u = new URL(url); } catch (_) { return false; }
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    return ['nflxvideo.net', 'nflxext.com', 'nflximg.net', 'nflxso.net', 'netflix.com']
+      .some((d) => host === d || host.endsWith('.' + d));
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { pickUrl, pickFormat, normaliseTracks, tracksFromManifest, findProfilesArray };
+    module.exports = { pickUrl, pickFormat, normaliseTracks, tracksFromManifest, findProfilesArray, isNetflixHost };
   }
   if (!isBrowser) return; // under Node (tests) we stop here
 
@@ -371,7 +385,7 @@
 
     // Fetch a subtitle file in Netflix's own origin. The content script tries
     // the background worker first and only asks us if that route failed.
-    if (d.kind === 'fetch' && typeof d.url === 'string') {
+    if (d.kind === 'fetch' && isNetflixHost(d.url)) {
       fetch(d.url, { credentials: 'omit' })
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
         .then((text) => window.postMessage({ __subnf: true, dir: 'page', kind: 'vtt', id: d.id, ok: true, text }, '*'))
