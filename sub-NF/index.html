@@ -17,10 +17,16 @@
     line-height:1.6; -webkit-font-smoothing:antialiased;
   }
   .wrap { max-width:820px; margin:0 auto; padding:48px 22px 80px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; }
   .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
   .bar { height:14px; border-radius:7px; display:inline-block; }
   .bar-red { width:40px; background:var(--red); }
   .bar-pale { width:26px; background:var(--pale); }
+  .langbtn {
+    font:inherit; font-size:12px; line-height:1; padding:6px 11px; color:var(--muted);
+    background:transparent; border:1px solid var(--line); border-radius:999px; cursor:pointer;
+  }
+  .langbtn:hover { color:var(--text); border-color:var(--muted); }
   h1 { font-size:clamp(30px,6vw,46px); margin:.2em 0 .1em; letter-spacing:.5px; }
   .lede { color:var(--muted); font-size:clamp(15px,2.6vw,18px); margin:0 0 28px; }
   .demo {
@@ -32,30 +38,29 @@
   .demo .l1 { font-size:clamp(18px,3.5vw,24px); font-weight:600; }
   .demo .l2 { font-size:clamp(15px,3vw,20px); color:var(--warm); }
   .demo .tag { position:absolute; top:12px; left:14px; font-size:12px; color:var(--muted); letter-spacing:2px; }
-  h2 { font-size:22px; margin:34px 0 10px; }
   p { margin:.5em 0; }
   .muted { color:var(--muted); }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:18px 0 8px; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 16px 18px; }
-  .card h3 { margin:.1em 0 .3em; font-size:17px; }
-  .card .ok { color:#6cd06c; } .card .no { color:#ff6b6b; }
-  .card ul { margin:.4em 0 0; padding-left:18px; } .card li { margin:.15em 0; font-size:14px; color:var(--muted); }
   a { color:#ff8a8a; text-decoration:none; } a:hover { text-decoration:underline; }
-  .verdict { background:#1a1210; border:1px solid #4a1c1c; border-radius:12px; padding:16px 18px; margin:8px 0 6px; }
-  .verdict strong { color:#ffb3b3; }
-  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  pre { background:#000; border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow:auto; font-size:13px; }
+  .dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:0 0 12px; }
+  .btn {
+    display:block; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; color:var(--text); text-decoration:none; transition:border-color .15s, background .15s;
+  }
+  .btn:hover { background:#1d1d1d; border-color:var(--red); text-decoration:none; }
+  .btn .t { display:block; font-size:17px; font-weight:600; }
+  .btn .s { display:block; font-size:13px; color:var(--muted); margin-top:2px; }
+  .ver { font-size:13px; color:var(--muted); margin:0 0 4px; }
   .foot { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
-  table { border-collapse:collapse; width:100%; margin:10px 0; font-size:14px; }
-  th,td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
-  th { color:var(--muted); font-weight:600; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span class="bar bar-red"></span><span class="bar bar-pale"></span></div>
+  <div class="topbar">
+    <div class="brand"><span class="bar bar-red"></span><span class="bar bar-pale"></span></div>
+    <button type="button" id="lang" class="langbtn"></button>
+  </div>
   <h1>sub-NF</h1>
-  <p class="lede">兩種字幕語言同時顯示在 Netflix 上，取自 Netflix 自己的字幕軌。為語言學習而做。</p>
+  <p class="lede" data-i18n="lede"></p>
 
   <div class="demo">
     <span class="tag">SUB-NF</span>
@@ -65,56 +70,81 @@
     </div>
   </div>
 
-  <div class="verdict">
-    <p style="margin:0"><strong>老實說：</strong>「做一個讓 <em>Netflix App</em> 直接顯示雙語字幕的原生 iOS App」<strong>做不到</strong>——不是難，是 iOS 的沙盒根本不允許：任何 App 都不能讀取或覆蓋另一個 App 的畫面，而唯一的螢幕擷取 API 對 Netflix 這種 DRM 影片只會給你黑畫面。詳見 <a href="./iOS/FEASIBILITY.md">iOS/FEASIBILITY.md</a>。</p>
-    <p style="margin:.5em 0 0" class="muted">所以本專案交付「在瀏覽器裡看 Netflix」時可行的做法——這是最接近原目標、且能上架的方案。iOS 版就是一個 Safari 擴充功能。</p>
+  <div class="dl">
+    <a class="btn" href="./downloads/sub-NF-Chrome.zip" download>
+      <span class="t" data-i18n="chromeT"></span>
+      <span class="s" data-i18n="chromeS"></span>
+    </a>
+    <a class="btn" href="./downloads/sub-NF-Safari.zip" download>
+      <span class="t" data-i18n="safariT"></span>
+      <span class="s" data-i18n="safariS"></span>
+    </a>
   </div>
-
-  <h2>三種打包，同一個引擎</h2>
-  <div class="cards">
-    <div class="card">
-      <h3>Chrome <span class="ok">✓</span></h3>
-      <p class="muted">Chrome / Edge / Brave 等 Chromium。</p>
-      <ul><li>載入未封裝資料夾即用</li><li><a href="./Chrome/">Chrome/</a></li></ul>
-    </div>
-    <div class="card">
-      <h3>Safari (macOS) <span class="ok">✓</span></h3>
-      <p class="muted">用 Xcode 包一次就能啟用。</p>
-      <ul><li>相同的擴充功能程式碼</li><li><a href="./Safari/">Safari/</a></li></ul>
-    </div>
-    <div class="card">
-      <h3>iOS (Safari) <span class="ok">✓</span></h3>
-      <p class="muted">iPhone / iPad 的 Safari，iOS 15+。</p>
-      <ul><li>在 Safari 看片，非 Netflix App</li><li><a href="./iOS/">iOS/</a></li></ul>
-    </div>
-    <div class="card">
-      <h3>Netflix App（原生 iOS）<span class="no">✗</span></h3>
-      <p class="muted">iOS 沙盒不允許跨 App 覆蓋。</p>
-      <ul><li>唯有越獄能改，且無法上架</li><li><a href="./iOS/FEASIBILITY.md">為什麼</a></li></ul>
-    </div>
-  </div>
-
-  <h2>運作原理</h2>
-  <p>Netflix 本來就會把字幕軌下載到瀏覽器來畫字幕。擴充功能用一段注入頁面的程式攔住 <code>JSON.parse</code>，抓到 Netflix 的播放 manifest（裡面列出每一條字幕軌與其 WebVTT 下載網址），下載你選的兩種語言、解析 WebVTT，然後畫一層跟著影片時間走的兩行字幕。<strong>完全不碰影像、聲音或 DRM，也不儲存、不散布任何字幕或影片。</strong></p>
-
-  <h2>快速開始（Chrome）</h2>
-  <pre>1. chrome://extensions → 開啟「開發人員模式」→「載入未封裝項目」→ 選 Chrome/ 資料夾
-2. 在 netflix.com 打開一部片，按播放
-3. 點 sub-NF 圖示，選兩種語言</pre>
-  <p class="muted">Safari 與 iOS 需要用 Xcode 打包一次，步驟見各自資料夾的 README / BUILD。</p>
-
-  <h2>可行性一覽</h2>
-  <table>
-    <tr><th>目標</th><th>可行？</th><th>方式</th></tr>
-    <tr><td>Netflix <b>iOS App</b> 雙語字幕</td><td>✗</td><td>無公開 API；需跨 App 覆蓋＋讀取，皆被禁止。只有越獄可行，但不能上架。</td></tr>
-    <tr><td>Netflix 在 <b>iOS Safari</b> 雙語字幕</td><td>✓</td><td>Safari 擴充功能（iOS 15+）——<a href="./iOS/">iOS/</a></td></tr>
-    <tr><td>Netflix 在 <b>桌面 Chrome / Safari</b></td><td>✓</td><td><a href="./Chrome/">Chrome/</a>、<a href="./Safari/">Safari/</a></td></tr>
-  </table>
+  <p class="ver">v1.4.7</p>
 
   <div class="foot">
-    <p>個人、私人的語言學習用途。不下載、不儲存、不散布字幕或影片，不破解任何保護措施。請遵守 Netflix 使用條款與當地著作權法。「Netflix」為 Netflix, Inc. 之商標；本工具與其無任何從屬或背書關係。</p>
-    <p>MIT，見專案根目錄 LICENSE。 · <a href="https://github.com/githog-C/githog-C.github.io/tree/main/sub-NF">原始碼</a></p>
+    <p data-i18n="legal"></p>
+    <p><span data-i18n="license"></span> · <a href="https://github.com/githog-C/githog-C.github.io/tree/main/sub-NF" data-i18n="source"></a></p>
   </div>
 </div>
+
+<script>
+(function () {
+  'use strict';
+  var STR = {
+    zh: {
+      _btn: 'EN', _lang: 'zh-Hant',
+      lede: '兩種字幕語言同時顯示在 Netflix 上，取自 Netflix 自己的字幕軌。為語言學習而做。',
+      chromeT: 'Chrome / Edge / Brave',
+      chromeS: '解壓後載入未封裝資料夾即可使用',
+      safariT: 'Safari（macOS）',
+      safariS: '用 Xcode 打包一次後啟用',
+      legal: '個人、私人的語言學習用途。請遵守 Netflix 使用條款與當地著作權法。「Netflix」為 Netflix, Inc. 之商標；本工具與其無任何從屬或背書關係。',
+      license: 'MIT，見專案根目錄 LICENSE。',
+      source: '原始碼'
+    },
+    en: {
+      _btn: '中', _lang: 'en',
+      lede: "Two subtitle languages at once on Netflix, taken from Netflix's own subtitle tracks. Built for language learning.",
+      chromeT: 'Chrome / Edge / Brave',
+      chromeS: 'Unzip, then load the unpacked folder.',
+      safariT: 'Safari (macOS)',
+      safariS: 'Build once in Xcode, then enable it.',
+      legal: 'For personal, private language study. Follow the Netflix Terms of Use and your local copyright law. "Netflix" is a trademark of Netflix, Inc.; this tool is not affiliated with or endorsed by them.',
+      license: 'MIT — see LICENSE in the project root.',
+      source: 'Source'
+    }
+  };
+
+  function pick() {
+    try {
+      var saved = localStorage.getItem('subnf-lang');
+      if (saved === 'zh' || saved === 'en') return saved;
+    } catch (e) { /* private mode, fall through */ }
+    return /^zh\b/i.test(navigator.language || '') ? 'zh' : 'en';
+  }
+
+  var lang = pick();
+
+  function apply() {
+    var t = STR[lang];
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < nodes.length; i++) {
+      var k = nodes[i].getAttribute('data-i18n');
+      if (t[k]) nodes[i].textContent = t[k];
+    }
+    document.getElementById('lang').textContent = t._btn;
+    document.documentElement.lang = t._lang;
+  }
+
+  document.getElementById('lang').addEventListener('click', function () {
+    lang = (lang === 'zh') ? 'en' : 'zh';
+    try { localStorage.setItem('subnf-lang', lang); } catch (e) { /* ignore */ }
+    apply();
+  });
+
+  apply();
+})();
+</script>
 </body>
 </html>
