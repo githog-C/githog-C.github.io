@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>githog-C</title>
+<style>
+  :root {
+    --bg:#0b0b0b; --line:#282828; --text:#f3f3f3; --muted:#9b9b9b; --link:#cfcfcf;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:"Helvetica Neue",Roboto,Arial,"Noto Sans TC",system-ui,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:720px; margin:0 auto; padding:48px 22px 80px; }
+  .topbar { display:flex; align-items:flex-start; justify-content:flex-end; }
+  .langbtn {
+    font:inherit; font-size:12px; line-height:1; padding:6px 11px; color:var(--muted);
+    background:transparent; border:1px solid var(--line); border-radius:999px; cursor:pointer;
+  }
+  .langbtn:hover { color:var(--text); border-color:var(--muted); }
+  .lede { margin:6px 0 26px; font-size:clamp(15px,2.6vw,17px); }
+  ul.tree { list-style:none; margin:0; padding:0; }
+  ul.tree li { margin:0; }
+  .g {
+    color:var(--muted); user-select:none;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  a { color:var(--link); text-decoration:none; border-bottom:1px solid transparent; }
+  a:hover { color:#fff; border-bottom-color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button type="button" id="lang" class="langbtn">中</button>
+  </div>
+
+  <p class="lede">I don't own anything here. Huge thx to C&amp;CC&amp;CD&amp;CW! xxx</p>
+
+  <ul class="tree">
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/frame/index.html" data-i18n="frame">frame</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/lyrics/index.html" data-i18n="lyrics">lyrics</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/plurk-backup-search/index.html" data-i18n="plurk">plurk-backup-search</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/repo/index.html" data-i18n="repo">repo</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/speak/index.html" data-i18n="speak">speak</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/sub-NF/index.html" data-i18n="subnf">sub-NF</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/svg-editor/index.html" data-i18n="svg">svg-editor</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/timer/index.html" data-i18n="timer">timer</a></li>
+    <li><span class="g">　├─ </span><a href="https://githog-c.github.io/type-to-reach-you/index.html" data-i18n="type">type-to-reach-you</a></li>
+    <li><span class="g">　└─ </span><a href="https://githog-c.github.io/unsee/index.html" data-i18n="unsee">unsee</a></li>
+  </ul>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Chinese labels: each tool page's own <title>. English labels are whatever
+  // the HTML already ships with, captured below -- so the page still reads
+  // correctly with JavaScript switched off.
+  var ZH = {
+    frame: '逐幀擷取',
+    lyrics: '歌詞集',
+    plurk: '全文檢索',
+    repo: '簡報編輯器',
+    speak: '朗讀練習',
+    subnf: 'sub-NF — Netflix bilingual subtitles',
+    svg: 'SVG Editor',
+    timer: '報告計時提醒書籤',
+    type: '打字練習',
+    unsee: '把不想看到的網站從搜尋結果裡拿掉'
+  };
+
+  var nodes = document.querySelectorAll('[data-i18n]');
+  var EN = {};
+  for (var i = 0; i < nodes.length; i++) {
+    EN[nodes[i].getAttribute('data-i18n')] = nodes[i].textContent;
+  }
+
+  function pick() {
+    try {
+      var saved = localStorage.getItem('site-lang');
+      if (saved === 'zh' || saved === 'en') return saved;
+    } catch (e) { /* private mode, fall through */ }
+    return 'en';
+  }
+
+  var lang = pick();
+  var btn = document.getElementById('lang');
+
+  function apply() {
+    for (var i = 0; i < nodes.length; i++) {
+      var k = nodes[i].getAttribute('data-i18n');
+      nodes[i].textContent = (lang === 'zh' && ZH[k]) ? ZH[k] : EN[k];
+    }
+    btn.textContent = (lang === 'zh') ? 'EN' : '中';
+    document.documentElement.lang = (lang === 'zh') ? 'zh-Hant' : 'en';
+  }
+
+  btn.addEventListener('click', function () {
+    lang = (lang === 'zh') ? 'en' : 'zh';
+    try { localStorage.setItem('site-lang', lang); } catch (e) { /* ignore */ }
+    apply();
+  });
+
+  apply();
+})();
+</script>
+</body>
+</html>
