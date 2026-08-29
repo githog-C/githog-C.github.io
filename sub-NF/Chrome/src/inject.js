@@ -197,15 +197,76 @@
   const seen = new Set();
   const diag = { manifest: 0, playerApi: 0, json: 0, response: 0, xhr: 0, profiles: 0 };
 
+  // ---- forced-narrative flags -------------------------------------------
+  // Only the player API spells this flag "isForcedNarrative". Out of a
+  // manifest it arrives under some other name, so every track lands
+  // forced:false and resolveTrack's forced-narrative penalty never fires. On
+  // an originally-Chinese title that is not cosmetic: Netflix lists the forced
+  // track FIRST, labels it "Off", and gives it the same bcp47 as the real
+  // subtitles, so the renderer settles on five or six signage cues instead of
+  // the dialogue. The API lives in this world -- ask it rather than guess at
+  // the manifest's spelling.
+  function forcedById() {
+    const map = new Map();
+    eachPlayer((p) => {
+      for (const t of (trackListOf(p) || [])) {
+        try {
+          const id = String(t.new_track_id || t.id || t.trackId || t.track_id || '');
+          if (id) map.set(id, !!t.isForcedNarrative);
+        } catch (_) { /* one bad track must never lose the rest */ }
+      }
+    });
+    return map;
+  }
+
+  // Fills in what the API knows. Returns whether it knew anything at all, so
+  // the caller can tell "nothing is forced" from "nobody has told us yet".
+  function repairForced(tracks) {
+    const map = forcedById();
+    if (!map.size) return false;
+    let answered = false;
+    for (const t of tracks) {
+      const known = map.get(String(t.id));
+      if (known === undefined) continue;
+      answered = true;
+      if (known) t.forced = true;
+    }
+    return answered;
+  }
+
+  // The manifest is usually parsed before the player exists, and the content
+  // script stops polling as soon as it holds any catalogue at all -- so an
+  // unflagged first answer would never be corrected. Follow it up from here
+  // instead, and publish again once the API can speak.
+  let recheck = 0;
+  function recheckForced(movieId, tracks, source) {
+    if (recheck) return;
+    let tries = 0;
+    recheck = setInterval(() => {
+      tries += 1;
+      const copy = tracks.map((t) => ({ ...t }));
+      const done = repairForced(copy);
+      if (done || tries >= 30) {            // ~15s, then give up quietly
+        clearInterval(recheck);
+        recheck = 0;
+        if (done) send(movieId, copy, source + '+forced');
+      }
+    }, 500);
+  }
+
   function send(movieId, tracks, source) {
     if (!tracks || !tracks.length) return false;
-    const key = String(movieId) + ':' + tracks.map((t) => t.id).join(',');
+    const answered = repairForced(tracks);
+    // The flags are part of the key: the same tracks described a second time,
+    // now with forced-narrative marked, is a better answer and not a duplicate.
+    const key = String(movieId) + ':' + tracks.map((t) => t.id + (t.forced ? '!' : '')).join(',');
     if (seen.has(key)) return false;
     seen.add(key);
     window.postMessage({
       __subnf: true, dir: 'page', kind: 'tracks',
       movieId: String(movieId), tracks, source,
     }, '*');
+    if (!answered) recheckForced(movieId, tracks, source);
     return true;
   }
 
