@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="把任意 PowerPoint（.pptx）轉成 repo 簡報編輯器的簡報檔與網頁內嵌版；全部在瀏覽器內完成，不上傳。">
+<title>repo-trans｜PowerPoint 轉簡報檔</title>
+<style>
+:root { --red: #C8102E; --red-deep: #A50D22; --tint: #F5E6E9; --ink: #1A1A1A; --gray: #555; --line: #D9D9D9; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; color: var(--ink); background: #F4F4F4; line-height: 1.6; }
+header { background: var(--red); color: #fff; padding: 14px 24px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+header h1 { font-size: 20px; letter-spacing: .06em; }
+header small { opacity: .9; font-size: 13px; }
+header a { color: #fff; }
+main { max-width: 1200px; margin: 0 auto; padding: 20px 24px 60px; }
+.drop { border: 2px dashed var(--red); border-radius: 14px; background: #fff; padding: 36px 24px; text-align: center; cursor: pointer; transition: background .15s; }
+.drop.over { background: var(--tint); }
+.drop b { display: block; font-size: 18px; margin-bottom: 6px; }
+.drop span { color: var(--gray); font-size: 14px; }
+.rules { margin-top: 14px; font-size: 13px; color: var(--gray); background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+.rules li { margin-left: 1.4em; }
+#result { display: none; margin-top: 20px; }
+#result.show { display: block; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+.card h2 { font-size: 16px; color: var(--red-deep); margin-bottom: 8px; }
+.btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.btns button { border: 2px solid var(--red); background: #fff; color: var(--red); border-radius: 24px; padding: 9px 18px; font: bold 14px "Microsoft JhengHei", sans-serif; cursor: pointer; }
+.btns button.primary { background: var(--red); color: #fff; }
+.btns button:disabled { opacity: .4; cursor: default; }
+.btns button:hover:not(:disabled) { background: var(--red-deep); color: #fff; border-color: var(--red-deep); }
+#report { font-size: 14px; }
+#report ul { margin-left: 1.4em; }
+#report .warn { color: #8A4B00; }
+#report .ok { color: #1E6B2E; }
+#preview { width: 100%; aspect-ratio: 16 / 9; border: 1px solid var(--line); background: #fff; border-radius: 8px; }
+#toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: rgba(26,26,26,.92); color: #fff; padding: 10px 22px; border-radius: 24px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .25s; max-width: 80vw; z-index: 20; }
+#toast.show { opacity: 1; }
+.src { font-size: 12px; color: var(--gray); margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>repo-trans｜PowerPoint 轉簡報檔</h1>
+  <small>把任何 .pptx 轉成 <a href="index.html" target="_blank" rel="noopener">簡報編輯器</a> 的簡報檔與網頁內嵌版。全部在你的瀏覽器內完成，不上傳。</small>
+</header>
+<main>
+  <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+    <b>把 .pptx 拖到這裡，或點一下選檔</b>
+    <span>轉換完成後可下載簡報檔（.html，可直接投影、可匯入編輯器）與網頁內嵌版（.txt，貼網站後台）</span>
+    <input type="file" id="file" accept=".pptx" style="display:none" onchange="onPicked(this)">
+  </div>
+  <div class="rules">
+    轉換規則：只留投影片本身的文字、圖片、形狀、表格、群組；母片與版面配置的裝飾、背景、頁尾一律拋棄，每頁都是空白白底。文字只保留字級、粗體、斜體、顏色、對齊、行距；襯線字型換成 Times New Roman 配明體，其餘一律 Arial 配黑體。矩形、圓角矩形、橢圓、直線與十邊以內的簡單形狀照畫，其他形狀近似成矩形。圖表、SmartArt、內嵌物件、emf／wmf 圖片放灰框標示。動畫、轉場、備忘稿、隱藏投影片不轉。
+  </div>
+  <div id="result">
+    <div class="card">
+      <h2>下載</h2>
+      <div class="btns">
+        <button class="primary" id="b-deck" onclick="downloadDeck()">下載簡報檔（.html）</button>
+        <button id="b-zh" onclick="downloadEmbed('zh')">下載網頁內嵌版：中文（.txt）</button>
+        <button id="b-en" onclick="downloadEmbed('en')">下載網頁內嵌版：英文（.txt）</button>
+      </div>
+      <div class="src" id="src"></div>
+    </div>
+    <div class="card"><h2>轉換報告</h2><div id="report"></div></div>
+    <div class="card"><h2>預覽（第一頁起，可捲動）</h2><iframe id="preview" title="預覽"></iframe></div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* repo-trans: any .pptx -> deck file for the repo editor (+ web embed edition).
+   Rules (fixed by design, see the page): content shapes only, no master/layout
+   art, blank white pages, minimal text styling, fixed font substitution. */
+var VERSION_FALLBACK = 'v11.1';
+var PP_W = 1920, PP_H = 1028;         /* editor screen = 1920 x (1080 - 52px footer) */
+var NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+var NS_P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+var NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+var NS_REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
+var SANS = 'Arial, "Microsoft JhengHei", sans-serif';
+var SERIF = '"Times New Roman", PMingLiU, serif';
+var prog = null;      /* program layer taken from index.html (deck-css, tpl-js, rt-viewer, embed-css, embed-js, version) */
+var result = null;    /* {sections:[{html, lang, text}], title, report} */
+
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { el.classList.remove('show'); }, 5000);
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function num(v, d) { var n = parseFloat(v); return isNaN(n) ? d : n; }
+function pct(v) { return (Math.round(v * 100) / 100) + '%'; }
+function vw(px) { return (Math.round(px / 19.2 * 1000) / 1000) + 'vw'; }
+
+/* ----- program layer from index.html (same folder); offline fallback keeps the deck importable ----- */
+function loadProgram() {
+  return fetch('index.html', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }).then(function (html) {
+    var d = new DOMParser().parseFromString(html, 'text/html');
+    function t(id) { var e = d.getElementById(id); return e ? e.textContent : ''; }
+    var vm = /var VERSION = '([^']+)'/.exec(html);
+    prog = { css: t('deck-css'), tpl: t('tpl-js'), rt: t('rt-viewer'), ecss: t('embed-css'), ejs: t('embed-js'), version: vm ? vm[1] : VERSION_FALLBACK, full: !!(t('deck-css') && t('rt-viewer')) };
+  }).catch(function () {
+    prog = { css: FALLBACK_CSS, tpl: '', rt: '', ecss: '', ejs: '', version: VERSION_FALLBACK, full: false };
+  });
+}
+var FALLBACK_CSS = ':root{--footer-h:52px}*{margin:0;padding:0;box-sizing:border-box}body{font-family:"Microsoft JhengHei",sans-serif;background:#fff;padding-bottom:var(--footer-h)}.screen{height:calc(100vh - var(--footer-h));position:relative;overflow:hidden;background:#fff}footer.site{position:fixed;left:0;right:0;bottom:0;height:var(--footer-h);background:#A50D22;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:14px}.textbox{line-height:1.7}.ins-img{display:block}';
+
+/* ----- zip ----- */
+function inflate(u8) {
+  var st = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Response(st).arrayBuffer().then(function (ab) { return new Uint8Array(ab); });
+}
+function zipRead(ab) {
+  var u8 = new Uint8Array(ab), dv = new DataView(ab), i, eocd = -1;
+  for (i = u8.length - 22; i >= 0 && i > u8.length - 70000; i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) return Promise.reject(new Error('不是 zip 容器'));
+  var n = dv.getUint16(eocd + 10, true), p = dv.getUint32(eocd + 16, true), out = {}, jobs = [], dec = new TextDecoder();
+  for (i = 0; i < n; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    var method = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true);
+    var nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    var name = dec.decode(u8.subarray(p + 46, p + 46 + nl));
+    var start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    var data = u8.subarray(start, start + csz);
+    (function (nm, d, m) {
+      if (m === 0) out[nm] = d;
+      else if (m === 8) jobs.push(inflate(d).then(function (r) { out[nm] = r; }));
+    })(name, data, method);
+    p += 46 + nl + el + cl;
+  }
+  return Promise.all(jobs).then(function () { return out; });
+}
+function b64(u8) { var s = ''; for (var i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+
+/* ----- xml helpers ----- */
+function child(el, ns, ln) { for (var c = el && el.firstElementChild; c; c = c.nextElementSibling) if (c.localName === ln && c.namespaceURI === ns) return c; return null; }
+function childA(el, ln) { return child(el, NS_A, ln); }
+function childP(el, ln) { return child(el, NS_P, ln); }
+function first(el, ns, ln) { var l = el ? el.getElementsByTagNameNS(ns, ln) : []; return l.length ? l[0] : null; }
+function kids(el, ns) { var o = []; for (var c = el && el.firstElementChild; c; c = c.nextElementSibling) if (!ns || c.namespaceURI === ns) o.push(c); return o; }
+function joinPath(dir, target) {
+  var parts = (dir ? dir.split('/') : []).filter(Boolean);
+  target.split('/').forEach(function (s) { if (s === '..') parts.pop(); else if (s && s !== '.') parts.push(s); });
+  return parts.join('/');
+}
+
+/* ----- package ----- */
+function Pkg(z) {
+  this.z = z; this.dec = new TextDecoder(); this.cache = {};
+}
+Pkg.prototype.xml = function (p) {
+  if (this.cache[p] !== undefined) return this.cache[p];
+  var d = this.z[p] ? new DOMParser().parseFromString(this.dec.decode(this.z[p]), 'application/xml') : null;
+  if (d && d.getElementsByTagName('parsererror').length) d = null;
+  this.cache[p] = d;
+  return d;
+};
+Pkg.prototype.rels = function (p) {
+  var dir = p.replace(/\/[^\/]*$/, ''), base = p.split('/').pop();
+  var d = this.xml(dir + '/_rels/' + base + '.rels'), m = {};
+  if (!d) return m;
+  var list = d.getElementsByTagNameNS(NS_REL, 'Relationship');
+  for (var i = 0; i < list.length; i++) {
+    var ext = list[i].getAttribute('TargetMode') === 'External';
+    m[list[i].getAttribute('Id')] = { type: (list[i].getAttribute('Type') || '').split('/').pop(), target: ext ? list[i].getAttribute('Target') : joinPath(dir, list[i].getAttribute('Target')), ext: ext };
+  }
+  return m;
+};
+Pkg.prototype.relOfType = function (rels, type) { for (var k in rels) if (rels[k].type === type) return rels[k].target; return null; };
+
+/* ----- colours ----- */
+function hex2(v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16).toUpperCase(); }
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  var mx = Math.max(r, g, b), mn = Math.min(r, g, b), h = 0, s = 0, l = (mx + mn) / 2, d = mx - mn;
+  if (d) { s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === r) h = (g - b) / d + (g < b ? 6 : 0); else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; }
+  return [h, s, l];
+}
+function hslToRgb(h, s, l) {
+  function f(p, q, t) { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; }
+  if (!s) return [l * 255, l * 255, l * 255];
+  var q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  return [f(p, q, h + 1 / 3) * 255, f(p, q, h) * 255, f(p, q, h - 1 / 3) * 255];
+}
+function applyMods(hex, el) {
+  var r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16), alpha = 1;
+  kids(el, NS_A).forEach(function (m) {
+    var v = num(m.getAttribute('val'), 100000) / 100000, hsl;
+    if (m.localName === 'lumMod') { hsl = rgbToHsl(r, g, b); var c = hslToRgb(hsl[0], hsl[1], Math.min(1, hsl[2] * v)); r = c[0]; g = c[1]; b = c[2]; }
+    else if (m.localName === 'lumOff') { hsl = rgbToHsl(r, g, b); var c2 = hslToRgb(hsl[0], hsl[1], Math.max(0, Math.min(1, hsl[2] + v))); r = c2[0]; g = c2[1]; b = c2[2]; }
+    else if (m.localName === 'tint') { r = r * v + 255 * (1 - v); g = g * v + 255 * (1 - v); b = b * v + 255 * (1 - v); }
+    else if (m.localName === 'shade') { r *= v; g *= v; b *= v; }
+    else if (m.localName === 'alpha') alpha = v;
+  });
+  return { hex: hex2(r) + hex2(g) + hex2(b), a: alpha };
+}
+/* returns {hex, a} or null; ctx.scheme = name->hex, ctx.clrMap = bg1->lt1 ... */
+function colorOf(fillLike, ctx) {
+  if (!fillLike) return null;
+  var c = childA(fillLike, 'srgbClr') || childA(fillLike, 'schemeClr') || childA(fillLike, 'sysClr') || childA(fillLike, 'prstClr');
+  if (!c) return null;
+  var hex = null;
+  if (c.localName === 'srgbClr') hex = (c.getAttribute('val') || '000000').toUpperCase();
+  else if (c.localName === 'sysClr') hex = (c.getAttribute('lastClr') || '000000').toUpperCase();
+  else if (c.localName === 'prstClr') hex = ({ white: 'FFFFFF', black: '000000', red: 'FF0000', blue: '0000FF', green: '008000', yellow: 'FFFF00', gray: '808080', grey: '808080' })[c.getAttribute('val')] || '000000';
+  else {
+    var name = c.getAttribute('val') || 'tx1';
+    name = (ctx.clrMap && ctx.clrMap[name]) || name;
+    hex = (ctx.scheme && ctx.scheme[name]) || (name === 'bg1' || name === 'lt1' ? 'FFFFFF' : '000000');
+  }
+  return applyMods(hex, c);
+}
+function cssColor(c) { return c ? (c.a < 1 ? 'rgba(' + parseInt(c.hex.slice(0, 2), 16) + ',' + parseInt(c.hex.slice(2, 4), 16) + ',' + parseInt(c.hex.slice(4, 6), 16) + ',' + (Math.round(c.a * 100) / 100) + ')' : '#' + c.hex) : null;
+}
+function fillCss(spPr, ctx) {
+  /* -> {bg: css background or null, kind} */
+  if (!spPr) return null;
+  var sf = childA(spPr, 'solidFill'), gf = childA(spPr, 'gradFill'), bf = childA(spPr, 'blipFill');
+  if (childA(spPr, 'noFill')) return null;
+  if (sf) return cssColor(colorOf(sf, ctx));
+  if (gf) {
+    var stops = kids(childA(gf, 'gsLst'), NS_A).map(function (gs) { var col = cssColor(colorOf(gs, ctx)) || 'transparent'; return col + ' ' + (num(gs.getAttribute('pos'), 0) / 1000) + '%'; });
+    var lin = childA(gf, 'lin'), ang = lin ? num(lin.getAttribute('ang'), 5400000) / 60000 : 90;
+    if (stops.length >= 2) return 'linear-gradient(' + ((ang + 90) % 360) + 'deg, ' + stops.join(', ') + ')';
+    return stops.length ? stops[0].split(' ')[0] : null;
+  }
+  if (bf) {
+    var blip = childA(bf, 'blip'), rid = blip && blip.getAttributeNS(NS_R, 'embed');
+    var media = rid && ctx.media(rid);
+    if (media) return 'url("' + media + '") center / cover no-repeat';
+  }
+  return null;
+}
+function lineCss(spPr, ctx) {
+  var ln = spPr && childA(spPr, 'ln');
+  if (!ln || childA(ln, 'noFill')) return null;
+  var sf = childA(ln, 'solidFill');
+  if (!sf) return null;
+  var w = num(ln.getAttribute('w'), 9525) / 12700 * 2 * ctx.k;   /* pt -> px at 1920 */
+  return { w: Math.max(1, w), color: cssColor(colorOf(sf, ctx)) || '#000' };
+}
+
+/* ----- fonts ----- */
+function fontStack(name) { return /ming|serif|times|georgia|明|宋|garamond|cambria|book/i.test(name || '') ? SERIF : SANS; }
+
+/* ----- text styling chain (placeholder inheritance kept to: xfrm, size, bold, italic, colour, alignment, bullets, spacing) ----- */
+function lvlPr(lst, lvl) { return lst ? childA(lst, 'lvl' + (lvl + 1) + 'pPr') : null; }
+function collect(chain, lvl, pick) {
+  /* chain: array of lstStyle-like elements (most specific first); returns first defined value */
+  for (var i = 0; i < chain.length; i++) {
+    var p = chain[i] && (chain[i].localName === 'pPr' ? chain[i] : lvlPr(chain[i], lvl));
+    if (!p) continue;
+    var v = pick(p);
+    if (v !== undefined && v !== null) return v;
+  }
+  return null;
+}
+function rprPick(p, attr) { var d = p.localName === 'pPr' ? childA(p, 'defRPr') : childA(p, 'defRPr'); return d && d.hasAttribute(attr) ? d.getAttribute(attr) : null; }
+function rprColor(p, ctx) { var d = childA(p, 'defRPr'), sf = d && childA(d, 'solidFill'); return sf ? colorOf(sf, ctx) : null; }
+function rprFont(p) { var d = childA(p, 'defRPr'), l = d && childA(d, 'latin'); return l ? l.getAttribute('typeface') : null; }
+function spacingOf(p, name) {
+  var e = childA(p, name);
+  if (!e) return null;
+  var pct = childA(e, 'spcPct'), pts = childA(e, 'spcPts');
+  if (pct) return { pct: num(pct.getAttribute('val'), 100000) / 100000 };
+  if (pts) return { pt: num(pts.getAttribute('val'), 0) / 100 };
+  return null;
+}
+function bulletOf(p) {
+  if (childA(p, 'buNone')) return { none: true };
+  var ch = childA(p, 'buChar'); if (ch) { var c = ch.getAttribute('char') || '•'; return { ch: /[-]/.test(c) ? '•' : c }; }
+  var an = childA(p, 'buAutoNum'); if (an) return { num: an.getAttribute('type') || 'arabicPeriod', start: num(an.getAttribute('startAt'), 1) };
+  return null;
+}
+
+/* ----- geometry ----- */
+var POLY = {   /* simple presets as normalised polygons (<= 10 points) */
+  triangle: [[.5, 0], [1, 1], [0, 1]], rtTriangle: [[0, 0], [1, 1], [0, 1]], diamond: [[.5, 0], [1, .5], [.5, 1], [0, .5]],
+  parallelogram: [[.25, 0], [1, 0], [.75, 1], [0, 1]], trapezoid: [[.25, 0], [.75, 0], [1, 1], [0, 1]],
+  pentagon: [[.5, 0], [1, .38], [.81, 1], [.19, 1], [0, .38]], hexagon: [[.25, 0], [.75, 0], [1, .5], [.75, 1], [.25, 1], [0, .5]],
+  octagon: [[.29, 0], [.71, 0], [1, .29], [1, .71], [.71, 1], [.29, 1], [0, .71], [0, .29]],
+  rightArrow: [[0, .25], [.75, .25], [.75, 0], [1, .5], [.75, 1], [.75, .75], [0, .75]], leftArrow: [[1, .25], [.25, .25], [.25, 0], [0, .5], [.25, 1], [.25, .75], [1, .75]],
+  upArrow: [[.25, 1], [.25, .25], [0, .25], [.5, 0], [1, .25], [.75, .25], [.75, 1]], downArrow: [[.25, 0], [.25, .75], [0, .75], [.5, 1], [1, .75], [.75, .75], [.75, 0]],
+  chevron: [[0, 0], [.75, 0], [1, .5], [.75, 1], [0, 1], [.25, .5]], homePlate: [[0, 0], [.75, 0], [1, .5], [.75, 1], [0, 1]],
+  star5: [[.5, 0], [.62, .38], [1, .38], [.69, .61], [.81, 1], [.5, .76], [.19, 1], [.31, .61], [0, .38], [.38, .38]]
+};
+function geomOf(spPr) {
+  var pg = spPr && childA(spPr, 'prstGeom'), cg = spPr && childA(spPr, 'custGeom');
+  if (pg) {
+    var prst = pg.getAttribute('prst') || 'rect';
+    if (prst === 'rect' || prst === 'roundRect' || prst === 'ellipse' || prst === 'line' || /^(straight|bent|curved)Connector/.test(prst)) {
+      var g = { kind: prst === 'line' || /Connector/.test(prst) ? 'line' : prst };
+      if (prst === 'roundRect') {   /* corner radius = adj / 100000 of the shorter side (default 16667) */
+        var gd = first(pg, NS_A, 'gd'), fm = gd && /val\s+(-?\d+)/.exec(gd.getAttribute('fmla') || '');
+        g.adj = fm ? num(fm[1], 16667) / 100000 : .16667;
+      }
+      return g;
+    }
+    if (POLY[prst]) return { kind: 'poly', pts: POLY[prst], name: prst };
+    return { kind: 'rect', approx: prst };
+  }
+  if (cg) {
+    var path = first(cg, NS_A, 'path');
+    if (path) {
+      var w = num(path.getAttribute('w'), 0), h = num(path.getAttribute('h'), 0), pts = [], curved = false;
+      kids(path, NS_A).forEach(function (seg) {
+        if (seg.localName === 'moveTo' || seg.localName === 'lnTo') { var pt = childA(seg, 'pt'); if (pt) pts.push([num(pt.getAttribute('x'), 0), num(pt.getAttribute('y'), 0)]); }
+        else if (seg.localName !== 'close') curved = true;
+      });
+      if (!curved && pts.length >= 3 && pts.length <= 10 && w && h) return { kind: 'poly', pts: pts.map(function (p) { return [p[0] / w, p[1] / h]; }), name: 'custGeom' };
+    }
+    return { kind: 'rect', approx: 'custGeom' };
+  }
+  return { kind: 'rect' };
+}
+
+/* ----- text -> html ----- */
+function autoNum(type, n) {
+  var t = type || 'arabicPeriod';
+  function alpha(i) { return String.fromCharCode(96 + ((i - 1) % 26) + 1); }
+  function roman(i) { var m = [[1000, 'm'], [900, 'cm'], [500, 'd'], [400, 'cd'], [100, 'c'], [90, 'xc'], [50, 'l'], [40, 'xl'], [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']], s = ''; m.forEach(function (p) { while (i >= p[0]) { s += p[1]; i -= p[0]; } }); return s; }
+  var core = /^alphaLc/.test(t) ? alpha(n) : /^alphaUc/.test(t) ? alpha(n).toUpperCase() : /^romanLc/.test(t) ? roman(n) : /^romanUc/.test(t) ? roman(n).toUpperCase() : String(n);
+  if (/ParenBoth$/.test(t)) return '(' + core + ')';
+  if (/ParenR$/.test(t)) return core + ')';
+  if (/Plain$/.test(t)) return core;
+  return core + '.';
+}
+
+function textHTML(txBody, chain, ctx, opts) {
+  /* txBody -> html string of <p> ; chain = style chain (most specific first); opts: {scale, isPh} */
+  var scale = (opts && opts.scale) || 1, out = '', counters = {}, sizes = [], families = {};
+  var bodyPr = childA(txBody, 'bodyPr');
+  var paras = kids(txBody, NS_A).filter(function (e) { return e.localName === 'p'; });
+  paras.forEach(function (p) {
+    var pPr = childA(p, 'pPr'), lvl = pPr ? num(pPr.getAttribute('lvl'), 0) : 0;
+    var ch = pPr ? [pPr].concat(chain) : chain;
+    var algn = collect(ch, lvl, function (x) { return x.getAttribute('algn'); });
+    var marL = collect(ch, lvl, function (x) { return x.hasAttribute('marL') ? num(x.getAttribute('marL'), 0) : null; }) || 0;
+    var indent = collect(ch, lvl, function (x) { return x.hasAttribute('indent') ? num(x.getAttribute('indent'), 0) : null; }) || 0;
+    var lnSpc = collect(ch, lvl, function (x) { return spacingOf(x, 'lnSpc'); });
+    var bef = collect(ch, lvl, function (x) { return spacingOf(x, 'spcBef'); });
+    var aft = collect(ch, lvl, function (x) { return spacingOf(x, 'spcAft'); });
+    var bu = collect(ch, lvl, function (x) { return bulletOf(x); });
+    var defSz = collect(ch, lvl, function (x) { return rprPick(x, 'sz'); });
+    var defB = collect(ch, lvl, function (x) { return rprPick(x, 'b'); });
+    var defI = collect(ch, lvl, function (x) { return rprPick(x, 'i'); });
+    var defC = collect(ch.filter(function (x) { return x.localName === 'pPr' || x.localName === 'lstStyle'; }), lvl, function (x) { return rprColor(x, ctx); }) || (opts && opts.color) || collect(ch, lvl, function (x) { return rprColor(x, ctx); });
+    var defF = collect(ch, lvl, function (x) { return rprFont(x); });
+    var runs = [], plain = '';
+    kids(p, NS_A).forEach(function (r) {
+      if (r.localName === 'br') { runs.push({ br: true }); return; }
+      if (r.localName !== 'r' && r.localName !== 'fld') return;
+      var t = childA(r, 't'), rPr = childA(r, 'rPr'), text = t ? t.textContent : '';
+      if (!text && r.localName === 'fld') text = (childA(r, 't') || {}).textContent || '';
+      var sz = (rPr && rPr.getAttribute('sz')) || defSz || 1800;
+      var b = rPr && rPr.hasAttribute('b') ? rPr.getAttribute('b') === '1' : defB === '1';
+      var i = rPr && rPr.hasAttribute('i') ? rPr.getAttribute('i') === '1' : defI === '1';
+      var sf = rPr && childA(rPr, 'solidFill');
+      var col = sf ? colorOf(sf, ctx) : defC;
+      var lat = rPr && childA(rPr, 'latin');
+      var fam = fontStack(lat ? lat.getAttribute('typeface') : defF);
+      var hl = rPr && childA(rPr, 'hlinkClick'), href = null;
+      if (hl) { var rel = ctx.rels[hl.getAttributeNS(NS_R, 'id')]; if (rel && rel.ext && /^(https?:|mailto:)/i.test(rel.target)) href = rel.target; }
+      runs.push({ t: text, px: num(sz, 1800) / 100 * 2 * ctx.k * scale, b: b, i: i, c: col, fam: fam, href: href });
+      plain += text;
+    });
+    var epr = childA(p, 'endParaRPr');
+    var pxBase = runs.filter(function (r) { return !r.br; }).length ? runs.filter(function (r) { return !r.br; })[0].px : num((epr && epr.getAttribute('sz')) || defSz || 1800, 1800) / 100 * 2 * ctx.k * scale;
+    sizes.push(pxBase);
+    var famBase = runs.filter(function (r) { return !r.br; }).length ? runs.filter(function (r) { return !r.br; })[0].fam : fontStack(defF);
+    families[famBase] = (families[famBase] || 0) + plain.length + 1;
+    var st = 'margin:0;font-size:' + vw(pxBase) + ';';
+    if (algn === 'ctr') st += 'text-align:center;'; else if (algn === 'r') st += 'text-align:right;'; else if (algn === 'just') st += 'text-align:justify;';
+    if (lnSpc) st += 'line-height:' + (lnSpc.pct !== undefined ? (Math.round(lnSpc.pct * 1.2 * 100) / 100) : vw(lnSpc.pt * 2 * ctx.k)) + ';';
+    if (bef && (bef.pt || bef.pct)) st += 'margin-top:' + vw((bef.pt !== undefined ? bef.pt * 2 : pxBase * bef.pct / 2) * ctx.k) + ';';
+    if (aft && (aft.pt || aft.pct)) st += 'margin-bottom:' + vw((aft.pt !== undefined ? aft.pt * 2 : pxBase * aft.pct / 2) * ctx.k) + ';';
+    var buHTML = '';
+    if (bu && !bu.none && plain.trim()) {
+      var mark = bu.ch;
+      if (bu.num) { counters[lvl] = (counters[lvl] || (bu.start - 1)) + 1; mark = autoNum(bu.num, counters[lvl]); }
+      var hang = Math.max(0, -indent) / 12700 * 2 * ctx.k;
+      st += 'padding-left:' + vw(marL / 12700 * 2 * ctx.k) + ';text-indent:' + vw(indent / 12700 * 2 * ctx.k) + ';';
+      buHTML = '<span class="bu" style="display:inline-block;min-width:' + vw(hang || pxBase * .9) + ';text-indent:0;color:' + (cssColor(runs[0] && runs[0].c) || 'inherit') + '">' + esc(mark) + '</span>';
+    } else if (marL) st += 'padding-left:' + vw(marL / 12700 * 2 * ctx.k) + ';';
+    if (!plain.trim() && !runs.some(function (r) { return r.br; })) { out += '<p style="' + st + '"><br></p>'; return; }
+    var inner = '';
+    runs.forEach(function (r) {
+      if (r.br) { inner += '<br>'; return; }
+      if (!r.t) return;
+      var s = esc(r.t).replace(/ {2}/g, ' &nbsp;'), rs = '';
+      if (Math.abs(r.px - pxBase) > .5) rs += 'font-size:' + vw(r.px) + ';';
+      if (r.c) rs += 'color:' + cssColor(r.c) + ';';
+      if (r.fam !== famBase) rs += 'font-family:' + r.fam + ';';
+      if (rs) s = '<span style="' + rs + '">' + s + '</span>';
+      if (r.b) s = '<b>' + s + '</b>';
+      if (r.i) s = '<i>' + s + '</i>';
+      if (r.href) s = '<a href="' + esc(r.href) + '" target="_blank" rel="noopener">' + s + '</a>';
+      inner += s;
+    });
+    out += '<p style="' + st + '">' + buHTML + inner + '</p>';
+  });
+  var famTop = SANS, best = -1;
+  for (var f in families) if (families[f] > best) { best = families[f]; famTop = f; }
+  return { html: out, fam: famTop, anchor: bodyPr ? (bodyPr.getAttribute('anchor') || 't') : 't', bodyPr: bodyPr, sizes: sizes, empty: !paras.some(function (p) { return (p.textContent || '').trim(); }) };
+}
+
+/* ----- slide conversion ----- */
+function Converter(pkg) {
+  this.pkg = pkg; this.report = { slides: [], unsupported: 0, approx: 0, hidden: 0 };
+}
+Converter.prototype.run = function () {
+  var pkg = this.pkg, pres = pkg.xml('ppt/presentation.xml');
+  if (!pres) throw new Error('讀不到 ppt/presentation.xml，這不是 .pptx');
+  var sz = first(pres, NS_P, 'sldSz'), cx = sz ? num(sz.getAttribute('cx'), 12192000) : 12192000, cy = sz ? num(sz.getAttribute('cy'), 6858000) : 6858000;
+  var k = Math.min(PP_W / (cx / 6350), PP_H / (cy / 6350));
+  this.base = { k: k, ox: (PP_W - cx / 6350 * k) / 2, oy: (PP_H - cy / 6350 * k) / 2, cx: cx, cy: cy };
+  var prels = pkg.rels('ppt/presentation.xml'), ids = pres.getElementsByTagNameNS(NS_P, 'sldId'), sections = [], self = this;
+  var core = pkg.xml('docProps/core.xml'), tEl = core && core.getElementsByTagName('dc:title')[0];
+  this.title = tEl && tEl.textContent.trim() ? tEl.textContent.trim() : '';
+  for (var i = 0; i < ids.length; i++) {
+    var rel = prels[ids[i].getAttributeNS(NS_R, 'id')];
+    if (!rel) continue;
+    var sdoc = pkg.xml(rel.target);
+    if (!sdoc) continue;
+    var root = sdoc.documentElement;
+    if (root.getAttribute('show') === '0') { this.report.hidden++; continue; }
+    sections.push(self.slide(rel.target, sdoc, sections.length + 1));
+  }
+  if (!sections.length) throw new Error('沒有可轉的投影片');
+  return sections;
+};
+Converter.prototype.slide = function (path, doc, no) {
+  var pkg = this.pkg, rels = pkg.rels(path);
+  var layoutPath = pkg.relOfType(rels, 'slideLayout'), layout = layoutPath && pkg.xml(layoutPath);
+  var lrels = layoutPath ? pkg.rels(layoutPath) : {}, masterPath = pkg.relOfType(lrels, 'slideMaster'), master = masterPath && pkg.xml(masterPath);
+  var mrels = masterPath ? pkg.rels(masterPath) : {}, themePath = pkg.relOfType(mrels, 'theme'), theme = themePath && pkg.xml(themePath);
+  var scheme = {};
+  if (theme) kids(first(theme, NS_A, 'clrScheme'), NS_A).forEach(function (c) { var s = c.firstElementChild; if (s) scheme[c.localName] = (s.getAttribute('val') && s.localName === 'srgbClr') ? s.getAttribute('val').toUpperCase() : (s.getAttribute('lastClr') || '000000').toUpperCase(); });
+  var clrMap = {}, cm = master && first(master, NS_P, 'clrMap');
+  if (cm) ['bg1', 'tx1', 'bg2', 'tx2'].forEach(function (n) { clrMap[n] = cm.getAttribute(n) || n; });
+  var self = this, rep = { no: no, objects: 0, notes: [] };
+  var ctx = {
+    k: this.base.k, ox: this.base.ox, oy: this.base.oy, scheme: scheme, clrMap: clrMap, rels: rels, rep: rep,
+    layout: layout, master: master, doc: doc,
+    media: function (rid) { return self.media(rels[rid]); }
+  };
+  var tree = first(doc, NS_P, 'spTree');
+  var html = '', parts = [];
+  var ident = function (x, y, w, h) { return { x: x, y: y, w: w, h: h }; };
+  this.tree(tree, ident, ctx, parts, 0);
+  html = parts.join('\n');
+  var text = (tree ? tree.textContent : '').replace(/\s+/g, ' ').trim();
+  this.report.slides.push(rep);
+  return { html: '<section class="screen" style="background:#fff">\n' + html + '\n</section>', text: text, lang: langOf(text), no: no };
+};
+Converter.prototype.media = function (rel) {
+  if (!rel || rel.ext) return null;
+  var bytes = this.pkg.z[rel.target];
+  if (!bytes) return null;
+  var ext = (rel.target.split('.').pop() || '').toLowerCase();
+  var mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp' }[ext];
+  if (!mime) return null;
+  return 'data:' + mime + ';base64,' + b64(bytes);
+};
+function xfrmOf(el) {
+  var x = el && first(el, NS_A, 'xfrm');
+  if (!x) return null;
+  var off = childA(x, 'off'), ext = childA(x, 'ext');
+  if (!off || !ext) return null;
+  return { x: num(off.getAttribute('x'), 0), y: num(off.getAttribute('y'), 0), w: num(ext.getAttribute('cx'), 0), h: num(ext.getAttribute('cy'), 0), rot: num(x.getAttribute('rot'), 0) / 60000, fh: x.getAttribute('flipH') === '1', fv: x.getAttribute('flipV') === '1', el: x };
+}
+/* placeholder lookup on layout / master */
+function phOf(sp) { var nv = childP(sp, 'nvSpPr') || childP(sp, 'nvPicPr') || childP(sp, 'nvGraphicFramePr'); var ph = nv && first(nv, NS_P, 'ph'); return ph ? { type: ph.getAttribute('type') || 'body', idx: ph.getAttribute('idx') } : null; }
+function findPh(doc, ph, byTypeOnly) {
+  if (!doc) return null;
+  var sps = doc.getElementsByTagNameNS(NS_P, 'sp'), i, cand = null;
+  var typeGroup = { ctrTitle: 'title', title: 'title', subTitle: 'body', body: 'body', obj: 'body' };
+  for (i = 0; i < sps.length; i++) {
+    var p = phOf(sps[i]);
+    if (!p) continue;
+    if (!byTypeOnly && ph.idx && p.idx === ph.idx) return sps[i];
+    if (p.type === ph.type && !cand) cand = sps[i];
+    if (!cand && typeGroup[p.type] && typeGroup[p.type] === typeGroup[ph.type]) cand = sps[i];
+  }
+  return cand;
+}
+Converter.prototype.tree = function (tree, xf, ctx, out, depth) {
+  var self = this;
+  kids(tree, NS_P).forEach(function (n) {
+    var ln = n.localName;
+    if (ln === 'grpSp') {
+      var gx = xfrmOf(childP(n, 'grpSpPr'));
+      var inner = xf;
+      if (gx) {
+        var chOff = childA(gx.el, 'chOff'), chExt = childA(gx.el, 'chExt');
+        var cox = chOff ? num(chOff.getAttribute('x'), gx.x) : gx.x, coy = chOff ? num(chOff.getAttribute('y'), gx.y) : gx.y;
+        var ccx = chExt ? num(chExt.getAttribute('cx'), gx.w) : gx.w, ccy = chExt ? num(chExt.getAttribute('cy'), gx.h) : gx.h;
+        var sx = ccx ? gx.w / ccx : 1, sy = ccy ? gx.h / ccy : 1;
+        inner = function (x, y, w, h) { return xf(gx.x + (x - cox) * sx, gx.y + (y - coy) * sy, w * sx, h * sy); };
+      }
+      self.tree(n, inner, ctx, out, depth + 1);
+    } else if (ln === 'sp' || ln === 'cxnSp') out.push(self.shape(n, xf, ctx));
+    else if (ln === 'pic') out.push(self.pic(n, xf, ctx));
+    else if (ln === 'graphicFrame') out.push(self.frame(n, xf, ctx));
+  });
+};
+Converter.prototype.box = function (r, xf, ctx) {
+  /* EMU rect through group transform -> css position (percent of the editor screen) */
+  var t = xf(r.x, r.y, r.w, r.h), k = ctx.k;
+  var x = ctx.ox + t.x / 6350 * k, y = ctx.oy + t.y / 6350 * k, w = t.w / 6350 * k, h = t.h / 6350 * k;
+  /* min-width/height:0 override the editor's .textbox floor (3em x 1.2em) so thin bars and dots keep their size */
+  return { x: x, y: y, w: w, h: h, css: 'position:absolute;left:' + pct(x / PP_W * 100) + ';top:' + pct(y / PP_H * 100) + ';width:' + pct(w / PP_W * 100) + ';min-width:0;min-height:0;' };
+};
+function rotCss(r) {
+  var t = '';
+  if (r.rot) t += 'rotate(' + (Math.round(r.rot * 100) / 100) + 'deg) ';
+  if (r.fh) t += 'scaleX(-1) ';
+  if (r.fv) t += 'scaleY(-1) ';
+  return t ? 'transform:' + t.trim() + ';' : '';
+}
+Converter.prototype.shape = function (sp, xf, ctx) {
+  var spPr = childP(sp, 'spPr'), ph = phOf(sp), r = xfrmOf(spPr), lsp = null, msp = null;
+  if (ph) {
+    lsp = findPh(ctx.layout, ph); msp = findPh(ctx.master, ph, true);
+    if (!r && lsp) r = xfrmOf(childP(lsp, 'spPr'));
+    if (!r && msp) r = xfrmOf(childP(msp, 'spPr'));
+  }
+  if (!r || !r.w && !r.h) return '';
+  var b = this.box(r, xf, ctx), geom = geomOf(spPr), fill = fillCss(spPr, ctx), line = lineCss(spPr, ctx);
+  /* shape style references (theme fill / line / font colour) apply when the shape itself says nothing */
+  var style0 = childP(sp, 'style'), styleFont = null;
+  if (style0) {
+    var fr = childA(style0, 'fillRef'), lr = childA(style0, 'lnRef'), fo = childA(style0, 'fontRef');
+    var hasFill = spPr && (childA(spPr, 'solidFill') || childA(spPr, 'gradFill') || childA(spPr, 'noFill') || childA(spPr, 'blipFill'));
+    if (!hasFill && fr && num(fr.getAttribute('idx'), 0) > 0) fill = cssColor(colorOf(fr, ctx));
+    var lnEl = spPr && childA(spPr, 'ln'), lnSaysNothing = !lnEl || (!childA(lnEl, 'noFill') && !childA(lnEl, 'solidFill'));
+    if (lnSaysNothing && lr && num(lr.getAttribute('idx'), 0) > 0) { var lc = colorOf(lr, ctx); if (lc) line = { w: Math.max(1, (lnEl ? num(lnEl.getAttribute('w'), 12700) : 12700) / 12700 * 2 * ctx.k), color: cssColor(lc) }; }
+    if (fo) styleFont = colorOf(fo, ctx);
+  }
+  var txBody = childP(sp, 'txBody');
+  ctx.rep.objects++;
+  if (geom.approx) { this.report.approx++; ctx.rep.notes.push('形狀「' + geom.approx + '」以矩形近似'); }
+  if (geom.kind === 'line') {
+    var st = line || { w: 1.5, color: '#000' };
+    var x1 = r.fh ? b.w : 0, x2 = r.fh ? 0 : b.w, y1 = r.fv ? b.h : 0, y2 = r.fv ? 0 : b.h;
+    return '<svg style="' + b.css + 'height:' + pct(Math.max(b.h, 1) / PP_H * 100) + ';overflow:visible;' + rotCss({ rot: r.rot }) + '" viewBox="0 0 ' + Math.max(b.w, 1) + ' ' + Math.max(b.h, 1) + '" preserveAspectRatio="none"><line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + esc(st.color) + '" stroke-width="' + st.w + '" vector-effect="non-scaling-stroke"/></svg>';
+  }
+  var style = b.css + 'height:' + pct(b.h / PP_H * 100) + ';' + rotCss(r);
+  var svgBg = '';
+  if (geom.kind === 'poly') {
+    var pts = geom.pts.map(function (p) { return (p[0] * 100).toFixed(2) + ',' + (p[1] * 100).toFixed(2); }).join(' ');
+    svgBg = '<svg style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="' + pts + '" fill="' + esc(fill && !/gradient|url/.test(fill) ? fill : (fill ? '#DDDDDD' : 'none')) + '"' + (line ? ' stroke="' + esc(line.color) + '" stroke-width="' + line.w + '" vector-effect="non-scaling-stroke"' : '') + '/></svg>';
+  } else {
+    if (fill) style += 'background:' + fill + ';';
+    if (line) style += 'border:' + (Math.round(line.w * 100) / 100) + 'px solid ' + line.color + ';';
+    if (geom.kind === 'ellipse') style += 'border-radius:50%;';
+    else if (geom.kind === 'roundRect') style += 'border-radius:' + vw(Math.min(b.w, b.h) * (geom.adj !== undefined ? geom.adj : .16667)) + ';';
+  }
+  var inner = '';
+  if (txBody) {
+    var chain = [childA(txBody, 'lstStyle')];
+    if (ph) {
+      if (lsp) chain.push(childA(childP(lsp, 'txBody'), 'lstStyle'));
+      if (msp) chain.push(childA(childP(msp, 'txBody'), 'lstStyle'));
+      var tx = ctx.master && first(ctx.master, NS_P, 'txStyles');
+      if (tx) chain.push(childP(tx, /title/i.test(ph.type) ? 'titleStyle' : 'bodyStyle'));
+    } else {
+      var tx2 = ctx.master && first(ctx.master, NS_P, 'txStyles');
+      if (tx2) chain.push(childP(tx2, 'otherStyle'));
+    }
+    var pres = this.pkg.xml('ppt/presentation.xml'), dts = pres && first(pres, NS_P, 'defaultTextStyle');
+    if (dts) chain.push(dts);
+    chain = chain.filter(Boolean);
+    var bodyPr = childA(txBody, 'bodyPr'), na = bodyPr && childA(bodyPr, 'normAutofit');
+    var scale = na && na.getAttribute('fontScale') ? num(na.getAttribute('fontScale'), 100000) / 100000 : 1;
+    var t = textHTML(txBody, chain, ctx, { scale: scale, color: ph ? null : styleFont });
+    if (!t.empty) {
+      var ins = bodyPr ? [num(bodyPr.getAttribute('lIns'), 91440), num(bodyPr.getAttribute('tIns'), 45720), num(bodyPr.getAttribute('rIns'), 91440), num(bodyPr.getAttribute('bIns'), 45720)] : [91440, 45720, 91440, 45720];
+      var pad = ins.map(function (e) { return vw(e / 6350 * ctx.k); });
+      var just = { ctr: 'center', b: 'flex-end' }[t.anchor] || 'flex-start';
+      var wrapNone = bodyPr && bodyPr.getAttribute('wrap') === 'none';
+      style += 'display:flex;flex-direction:column;justify-content:' + just + ';padding:' + pad[1] + ' ' + pad[2] + ' ' + pad[3] + ' ' + pad[0] + ';font-family:' + t.fam + ';line-height:1.2;' + (wrapNone ? 'white-space:nowrap;' : 'white-space:pre-wrap;overflow-wrap:break-word;');
+      inner = '<div style="position:relative">' + t.html + '</div>';
+    } else if (!fill && !line && !svgBg) return '';
+    if (bodyPr && childA(bodyPr, 'spAutoFit') && !fill && !line) style = style.replace(/height:[^;]*;/, '');
+  } else if (!fill && !line && !svgBg) return '';
+  return '<div class="textbox" style="' + style + '">' + svgBg + inner + '</div>';
+};
+Converter.prototype.pic = function (pic, xf, ctx) {
+  var spPr = childP(pic, 'spPr'), r = xfrmOf(spPr);
+  var ph = phOf(pic);
+  if (!r && ph) { var l = findPh(ctx.layout, ph); r = l && xfrmOf(childP(l, 'spPr')); }
+  if (!r) return '';
+  var b = this.box(r, xf, ctx);
+  var blip = first(pic, NS_A, 'blip'), rid = blip && blip.getAttributeNS(NS_R, 'embed');
+  var src = rid && ctx.media(rid);
+  ctx.rep.objects++;
+  var hcss = 'height:' + pct(b.h / PP_H * 100) + ';';
+  if (!src) { this.report.unsupported++; ctx.rep.notes.push('圖片格式無法顯示（emf／wmf／tiff 或遺失）'); return placeholder(b.css + hcss, '此處原為圖片（格式無法顯示）'); }
+  var geom = geomOf(spPr), rad = geom.kind === 'ellipse' ? 'border-radius:50%;' : (geom.kind === 'roundRect' ? 'border-radius:' + vw(Math.min(b.w, b.h) * (geom.adj !== undefined ? geom.adj : .16667)) + ';' : '');
+  var sr = first(pic, NS_A, 'srcRect');
+  if (sr && ['l', 't', 'r', 'b'].some(function (a) { return num(sr.getAttribute(a), 0) > 0; })) {
+    var L = num(sr.getAttribute('l'), 0) / 100000, T = num(sr.getAttribute('t'), 0) / 100000, R = num(sr.getAttribute('r'), 0) / 100000, B = num(sr.getAttribute('b'), 0) / 100000;
+    var iw = 100 / Math.max(.01, 1 - L - R), ih = 100 / Math.max(.01, 1 - T - B);
+    return '<div class="textbox" style="' + b.css + hcss + 'overflow:hidden;' + rad + rotCss(r) + '"><img class="ins-img" alt="" src="' + src + '" style="position:absolute;left:' + pct(-L * iw) + ';top:' + pct(-T * ih) + ';width:' + pct(iw) + ';height:' + pct(ih) + ';max-width:none;max-height:none;margin:0"></div>';
+  }
+  return '<img class="ins-img" alt="" src="' + src + '" style="' + b.css + hcss + 'max-width:none;max-height:none;margin:0;' + rad + rotCss(r) + '">';
+};
+function placeholder(css, label) {
+  return '<div class="textbox" style="' + css + 'background:#EEE;border:1px dashed #999;color:#666;font-size:1vw;display:flex;align-items:center;justify-content:center;text-align:center;padding:1vw">' + esc(label) + '</div>';
+}
+Converter.prototype.frame = function (gf, xf, ctx) {
+  var r = xfrmOf(childP(gf, 'xfrm') ? gf : null) || (function () { var x = childP(gf, 'xfrm'); if (!x) return null; var off = childA(x, 'off'), ext = childA(x, 'ext'); return off && ext ? { x: num(off.getAttribute('x'), 0), y: num(off.getAttribute('y'), 0), w: num(ext.getAttribute('cx'), 0), h: num(ext.getAttribute('cy'), 0), rot: 0 } : null; })();
+  var ph = phOf(gf);
+  if (!r && ph) { var l = findPh(ctx.layout, ph); r = l && xfrmOf(childP(l, 'spPr')); }
+  if (!r) return '';
+  var b = this.box(r, xf, ctx), hcss = 'height:' + pct(b.h / PP_H * 100) + ';';
+  var gd = first(gf, NS_A, 'graphicData'), uri = gd ? (gd.getAttribute('uri') || '') : '';
+  ctx.rep.objects++;
+  var tbl = gd && childA(gd, 'tbl');
+  if (tbl) return this.table(tbl, b, ctx);
+  var label = /chart/.test(uri) ? '此處原為圖表' : /diagram/.test(uri) ? '此處原為 SmartArt' : /ole|presentationml\.(2006\/)?ole/i.test(uri) ? '此處原為內嵌物件' : '此處原為無法轉換的物件';
+  this.report.unsupported++;
+  ctx.rep.notes.push(label.replace('此處原為', ''));
+  return placeholder(b.css + hcss, label);
+};
+Converter.prototype.table = function (tbl, b, ctx) {
+  var pres = this.pkg.xml('ppt/presentation.xml'), dts = pres && first(pres, NS_P, 'defaultTextStyle');
+  var tx = ctx.master && first(ctx.master, NS_P, 'txStyles'), chain = [tx && childP(tx, 'otherStyle'), dts].filter(Boolean);
+  var pr = childA(tbl, 'tblPr'), firstRow = pr && pr.getAttribute('firstRow') === '1';
+  var grid = kids(childA(tbl, 'tblGrid'), NS_A).map(function (c) { return num(c.getAttribute('w'), 0); }), total = grid.reduce(function (a, c) { return a + c; }, 0) || 1;
+  var h = '<table class="tools" style="' + b.css + 'margin:0;table-layout:fixed">';
+  var ri = 0;
+  kids(tbl, NS_A).forEach(function (tr) {
+    if (tr.localName !== 'tr') return;
+    h += '<tr>';
+    var ci = 0;
+    kids(tr, NS_A).forEach(function (tc) {
+      if (tc.localName !== 'tc') return;
+      if (tc.getAttribute('hMerge') === '1' || tc.getAttribute('vMerge') === '1') { ci++; return; }
+      var span = num(tc.getAttribute('gridSpan'), 1), rspan = num(tc.getAttribute('rowSpan'), 1);
+      var w = 0; for (var q = ci; q < ci + span; q++) w += grid[q] || 0;
+      var tag = (ri === 0 && firstRow) ? 'th' : 'td';
+      var t = textHTML(childA(tc, 'txBody'), chain, ctx, {});
+      h += '<' + tag + (span > 1 ? ' colspan="' + span + '"' : '') + (rspan > 1 ? ' rowspan="' + rspan + '"' : '') + (ri === 0 ? ' style="width:' + pct(w / total * 100) + '"' : '') + '>' + (t.html || '　') + '</' + tag + '>';
+      ci += span;
+    });
+    h += '</tr>';
+    ri++;
+  });
+  return h + '</table>';
+};
+
+/* ----- language ----- */
+function langOf(text) {
+  var cjk = (text.match(/[㐀-鿿豈-﫿]/g) || []).length, lat = (text.match(/[A-Za-z]/g) || []).length;
+  if (!cjk && !lat) return 'none';
+  return cjk * 3 >= lat ? 'zh' : 'en';
+}
+
+/* ----- deck file / embed edition ----- */
+function deckHTML(sections, title) {
+  var v = prog.version, css = prog.css;
+  var topbar = prog.full
+    ? '<div class="topbar">\n  <div class="edit-tools">\n' +
+      '    <button onmousedown="event.preventDefault()" onclick="adjustFontSize(0.8)" title="縮小選取文字">字級−</button>\n' +
+      '    <button onmousedown="event.preventDefault()" onclick="adjustFontSize(1.25)" title="放大選取文字">字級＋</button>\n' +
+      '    <button onmousedown="event.preventDefault()" onclick="pickColor()" title="改變選取文字顏色">顏色</button>\n' +
+      '    <button onmousedown="event.preventDefault()" onclick="insertSimpleTable()">插入表格</button>\n' +
+      '    <button onmousedown="event.preventDefault()" onclick="pickImage()">插入圖片</button>\n' +
+      '    <button onmousedown="event.preventDefault()" onclick="insertImageURL()">圖片網址</button>\n' +
+      '    <button onclick="toggleTplMenu()">新增頁面</button>\n  </div>\n' +
+      '  <div class="edit-switch"><button id="btn-edit" onclick="toggleEdit()">編輯</button><button onclick="saveEdited()" title="另存目前內容為 HTML 檔">下載</button><button onclick="window.print()" title="列印或另存為 1920×1080 滿版 PDF">PDF</button></div>\n</div>\n' +
+      '<div class="tpl-menu" id="tpl-menu"></div>\n<input type="file" id="img-input" accept="image/*" style="display:none" onchange="onImagePicked(this)">\n<input type="color" id="color-input" value="#C8102E" style="display:none" onchange="applyColor(this.value)">\n\n'
+    : '';
+  var footer = '<footer class="site"><span></span><span class="mid">' + esc(title) + '</span><span></span></footer>';
+  var script = prog.full ? '<script>\n' + prog.tpl + '\n' + prog.rt + '\n<\/script>\n\n' : '';
+  return '<!DOCTYPE html>\n<html lang="zh-Hant" data-lang="zh" data-theme="red">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+    '<meta name="deck-editor" content="' + esc(v) + '">\n<meta name="deck-theme" content="red">\n<meta name="deck-source" content="repo-trans">\n<title>' + esc(title) + '</title>\n<style>\n' + css + '\n</style>\n</head>\n<body>\n\n' +
+    topbar + sections.map(function (s) { return s.html; }).join('\n\n') + '\n\n' + footer + '\n\n' + script + '</body>\n</html>\n';
+}
+var EMBED_MAP = { screen: 'dk-slide', textbox: 'dk-textbox', 'ins-img': 'dk-img', tools: 'dk-table' };
+var EMBED_T = { zh: { prev: '上一張', next: '下一張', first: '回到第一張', fsOff: '全螢幕（Esc 退出）', fsOn: '退出全螢幕（Esc）' }, en: { prev: 'Previous', next: 'Next', first: 'Back to first', fsOff: 'Full screen (Esc to exit)', fsOn: 'Exit full screen (Esc)' } };
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function embedHTML(sections, lang) {
+  var t = EMBED_T[lang] || EMBED_T.zh, n = sections.length, parts = [], i;
+  for (i = 0; i < n; i++) {
+    var holder = document.createElement('div');
+    holder.innerHTML = sections[i].html;
+    var sec = holder.firstElementChild;
+    var els = [sec].concat(Array.prototype.slice.call(sec.querySelectorAll('[class]')));
+    els.forEach(function (el) {
+      var out = (el.getAttribute('class') || '').split(/\s+/).filter(function (c) { return EMBED_MAP[c]; }).map(function (c) { return EMBED_MAP[c]; });
+      if (out.length) el.setAttribute('class', out.join(' ')); else el.removeAttribute('class');
+    });
+    sec.id = 'p' + (i + 1);
+    sec.removeAttribute('style');
+    var styled = [sec].concat(Array.prototype.slice.call(sec.querySelectorAll('[style]')));
+    styled.forEach(function (el) { var s = el.getAttribute('style'); if (s) el.setAttribute('style', s.replace(/(\d*\.?\d+)vw(?![a-z])/gi, '$1cqw')); });
+    var prev = (i === 0) ? n : i, next = (i === n - 1) ? 1 : i + 2;
+    sec.insertAdjacentHTML('beforeend', '\n<div class="dk-nav"><label class="dk-arrow" for="dk' + prev + '" title="' + t.prev + '">&#8249;</label><span class="dk-idx">' + pad2(i + 1) + ' / ' + pad2(n) + '</span><label class="dk-arrow" for="dk' + next + '" title="' + ((i === n - 1) ? t.first : t.next) + '">&#8250;</label></div>\n');
+    parts.push('<!-- ' + pad2(i + 1) + ' -->\n' + sec.outerHTML);
+  }
+  var radios = '';
+  for (i = 1; i <= n; i++) radios += '<input class="dk-radio" type="radio" name="dkslide" id="dk' + i + '"' + (i === 1 ? ' checked' : '') + '>\n';
+  var fab = '<div class="dk-fab"><button type="button" class="dk-fab-btn" data-dir="-1" title="' + t.prev + '" aria-label="' + t.prev + '">&#9650;</button><span class="dk-fab-idx">1 / ' + n + '</span><button type="button" class="dk-fab-btn" data-dir="1" title="' + t.next + '" aria-label="' + t.next + '">&#9660;</button></div>\n';
+  var fsBtn = '<button type="button" class="dk-fs" data-t-off="' + t.fsOff + '" data-t-on="' + t.fsOn + '" title="' + t.fsOff + '" aria-label="' + t.fsOff + '">&#9974;</button>\n';
+  var show = [];
+  for (i = 1; i <= n; i++) show.push('.dk-deck #dk' + i + ':checked ~ .dk-stage #p' + i);
+  var css = prog.ecss.split('@@SHOW@@').join(show.join(',\n'));
+  return '<meta charset="utf-8">\n<!-- deck-embed ' + prog.version + ' ' + lang + ' (repo-trans) -->\n<style>\n' + css + '\n</style>\n<div class="dk-deck">\n' + radios + fab + '<div class="dk-stage">\n' + parts.join('\n') + '\n' + fsBtn + '</div>\n<script>' + prog.ejs + '<\/script>\n</div>\n';
+}
+
+/* ----- ui ----- */
+function download(text, name, mime) {
+  var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+}
+function safeName(s) { return String(s).replace(/[\\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || '簡報'; }
+function onPicked(input) { var f = input.files && input.files[0]; input.value = ''; if (f) convert(f); }
+var drop = document.getElementById('drop');
+window.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
+window.addEventListener('dragleave', function () { drop.classList.remove('over'); });
+window.addEventListener('drop', function (e) { e.preventDefault(); drop.classList.remove('over'); var f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) convert(f); });
+
+function convert(file) {
+  if (!/\.pptx$/i.test(file.name)) { toast('請選 .pptx 檔（舊版 .ppt 請先用 PowerPoint 另存成 .pptx）。'); return; }
+  toast('正在轉換 ' + file.name + '…');
+  var ready = prog ? Promise.resolve() : loadProgram();
+  ready.then(function () { return file.arrayBuffer(); }).then(zipRead).then(function (z) {
+    var conv = new Converter(new Pkg(z));
+    var sections = conv.run();
+    var title = conv.title || safeName(file.name.replace(/\.pptx$/i, ''));
+    result = { sections: sections, title: title, report: conv.report, file: file.name };
+    render();
+  }).catch(function (err) { toast('轉換失敗：' + (err && err.message ? err.message : err)); });
+}
+function render() {
+  var R = result, rep = R.report, zh = R.sections.filter(function (s) { return s.lang === 'zh'; }).length, en = R.sections.filter(function (s) { return s.lang === 'en'; }).length;
+  var html = '<ul>';
+  html += '<li>來源：' + esc(R.file) + '，' + R.sections.length + ' 頁' + (rep.hidden ? '（另有 ' + rep.hidden + ' 頁隱藏投影片未轉）' : '') + '，物件 ' + rep.slides.reduce(function (a, s) { return a + s.objects; }, 0) + ' 個。</li>';
+  html += '<li>語言：中文 ' + zh + ' 頁、英文 ' + en + ' 頁' + (R.sections.length - zh - en ? '、無文字 ' + (R.sections.length - zh - en) + ' 頁' : '') + '。' + (en ? '<span class="ok">有英文內容（第 ' + R.sections.filter(function (s) { return s.lang === 'en'; }).map(function (s) { return s.no; }).join('、') + ' 頁），可另外下載英文版內嵌檔。</span>' : '<span class="warn">沒有偵測到英文內容，只提供中文版內嵌檔。</span>') + '</li>';
+  if (rep.unsupported || rep.approx) {
+    html += '<li class="warn">降級：' + (rep.unsupported ? '無法轉換的物件 ' + rep.unsupported + ' 個（已放灰框）' : '') + (rep.unsupported && rep.approx ? '、' : '') + (rep.approx ? '以矩形近似的形狀 ' + rep.approx + ' 個' : '') + '。</li>';
+    rep.slides.forEach(function (s) { if (s.notes.length) html += '<li>第 ' + s.no + ' 頁：' + esc(s.notes.join('；')) + '</li>'; });
+  } else html += '<li class="ok">沒有需要降級的物件。</li>';
+  html += '<li>' + (prog.full ? '程式層取自同資料夾的 index.html（' + esc(prog.version) + '），簡報檔可直接投影與再編輯。' : '<span class="warn">讀不到同資料夾的 index.html（離線或非網址開啟），簡報檔只含內容層，仍可匯入編輯器，但網頁內嵌版暫不可用。</span>') + '</li></ul>';
+  document.getElementById('report').innerHTML = html;
+  document.getElementById('src').textContent = '檔名：' + safeName(R.title) + '.html／-ZH.txt／-EN.txt';
+  document.getElementById('b-zh').disabled = !prog.full || !zh && !(R.sections.length - zh - en);
+  document.getElementById('b-en').disabled = !prog.full || !en;
+  document.getElementById('b-en').textContent = en ? '下載網頁內嵌版：英文（.txt，' + en + ' 頁）' : '下載網頁內嵌版：英文（無英文內容）';
+  document.getElementById('b-zh').textContent = '下載網頁內嵌版：中文（.txt，' + (zh + (R.sections.length - zh - en)) + ' 頁）';
+  document.getElementById('result').classList.add('show');
+  document.getElementById('preview').srcdoc = deckHTML(R.sections, R.title).replace(/<script>[\s\S]*?<\/script>/, '');
+  toast('轉換完成：' + R.sections.length + ' 頁。');
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+}
+function downloadDeck() {
+  if (!result) return;
+  download(deckHTML(result.sections, result.title), safeName(result.title) + '.html', 'text/html;charset=utf-8');
+  toast('已下載簡報檔，可直接投影，或到簡報編輯器用「匯入簡報檔」拉進去改。');
+}
+function downloadEmbed(lang) {
+  if (!result || !prog.full) return;
+  var secs = result.sections.filter(function (s) { return s.lang === lang || (lang === 'zh' && s.lang === 'none'); });
+  if (!secs.length) { toast(lang === 'en' ? '沒有偵測到英文內容。' : '沒有中文內容。'); return; }
+  download(embedHTML(secs, lang), safeName(result.title) + (lang === 'en' ? '-EN' : '-ZH') + '.txt');
+  toast('已下載網頁內嵌版（' + (lang === 'en' ? '英文' : '中文') + '，' + secs.length + ' 頁），整段貼進網站後台的原始碼模式。');
+}
+loadProgram();
+</script>
+</body>
+</html>

@@ -165,7 +165,7 @@ table.tools a { color: var(--red-deep); font-weight: bold; text-decoration: none
 .notebar b { color: var(--red-deep); }
 
 /* ===== auto-compress when viewport height is 900-1000px (100% browser zoom) ===== */
-@media (max-height: 1010px) {
+@media screen and (max-height: 1010px) {
   .screen { padding: 3.5vh 6vw; }
   .sec-title { font-size: 2.9vw; margin-bottom: 2vh; }
   .lead { font-size: 1.3vw; }
@@ -198,7 +198,7 @@ footer.site {
   padding: 0 28px; font-size: 14px; letter-spacing: .05em;
 }
 footer.site .mid { opacity: .9; }
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
   .screen { height: auto; min-height: calc(100vh - var(--footer-h)); padding: 8vh 6vw; }
   .cover { grid-template-columns: 1fr; }
   .cover-right { clip-path: none; }
@@ -248,7 +248,7 @@ footer.site .mid { opacity: .9; }
 .callout h3 { font-size: 1.6vw; margin-bottom: .5vh; }
 .callout p { font-size: 1.2vw; }
 .callout a { color: #fff; }
-@media (max-height: 1010px) {
+@media screen and (max-height: 1010px) {
   .screen.hero h1 { font-size: 3.4vw; }
   .screen.hero p { font-size: 1.5vw; }
   .lead-xl { font-size: 1.22vw; line-height: 1.7; }
@@ -264,7 +264,7 @@ footer.site .mid { opacity: .9; }
   .bubble { padding: 1vh 1.2vw; font-size: 1.25vw; }
   .callout { padding: 1.4vh 2vw; margin-top: 1.6vh; }
 }
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
   .cards { grid-template-columns: 1fr 1fr; }
   .step { width: 140px; min-height: 140px; padding: 10px 8px; }
   .step p { font-size: 13px; }
@@ -286,6 +286,8 @@ body.sb-min { padding-left: 44px; }
 }
 body.sb-min #sidebar { width: 44px; }
 body.sb-min .sb-body, body.sb-min .sb-foot, body.sb-min .sb-title { display: none; }
+.sb-title { color: #fff; text-decoration: none; border-bottom: 1px dotted rgba(255,255,255,.75); }
+.sb-title:hover { border-bottom-style: solid; }
 .sb-head {
   display: flex; justify-content: space-between; align-items: center; gap: 6px;
   padding: 10px 10px; background: var(--red); color: #fff; font-weight: bold; letter-spacing: .08em;
@@ -351,7 +353,7 @@ body.layouting #stage .screen, body.layouting #stage .screen * { cursor: default
 <body>
 
 <aside id="sidebar">
-  <div class="sb-head"><span class="sb-title">簡報編輯器</span><button id="sb-collapse" onclick="toggleSidebar()" title="收合工具列">◀</button></div>
+  <div class="sb-head"><a class="sb-title" href="repo-trans.html" target="_blank" rel="noopener" title="開啟 PowerPoint 轉換器 repo-trans（新視窗）：把任何 .pptx 轉成簡報檔與網頁內嵌版">簡報編輯器</a><button id="sb-collapse" onclick="toggleSidebar()" title="收合工具列">◀</button></div>
   <div class="sb-body">
     <div class="sb-group"><div class="sb-label">檔案</div>
       <button onclick="toggleNewMenu()">新增簡報</button>
@@ -438,7 +440,7 @@ body.layouting #stage .screen, body.layouting #stage .screen * { cursor: default
       </div>
     </div>
   </div>
-  <div class="sb-foot">repo v11.0｜零上傳，全部在你的瀏覽器內完成</div>
+  <div class="sb-foot">repo v11.1｜零上傳，全部在你的瀏覽器內完成</div>
 </aside>
 
 <input type="file" id="import-input" accept=".html,.htm,.txt,.pptx" style="display:none" onchange="onImportPicked(this)">
@@ -1183,7 +1185,7 @@ var TPLS = [
    Export rebuilds a fresh document: content layer (verbatim) +
    deck-css + tpl-js + rt-viewer. Import extracts only the content layer. */
 
-var VERSION = 'v11.0';
+var VERSION = 'v11.1';
 var DRAFT_KEY = 'repo-deck-editor-draft';
 var stage, footerEl;
 var editing = false, layouting = false, dirty = false;
