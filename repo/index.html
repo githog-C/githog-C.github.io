@@ -2,6 +2,7 @@
 <html lang="zh-Hant" data-lang="zh" data-theme="red">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="免安裝、零後端的單檔簡報編輯器：在瀏覽器內編輯，下載成自包含簡報檔，可重複匯入再編輯，內容不會遺失。">
 <title>repo｜簡報編輯器</title>
@@ -14,6 +15,8 @@
        .sub .cover-meta .row .item .no .name .desc .sec-title .kicker
        .accent .lead .stats .stat .num .cap table.tools .tag .twocol
        .panel .notebar .ins-img .textbox footer.site .zh .en
+       (v10) .hero .badge .lead-xl .hl .flow .step .docnote .docbox
+       .cards .card .chat .bubble .callout
      Never rename or remove a contract class; additions only,
      so that every previously exported deck keeps rendering.
      ============================================================ -->
@@ -212,6 +215,54 @@ footer.site .mid { opacity: .9; }
   body { padding-bottom: 0; }
   .screen { height: auto; min-height: 96vh; page-break-after: always; overflow: visible; }
 }
+
+/* ===== v10 contract additions: hero page, flow steps, document box, cards, chat ===== */
+.screen.hero { background: linear-gradient(135deg, #8C0B1D, var(--red) 55%, #E25668); color: #fff; text-align: center; align-items: center; }
+.screen.hero h1 { font-size: 4vw; font-weight: 900; margin-bottom: 2.5vh; letter-spacing: .04em; }
+.screen.hero p { font-size: 1.8vw; opacity: .95; line-height: 1.7; }
+.badge { display: inline-block; background: rgba(255,255,255,.92); color: var(--red); font-weight: bold; font-size: 1vw; letter-spacing: .18em; border-radius: 2vw; padding: .35vw 1.1vw; margin-bottom: 2.5vh; }
+.lead-xl { font-size: 1.45vw; line-height: 1.9; max-width: 78vw; }
+.hl { color: var(--red); font-weight: bold; }
+.flow { display: flex; justify-content: center; flex-wrap: wrap; gap: 2vw; margin-top: 4.5vh; }
+.step { position: relative; width: 10.5vw; min-height: 10.5vw; background: #FAFAFA; border-radius: 20px; border-top: 6px solid var(--red); box-shadow: 0 8px 20px rgba(0,0,0,.08); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.2vh .7vw; }
+.step i { font-style: normal; font-size: 2.4vw; line-height: 1.1; }
+.step p { text-align: center; font-size: .95vw; line-height: 1.35; margin-top: .8vh; }
+.step::after { content: "\27A4"; position: absolute; right: -1.6vw; top: 50%; transform: translateY(-50%); font-size: 1.8vw; color: var(--red); }
+.step:last-child::after { display: none; }
+.docnote { font-size: 1.05vw; color: #666; margin-bottom: 1.6vh; }
+.docbox { background: #FAFAFA; border-top: 6px solid var(--red); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.08); padding: 2.2vh 1.8vw; max-height: 62vh; overflow-y: auto; font-size: 1.05vw; line-height: 1.85; text-align: justify; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.4vw; margin-top: 3.5vh; }
+.card { background: #FAFAFA; border-radius: 18px; border-top: 6px solid var(--red); padding: 2.4vh 1.4vw; box-shadow: 0 10px 30px rgba(0,0,0,.08); font-size: 1.1vw; line-height: 1.6; }
+.card h3 { color: var(--red); font-size: 1.35vw; margin-bottom: 1vh; }
+.chat { background: #fff; border: 1px solid #EAD0D5; border-radius: 20px; max-width: 62vw; margin: 2vh auto 0; padding: 3vh 2.5vw; box-shadow: 0 10px 30px rgba(0,0,0,.10); }
+.bubble { display: inline-block; background: var(--red); color: #fff; font-size: 1.6vw; border-radius: 20px; padding: 1.4vh 1.4vw; margin: .6vh 0; }
+.callout { background: var(--red-deep); color: #fff; text-align: center; border-radius: 16px; padding: 2vh 2vw; margin: 2.5vh auto 0; max-width: 62vw; }
+.callout h3 { font-size: 1.6vw; margin-bottom: .5vh; }
+.callout p { font-size: 1.2vw; }
+.callout a { color: #fff; }
+@media (max-height: 1010px) {
+  .screen.hero h1 { font-size: 3.4vw; }
+  .screen.hero p { font-size: 1.5vw; }
+  .lead-xl { font-size: 1.22vw; line-height: 1.7; }
+  .flow { margin-top: 3vh; }
+  .step { width: 9.4vw; min-height: 9.4vw; padding: 1vh .6vw; }
+  .step i { font-size: 2vw; }
+  .step p { font-size: .85vw; margin-top: .5vh; }
+  .docbox { max-height: 66vh; padding: 1.6vh 1.4vw; font-size: .95vw; line-height: 1.6; }
+  .cards { margin-top: 2.2vh; gap: 1.1vw; }
+  .card { padding: 1.6vh 1.2vw; font-size: .95vw; border-radius: 14px; }
+  .card h3 { font-size: 1.15vw; margin-bottom: .6vh; }
+  .chat { padding: 2vh 2vw; }
+  .bubble { padding: 1vh 1.2vw; font-size: 1.25vw; }
+  .callout { padding: 1.4vh 2vw; margin-top: 1.6vh; }
+}
+@media (max-width: 900px) {
+  .cards { grid-template-columns: 1fr 1fr; }
+  .step { width: 140px; min-height: 140px; padding: 10px 8px; }
+  .step p { font-size: 13px; }
+  .step i { font-size: 32px; }
+  .lead-xl, .docbox, .card, .callout p { font-size: 16px; }
+}
 </style>
 
 <!-- editor-css: editor chrome only, never exported -->
@@ -302,6 +353,8 @@ body.layouting #stage .screen, body.layouting #stage .screen * { cursor: default
       </div>
       <button onclick="document.getElementById('import-input').click()">匯入簡報檔</button>
       <button onclick="exportDeck()">下載簡報（Ctrl+S）</button>
+      <button onclick="document.getElementById('embed-input').click()" title="貼進網站後台內容欄用的版本；可同時選中、英兩個 .txt 合併成雙語簡報">匯入網頁內嵌版（.txt）</button>
+      <button onclick="exportEmbed()" title="下載可貼進網站後台內容欄的原始碼；雙語簡報會下載中、英各一個 .txt">下載網頁內嵌版（.txt）</button>
     </div>
     <div class="sb-group"><div class="sb-label">模式</div>
       <button id="b-edit" onclick="toggleEdit()">編輯模式：關</button>
@@ -374,10 +427,11 @@ body.layouting #stage .screen, body.layouting #stage .screen * { cursor: default
       </div>
     </div>
   </div>
-  <div class="sb-foot">repo v9.0｜零上傳，全部在你的瀏覽器內完成</div>
+  <div class="sb-foot">repo v10.0｜零上傳，全部在你的瀏覽器內完成</div>
 </aside>
 
-<input type="file" id="import-input" accept=".html,.htm" style="display:none" onchange="onImportPicked(this)">
+<input type="file" id="import-input" accept=".html,.htm,.txt" style="display:none" onchange="onImportPicked(this)">
+<input type="file" id="embed-input" accept=".txt,.html,.htm" multiple style="display:none" onchange="onEmbedPicked(this)">
 <input type="file" id="img-input" accept="image/*" style="display:none" onchange="onImagePicked(this)">
 <input type="color" id="color-input" value="#C8102E" style="display:none" onchange="applyColor(this.value)">
 <div class="tpl-menu" id="tpl-menu"></div>
@@ -637,6 +691,8 @@ document.addEventListener('keydown', function (e) {
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed) { alert('請先選取要加連結的文字，再按 Ctrl+K。'); return; }
     var url = prompt('連結網址（含 https://）：');
+    // Reject script-bearing URL schemes; only web/mail/relative links are inserted.
+    if (url && /^\s*(javascript|vbscript|data):/i.test(url)) { alert('網址格式不對，需以 http:// 或 https:// 開頭。'); return; }
     if (url) document.execCommand('createLink', false, url);
     return;
   }
@@ -718,6 +774,396 @@ var TPLS = [
 ];
 </script>
 
+<!-- embed-css / embed-js: the web embed edition's stylesheet and enhancement
+     script, kept inert here and written into the downloaded .txt. Neither may
+     contain the character sequence "</scr" + "ipt". -->
+<script type="text/plain" id="embed-css">
+/* ===== Web embed edition (generated by the deck editor) =====
+   >= 901px: presentation mode. A fixed 16:9 stage is scaled to fit the
+             host column, one slide at a time, no page scrolling.
+   <= 900px: phone mode. The same slides re-flow as a web page: single
+             column, px type sizes, tables become cards, the arrow bar
+             sticks to the bottom; a long slide scrolls on its own.
+   Both modes share one HTML. Switching is pure CSS (radio + label); the
+   inline script only adds enhancements (desktop full-screen button with
+   Esc to exit, arrow keys, phone-side floating up/down buttons that hide
+   after 2.6 s idle). If the host CMS strips the script, desktop switching
+   still works and the phone falls back to the bottom arrow bar.
+   Every selector is scoped under .dk-deck, so host styles stay untouched.
+   If the host header is tall and a desktop scrollbar appears, lower --dk-h. */
+.dk-deck{
+  --red:#C8102E; --red-deep:#A50D22; --tint:#F5E6E9; --gray:#555; --line:#D9D9D9;
+  --fs-m:18.7px;                    /* phone-mode minimum type size = 14pt */
+  --fs-min:18.7px;                  /* same floor, name used by editor-side inline styles */
+  --dk-h:86vh;                      /* max stage height on desktop */
+  margin:0 auto; padding:12px 0; background:#EDEDED;
+  font-family:"Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif;
+  color:#1A1A1A; line-height:1.6; text-align:left;
+}
+.dk-deck *{box-sizing:border-box; margin:0; padding:0}
+.dk-deck ul{padding-left:1.3em}
+.dk-deck li{margin:.6cqw 0}
+
+/* ---- switching radios: hidden; fixed so a label click never scrolls the page to them ---- */
+.dk-deck .dk-radio{
+  position:fixed; top:0; left:0; width:1px; height:1px; opacity:0;
+  pointer-events:none; clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden}
+
+/* ---- desktop full-screen button (only when the script runs) ---- */
+.dk-deck .dk-fs{display:none}
+.dk-deck.dk-js .dk-fs{
+  position:absolute; right:1.4cqw; bottom:1.7cqw; z-index:12;
+  display:flex; align-items:center; justify-content:center;
+  width:2.9cqw; height:2.9cqw; border-radius:50%; padding:0;
+  background:#fff; color:var(--red); border:.12cqw solid var(--red);
+  font:bold 1.45cqw/1 "Segoe UI Symbol","Apple Symbols",sans-serif; cursor:pointer;
+  box-shadow:0 .15cqw .6cqw rgba(0,0,0,.18); transition:background .18s,color .18s}
+.dk-deck.dk-js .dk-fs:hover{background:var(--red); color:#fff}
+.dk-deck.dk-js .dk-slide.dk-onred ~ .dk-fs{border-color:#fff}
+.dk-deck.dk-fullscreen{
+  --dk-h:100vh; background:#000; padding:0; margin:0;
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center}
+.dk-deck.dk-fullscreen .dk-stage{box-shadow:none}
+
+/* ---- phone floating up/down buttons (script + <=900px only) ---- */
+.dk-deck .dk-fab{display:none}
+
+/* ---- stage ---- */
+.dk-deck .dk-stage{
+  position:relative; margin:0 auto; overflow:hidden;
+  width:min(100%, calc(var(--dk-h) * 16 / 9));
+  aspect-ratio:16/9;
+  container-type:inline-size;
+  background:#fff; box-shadow:0 4px 22px rgba(0,0,0,.22);
+}
+
+/* ---- one slide ---- */
+.dk-deck .dk-slide{
+  position:absolute; inset:0; opacity:0; visibility:hidden;
+  transition:opacity .28s ease;
+  padding:5cqw 5cqw 7.5cqw;
+  display:flex; flex-direction:column; justify-content:center}
+@@SHOW@@{opacity:1; visibility:visible}
+
+/* ---- nav: small arrows + page index ---- */
+.dk-deck .dk-nav{
+  position:absolute; left:0; right:0; bottom:2cqw; z-index:9;
+  display:flex; align-items:center; justify-content:center; gap:1.4cqw}
+.dk-deck .dk-arrow{
+  display:flex; align-items:center; justify-content:center;
+  width:3.2cqw; height:3.2cqw; border-radius:50%;
+  background:#fff; color:var(--red); border:.12cqw solid var(--red);
+  font-size:1.6cqw; font-weight:bold; line-height:1; cursor:pointer;
+  box-shadow:0 .15cqw .6cqw rgba(0,0,0,.18); user-select:none;
+  transition:background .18s, color .18s}
+.dk-deck .dk-arrow:hover{background:var(--red); color:#fff}
+.dk-deck .dk-idx{
+  font-size:1.05cqw; color:var(--red-deep); font-weight:bold;
+  letter-spacing:.12em; min-width:6em; text-align:center}
+.dk-deck .dk-slide.dk-onred .dk-idx{color:#fff}
+.dk-deck .dk-slide.dk-onred .dk-arrow{background:rgba(255,255,255,.92); border-color:#fff}
+
+/* ---- corner ribbons ---- */
+.dk-deck .dk-ribbon::before{
+  content:""; position:absolute; top:0; right:0; width:13cqw; height:14.6cqw;
+  background:linear-gradient(200deg,var(--red) 55%,var(--red-deep) 56%);
+  clip-path:polygon(100% 0,100% 100%,62% 55%,20% 0)}
+.dk-deck .dk-ribbon::after{
+  content:""; position:absolute; bottom:0; left:0; width:12cqw; height:13.5cqw;
+  background:linear-gradient(20deg,var(--red) 55%,var(--red-deep) 56%);
+  clip-path:polygon(0 100%,0 10%,45% 55%,80% 100%)}
+
+/* ---- cover ---- */
+.dk-deck .dk-cover{display:grid; grid-template-columns:1.05fr 1fr; padding:0 0 7.5cqw; align-items:stretch}
+.dk-deck .dk-cover-l{padding:0 4cqw 0 5cqw; display:flex; flex-direction:column; justify-content:center}
+.dk-deck .dk-brand{color:var(--red); font-weight:bold; letter-spacing:.12em; font-size:1.15cqw; margin-bottom:3.4cqw}
+.dk-deck .dk-brand small{display:block; font-size:1cqw; letter-spacing:.02em; color:var(--red-deep); margin-top:.3cqw}
+.dk-deck .dk-year{color:var(--red); font-size:2.2cqw; font-weight:900; letter-spacing:.06em}
+.dk-deck .dk-cover-l h1{font-size:4.4cqw; font-weight:900; letter-spacing:.08em; line-height:1.25}
+.dk-deck .dk-sub{font-size:1.85cqw; font-weight:700; margin-top:.8cqw; letter-spacing:.05em}
+.dk-deck .dk-meta{margin-top:3.6cqw; font-size:1.15cqw}
+.dk-deck .dk-meta .dk-row{display:flex; gap:1.5cqw; padding:.9cqw 0; border-bottom:.1cqw solid var(--line); max-width:26cqw}
+.dk-deck .dk-meta .dk-row b{letter-spacing:.3em}
+.dk-deck .dk-cover-r{
+  background:linear-gradient(160deg,var(--red) 0%,var(--red-deep) 100%);
+  clip-path:polygon(18% 0,100% 0,100% 100%,0 100%);
+  color:#fff; display:flex; flex-direction:column; justify-content:center; padding:0 4cqw 0 8cqw}
+.dk-deck .dk-cover-r .dk-item{margin:1.6cqw 0}
+.dk-deck .dk-cover-r .dk-no{font-size:1cqw; opacity:.85; letter-spacing:.22em}
+.dk-deck .dk-cover-r .dk-name{font-size:1.85cqw; font-weight:900; letter-spacing:.05em}
+.dk-deck .dk-cover-r .dk-desc{font-size:1.05cqw; opacity:.92; margin-top:.3cqw}
+
+/* ---- headings and body ---- */
+.dk-deck .dk-title{font-size:2.45cqw; font-weight:900; letter-spacing:.04em; margin-bottom:1.7cqw; line-height:1.3}
+.dk-deck .dk-kicker{
+  display:block; width:fit-content; font-size:1cqw; letter-spacing:.18em;
+  color:#fff; background:var(--red); padding:.2cqw .8cqw; border-radius:.2cqw; margin-bottom:.8cqw}
+.dk-deck .dk-accent{color:var(--red)}
+.dk-deck .dk-lead{font-size:1.3cqw; max-width:76cqw}
+.dk-deck .dk-lead b{color:var(--red)}
+.dk-deck a{color:var(--red-deep); font-weight:bold; text-decoration:none; border-bottom:.08cqw dotted var(--red-deep)}
+.dk-deck .dk-textbox{font-size:1.3cqw; line-height:1.7}
+.dk-deck .dk-img{display:block; max-width:60%; max-height:24cqw; margin:1cqw auto}
+
+/* ---- three stats ---- */
+.dk-deck .dk-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:1.8cqw; margin-top:1.8cqw}
+.dk-deck .dk-stat{background:#FAFAFA; border-top:.32cqw solid var(--red); padding:1.3cqw; box-shadow:0 .2cqw .7cqw rgba(0,0,0,.06)}
+.dk-deck .dk-stat .dk-num{font-size:2.4cqw; font-weight:900; color:var(--red); line-height:1.2}
+.dk-deck .dk-stat .dk-num small{font-size:1.2cqw}
+.dk-deck .dk-stat .dk-cap{font-size:1.02cqw; color:var(--gray); margin-top:.4cqw; line-height:1.6}
+
+/* ---- table ---- */
+.dk-deck .dk-table{border-collapse:collapse; width:100%; margin-top:.6cqw; font-size:1.05cqw}
+.dk-deck .dk-table th,.dk-deck .dk-table td{border:.05cqw solid #BBB; padding:1cqw 1.1cqw; text-align:left; vertical-align:top; line-height:1.6}
+.dk-deck .dk-table th{background:var(--tint); color:var(--red-deep)}
+.dk-deck .dk-tag{display:inline-block; font-size:1cqw; background:var(--red); color:#fff; border-radius:.15cqw; padding:0 .55cqw; margin-left:.4cqw; white-space:nowrap}
+
+/* ---- two-column panels ---- */
+.dk-deck .dk-twocol{display:grid; grid-template-columns:1fr 1fr; gap:2.2cqw; align-items:start; margin-top:1.6cqw}
+.dk-deck .dk-panel{background:#FAFAFA; border-left:.42cqw solid var(--red); padding:1.4cqw 1.3cqw; box-shadow:0 .2cqw .7cqw rgba(0,0,0,.06); font-size:1.05cqw; line-height:1.65}
+.dk-deck .dk-panel h3{color:var(--red); font-size:1.3cqw; margin-bottom:.6cqw}
+
+/* ---- note bar ---- */
+.dk-deck .dk-note{margin-top:1.6cqw; background:#FFF6E8; border:.05cqw solid #E0C97F; padding:1.1cqw 1.2cqw; font-size:1cqw; line-height:1.65}
+.dk-deck .dk-note b{color:var(--red-deep)}
+
+/* ---- full-bleed hero ---- */
+.dk-deck .dk-hero{
+  background:linear-gradient(135deg,#8C0B1D,var(--red) 55%,#E25668);
+  color:#fff; text-align:center; align-items:center}
+.dk-deck .dk-badge{
+  display:inline-block; background:rgba(255,255,255,.92); color:var(--red);
+  font-weight:bold; font-size:1cqw; letter-spacing:.18em;
+  border-radius:2cqw; padding:.35cqw 1.1cqw; margin-bottom:1.6cqw}
+.dk-deck .dk-hero h1{font-size:3.6cqw; font-weight:900; margin-bottom:1.4cqw; letter-spacing:.04em}
+.dk-deck .dk-hero p{font-size:1.55cqw; opacity:.96; line-height:1.7}
+
+/* ---- large paragraph + flow steps ---- */
+.dk-deck .dk-ragp{font-size:2cqw; line-height:1.8; max-width:80cqw}
+.dk-deck .dk-hl{color:var(--red); font-weight:bold}
+.dk-deck .dk-flow{display:flex; justify-content:center; gap:2.4cqw; margin-top:2.4cqw}
+.dk-deck .dk-step{
+  position:relative; width:9.8cqw; min-height:9.8cqw; background:#FAFAFA; border-radius:1cqw;
+  border-top:.32cqw solid var(--red); box-shadow:0 .35cqw 1cqw rgba(0,0,0,.08);
+  display:flex; flex-direction:column; justify-content:center; align-items:center; padding:1cqw .6cqw}
+.dk-deck .dk-step i{font-style:normal; font-size:2.2cqw; line-height:1.1}
+.dk-deck .dk-step p{text-align:center; font-size:1cqw; line-height:1.4; margin-top:.6cqw}
+.dk-deck .dk-step::after{content:"\27A4"; position:absolute; right:-1.75cqw; top:50%; transform:translateY(-50%); font-size:1.3cqw; color:var(--red)}
+.dk-deck .dk-step:last-child::after{display:none}
+
+/* ---- document box ---- */
+.dk-deck .dk-docnote{font-size:1.8cqw; color:#666; margin-bottom:.9cqw}
+.dk-deck .dk-docbox{
+  background:#FAFAFA; border-top:.32cqw solid var(--red); border-radius:.7cqw;
+  box-shadow:0 .35cqw 1cqw rgba(0,0,0,.08); padding:1.3cqw;
+  max-height:31cqw; overflow-y:auto; font-size:1cqw; line-height:1.8; text-align:justify}
+
+/* ---- cards ---- */
+.dk-deck .dk-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:1.3cqw; margin-top:1.6cqw}
+.dk-deck .dk-card{
+  background:#FAFAFA; border-radius:.9cqw; border-top:.32cqw solid var(--red);
+  padding:1.3cqw 1.2cqw; box-shadow:0 .45cqw 1.4cqw rgba(0,0,0,.08); font-size:1.8cqw; line-height:1.6}
+.dk-deck .dk-card h3{color:var(--red); font-size:2.8cqw; margin-bottom:.4cqw}
+
+/* ---- chat bubbles + closing card ---- */
+.dk-deck .dk-chat{
+  background:#fff; border:.05cqw solid #EAD0D5; border-radius:1cqw; max-width:60cqw;
+  margin:1.4cqw auto 0; padding:1.8cqw 2cqw; box-shadow:0 .45cqw 1.4cqw rgba(0,0,0,.10)}
+.dk-deck .dk-bubble{
+  display:inline-block; background:var(--red); color:#fff; font-size:2.7cqw;
+  border-radius:1.2cqw; padding:.8cqw 1.4cqw; margin:.6cqw 0}
+.dk-deck .dk-libfoot{
+  background:var(--red-deep); color:#fff; text-align:center; border-radius:.8cqw;
+  padding:1.3cqw 2cqw; margin:1.4cqw auto 0; max-width:60cqw}
+.dk-deck .dk-libfoot h3{font-size:1.55cqw; margin-bottom:.3cqw}
+.dk-deck .dk-libfoot p{font-size:1.05cqw}
+.dk-deck .dk-libfoot a{color:#fff; border-bottom-color:#fff}
+
+/* =====================================================================
+   <= 900px: phone mode. Slides re-flow as a web page, no scaling
+   ===================================================================== */
+@media (max-width:900px){
+  .dk-deck{padding:0; background:#fff; font-size:var(--fs-m); line-height:1.75}
+  .dk-deck li{margin:10px 0}
+  .dk-deck a{border-bottom-width:1px}
+
+  /* stage grows with content; container-query scaling off */
+  .dk-deck .dk-stage{
+    width:100%; aspect-ratio:auto; height:auto; min-height:100svh;
+    overflow:visible; box-shadow:none; container-type:normal}
+
+  /* only the checked slide shows, back in normal flow */
+  .dk-deck .dk-slide{
+    position:static; display:none; opacity:1; visibility:visible;
+    padding:26px 16px 0; min-height:100svh}
+  @@SHOW@@{display:flex; flex-direction:column; justify-content:flex-start}
+
+  /* ribbons would overlap flowing text */
+  .dk-deck .dk-ribbon::before,.dk-deck .dk-ribbon::after{display:none}
+
+  .dk-deck .dk-fs{display:none !important}
+
+  /* with script: hide per-slide arrows, use the floating side buttons */
+  .dk-deck.dk-js .dk-nav{display:none}
+  .dk-deck.dk-js .dk-slide{padding-bottom:40px}
+  .dk-deck.dk-js .dk-fab{
+    position:fixed; right:12px; top:50%; transform:translateY(-50%); z-index:60;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    transition:opacity .3s ease, transform .3s ease}
+  .dk-deck.dk-js.dk-idle .dk-fab{opacity:0; transform:translate(90px,-50%); pointer-events:none}
+  .dk-deck .dk-fab-btn{
+    width:48px; height:48px; border-radius:50%; padding:0; cursor:pointer;
+    background:#fff; color:var(--red); border:2px solid var(--red);
+    font:bold 20px/1 sans-serif; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.22); -webkit-tap-highlight-color:transparent}
+  .dk-deck .dk-fab-btn:active{background:var(--red); color:#fff}
+  .dk-deck .dk-fab-idx{
+    font-size:var(--fs-m); font-weight:bold; color:var(--red-deep); line-height:1;
+    background:rgba(255,255,255,.92); border-radius:12px; padding:5px 8px; white-space:nowrap}
+
+  /* without script: arrow bar sticks to the bottom */
+  .dk-deck .dk-nav{
+    position:sticky; bottom:0; left:auto; right:auto; margin:24px -16px 0;
+    padding:10px 16px; gap:16px;
+    background:rgba(255,255,255,.95); border-top:1px solid var(--line);
+    backdrop-filter:blur(6px)}
+  .dk-deck .dk-slide.dk-onred .dk-nav{background:rgba(255,255,255,.95); border-top-color:rgba(255,255,255,.5)}
+  .dk-deck .dk-slide.dk-onred .dk-idx{color:var(--red-deep)}
+  .dk-deck .dk-slide.dk-onred .dk-arrow{background:#fff; border-color:var(--red); color:var(--red)}
+  .dk-deck .dk-arrow{width:46px; height:46px; font-size:24px; border-width:2px; box-shadow:0 2px 8px rgba(0,0,0,.16)}
+  .dk-deck .dk-idx{font-size:var(--fs-m); min-width:5.5em}
+
+  /* cover (never set display here: it would override .dk-slide{display:none}) */
+  .dk-deck .dk-cover{padding:26px 0 0}
+  .dk-deck .dk-cover-l{display:block; padding:0 16px 24px}
+  .dk-deck .dk-brand{font-size:var(--fs-m); margin-bottom:18px}
+  .dk-deck .dk-brand small{font-size:var(--fs-m); margin-top:4px}
+  .dk-deck .dk-year{font-size:22px}
+  .dk-deck .dk-cover-l h1{font-size:32px; letter-spacing:.04em}
+  .dk-deck .dk-sub{font-size:20px; margin-top:10px; line-height:1.5}
+  .dk-deck .dk-meta{margin-top:22px; font-size:var(--fs-m)}
+  .dk-deck .dk-meta .dk-row{max-width:none; padding:10px 0; gap:16px; border-bottom-width:1px}
+  .dk-deck .dk-cover-r{clip-path:none; display:block; padding:22px 16px; margin:0}
+  .dk-deck .dk-cover .dk-nav{margin-left:0; margin-right:0}
+  .dk-deck .dk-cover-r .dk-item{margin:16px 0}
+  .dk-deck .dk-cover-r .dk-no{font-size:var(--fs-m)}
+  .dk-deck .dk-cover-r .dk-name{font-size:21px}
+  .dk-deck .dk-cover-r .dk-desc{font-size:var(--fs-m); margin-top:4px}
+
+  /* headings */
+  .dk-deck .dk-title{font-size:26px; margin-bottom:16px; line-height:1.4}
+  .dk-deck .dk-kicker{font-size:var(--fs-m); padding:3px 12px; border-radius:4px; margin-bottom:10px; letter-spacing:.1em}
+  .dk-deck .dk-lead{font-size:20px; max-width:none; line-height:1.7}
+  .dk-deck .dk-textbox{font-size:var(--fs-m)}
+  .dk-deck .dk-img{max-width:100%; max-height:none}
+
+  /* three stats -> one column */
+  .dk-deck .dk-stats{grid-template-columns:1fr; gap:14px; margin-top:20px}
+  .dk-deck .dk-stat{padding:16px; border-top-width:5px}
+  .dk-deck .dk-stat .dk-num{font-size:28px}
+  .dk-deck .dk-stat .dk-num small{font-size:var(--fs-m)}
+  .dk-deck .dk-stat .dk-cap{font-size:var(--fs-m); margin-top:6px}
+
+  /* table -> cards (header row hidden, one card per row) */
+  .dk-deck .dk-table,.dk-deck .dk-table tbody,
+  .dk-deck .dk-table tr,.dk-deck .dk-table td{display:block; width:100%}
+  .dk-deck .dk-table{margin-top:18px}
+  .dk-deck .dk-table tr:first-child{display:none}
+  .dk-deck .dk-table tr{margin-bottom:14px; border:1px solid #C7C7C7; border-radius:10px; overflow:hidden}
+  .dk-deck .dk-table td{border:0; padding:14px 16px; font-size:var(--fs-m); line-height:1.7}
+  .dk-deck .dk-table td:first-child{background:var(--tint); font-weight:bold}
+  .dk-deck .dk-tag{font-size:var(--fs-m); padding:1px 10px; margin-left:8px; border-radius:4px}
+
+  /* two columns -> one */
+  .dk-deck .dk-twocol{grid-template-columns:1fr; gap:14px; margin-top:18px}
+  .dk-deck .dk-panel{font-size:var(--fs-m); padding:16px 18px; border-left-width:6px}
+  .dk-deck .dk-panel h3{font-size:21px; margin-bottom:8px}
+
+  .dk-deck .dk-note{font-size:var(--fs-m); padding:16px; margin-top:18px; border-width:1px}
+
+  /* hero */
+  .dk-deck .dk-hero{text-align:center; padding:40px 16px 0; justify-content:flex-start}
+  .dk-deck .dk-badge{font-size:var(--fs-m); padding:5px 16px; border-radius:20px; margin-bottom:16px}
+  .dk-deck .dk-hero h1{font-size:28px; margin-bottom:14px; line-height:1.4}
+  .dk-deck .dk-hero p{font-size:20px}
+
+  .dk-deck .dk-ragp{font-size:20px; max-width:none; line-height:1.75}
+  .dk-deck .dk-flow{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:20px}
+  .dk-deck .dk-step{width:auto; min-height:0; padding:16px 10px; border-radius:12px; border-top-width:5px}
+  .dk-deck .dk-step i{font-size:32px}
+  .dk-deck .dk-step p{font-size:var(--fs-m); margin-top:8px}
+  .dk-deck .dk-step::after{display:none}
+
+  .dk-deck .dk-docnote{font-size:var(--fs-m); margin-bottom:12px}
+  .dk-deck .dk-docbox{
+    font-size:var(--fs-m); max-height:58svh; padding:16px;
+    border-radius:10px; border-top-width:5px; line-height:1.85}
+
+  .dk-deck .dk-cards{grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:18px}
+  .dk-deck .dk-card{font-size:var(--fs-m); padding:16px; border-radius:12px; border-top-width:5px}
+  .dk-deck .dk-card h3{font-size:21px; margin-bottom:6px}
+
+  .dk-deck .dk-chat{max-width:none; padding:16px; border-radius:12px; margin-top:18px; border-width:1px}
+  .dk-deck .dk-bubble{font-size:20px; padding:10px 18px; border-radius:20px; margin:7px 0}
+  .dk-deck .dk-libfoot{max-width:none; padding:18px 16px; border-radius:12px; margin-top:18px}
+  .dk-deck .dk-libfoot h3{font-size:21px; margin-bottom:6px}
+  .dk-deck .dk-libfoot p{font-size:var(--fs-m)}
+}
+
+/* ---- print: one slide per page ---- */
+@media print{
+  .dk-deck{background:#fff; padding:0}
+  .dk-deck .dk-stage{width:100%; box-shadow:none; overflow:visible; aspect-ratio:auto; height:auto}
+  .dk-deck .dk-slide{position:static; display:flex !important; opacity:1 !important; visibility:visible !important;
+    aspect-ratio:16/9; break-after:page}
+  .dk-deck .dk-nav{display:none}
+}
+</script>
+
+<script type="text/plain" id="embed-js">
+(function(){
+  /* Progressive enhancement for the embedded deck. Everything below is optional:
+     without it, desktop switching is pure CSS and the phone uses the bottom arrow bar. */
+  var deck=(document.currentScript&&document.currentScript.closest('.dk-deck'))||document.querySelector('.dk-deck');
+  if(!deck||deck.classList.contains('dk-js'))return;
+  deck.classList.add('dk-js');
+  var radios=[].slice.call(deck.querySelectorAll('.dk-radio')),n=radios.length;
+  var idxEl=deck.querySelector('.dk-fab-idx'),mq=window.matchMedia('(max-width:900px)');
+  function cur(){for(var i=0;i<n;i++)if(radios[i].checked)return i;return 0;}
+  function paint(){if(idxEl)idxEl.textContent=(cur()+1)+' / '+n;}
+  function top(){window.scrollTo(0,deck.getBoundingClientRect().top+window.pageYOffset);}
+  function go(i){radios[((i%n)+n)%n].checked=true;paint();if(mq.matches)top();wake();}
+  paint();
+  /* per-slide arrows: cancel the label default so focus never scrolls the page */
+  [].forEach.call(deck.querySelectorAll('label.dk-arrow'),function(l){
+    l.addEventListener('click',function(e){e.preventDefault();
+      var t=deck.querySelector('#'+l.getAttribute('for'));if(t)go(radios.indexOf(t));});});
+  /* phone floating buttons */
+  [].forEach.call(deck.querySelectorAll('.dk-fab-btn'),function(b){
+    b.addEventListener('click',function(){go(cur()+(+b.getAttribute('data-dir')));});});
+  /* hide after 2.6 s idle; scroll or touch brings them back */
+  var timer;function wake(){deck.classList.remove('dk-idle');clearTimeout(timer);
+    timer=setTimeout(function(){deck.classList.add('dk-idle');},2600);}
+  ['scroll','touchstart','touchmove'].forEach(function(ev){window.addEventListener(ev,wake,{passive:true});});
+  wake();
+  /* arrow keys (desktop) */
+  document.addEventListener('keydown',function(e){
+    if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||'')))return;
+    if(e.key==='ArrowRight'||e.key==='PageDown'){go(cur()+1);e.preventDefault();}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){go(cur()-1);e.preventDefault();}});
+  /* desktop full screen (Esc handled by the browser) */
+  var fs=deck.querySelector('.dk-fs');
+  var req=deck.requestFullscreen||deck.webkitRequestFullscreen,exit=document.exitFullscreen||document.webkitExitFullscreen;
+  function fsEl(){return document.fullscreenElement||document.webkitFullscreenElement;}
+  if(fs&&req){
+    fs.addEventListener('click',function(){fsEl()?exit.call(document):req.call(deck);});
+    function sync(){var on=fsEl()===deck;deck.classList.toggle('dk-fullscreen',on);
+      fs.textContent=on?'✕':'⛶';fs.title=on?fs.getAttribute('data-t-on'):fs.getAttribute('data-t-off');}
+    document.addEventListener('fullscreenchange',sync);document.addEventListener('webkitfullscreenchange',sync);
+  }else if(fs){fs.style.display='none';}
+})();
+</script>
+
 <script id="editor-js">
 'use strict';
 /* repo deck editor - editor-side runtime.
@@ -725,7 +1171,7 @@ var TPLS = [
    Export rebuilds a fresh document: content layer (verbatim) +
    deck-css + tpl-js + rt-viewer. Import extracts only the content layer. */
 
-var VERSION = 'v9.0';
+var VERSION = 'v10.0';
 var DRAFT_KEY = 'repo-deck-editor-draft';
 var stage, footerEl;
 var editing = false, layouting = false, dirty = false;
@@ -733,7 +1179,7 @@ var lastRange = null;
 var undoStack = [], redoStack = [];
 var selEls = [], selBoxes = [], handleEls = [], dragInfo = null;
 
-var BLOCK_SEL = 'img, table, .textbox, .stat, .panel, .notebar, .sec-title, .lead, .brand, .cover-meta, .year, .sub, .item, h1, h2, h3, p, ul, ol';
+var BLOCK_SEL = 'img, table, .textbox, .stat, .panel, .notebar, .sec-title, .lead, .brand, .cover-meta, .year, .sub, .item, .card, .step, .docbox, .chat, .callout, h1, h2, h3, p, ul, ol';
 
 /* ===== neutral skeletons ===== */
 var COVER_BI = TPLS[4].html;   /* cover skeleton = the cover template in tpl-js */
@@ -1558,16 +2004,8 @@ function exportDeck() {
   var wasEditing = editing;
   if (editing) toggleEdit();
   selectSet([]);
-  var html = buildExportHTML();
   var name = deriveTitle() + '.html';
-  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  downloadText(buildExportHTML(), name, 'text/html;charset=utf-8');
   dirty = false;
   clearDraft();
   toast('已下載簡報檔：' + name + '（可直接投影，也可再匯入本編輯器修改）');
@@ -1593,6 +2031,7 @@ function importDeck(text, name) {
     return;
   }
   var meta = doc.querySelector('meta[name="deck-editor"]');
+  if (!meta && doc.querySelector('.dk-stage')) { importEmbed([{ name: name, text: text }]); return; }
   if (!meta) {
     toast('「' + (name || '檔案') + '」不是本編輯器產出的簡報檔（缺少版本標記），已拒絕匯入。');
     return;
@@ -1627,13 +2066,336 @@ function importDeck(text, name) {
 window.addEventListener('dragover', function (e) { e.preventDefault(); });
 window.addEventListener('drop', function (e) {
   e.preventDefault();
-  var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-  if (!f) return;
-  if (!/\.html?$/i.test(f.name)) { toast('請拖入本編輯器產出的 .html 簡報檔。'); return; }
-  var fr = new FileReader();
-  fr.onload = function () { importDeck(String(fr.result), f.name); };
-  fr.readAsText(f, 'utf-8');
+  var fl = e.dataTransfer && e.dataTransfer.files;
+  if (!fl || !fl.length) return;
+  var files = Array.prototype.slice.call(fl);
+  for (var i = 0; i < files.length; i++) {
+    if (!/\.(html?|txt)$/i.test(files[i].name)) { toast('請拖入本編輯器產出的 .html 簡報檔，或網頁內嵌版 .txt。'); return; }
+  }
+  readFiles(files, function (list) {
+    if (list.length === 1 && /\.html?$/i.test(list[0].name)) importDeck(list[0].text, list[0].name);
+    else importEmbed(list);
+  });
 });
+
+/* ===== web embed edition: export / import =====
+   A CMS-pasteable fragment: <meta charset> + <style> + <div class="dk-deck">
+   holding one <section class="dk-slide"> per screen, switched by pure CSS
+   (radio + label) with an inline script for enhancements only. Contract
+   classes are renamed through EMBED_MAP in both directions; sizes use
+   container-query units (cqw) so the deck scales with the host column. */
+var EMBED_MAP = {
+  screen: 'dk-slide', ribbon: 'dk-ribbon', cover: 'dk-cover',
+  'cover-left': 'dk-cover-l', 'cover-right': 'dk-cover-r',
+  brand: 'dk-brand', year: 'dk-year', sub: 'dk-sub', 'cover-meta': 'dk-meta', row: 'dk-row',
+  item: 'dk-item', no: 'dk-no', name: 'dk-name', desc: 'dk-desc',
+  'sec-title': 'dk-title', kicker: 'dk-kicker', accent: 'dk-accent',
+  lead: 'dk-lead', 'lead-xl': 'dk-ragp', hl: 'dk-hl',
+  stats: 'dk-stats', stat: 'dk-stat', num: 'dk-num', cap: 'dk-cap',
+  tools: 'dk-table', tag: 'dk-tag', twocol: 'dk-twocol', panel: 'dk-panel', notebar: 'dk-note',
+  textbox: 'dk-textbox', 'ins-img': 'dk-img',
+  hero: 'dk-hero', badge: 'dk-badge', flow: 'dk-flow', step: 'dk-step',
+  docnote: 'dk-docnote', docbox: 'dk-docbox', cards: 'dk-cards', card: 'dk-card',
+  chat: 'dk-chat', bubble: 'dk-bubble', callout: 'dk-libfoot'
+};
+var EMBED_RMAP = (function () { var r = {}; for (var k in EMBED_MAP) r[EMBED_MAP[k]] = k; return r; })();
+var EMBED_T = {
+  zh: { prev: '上一張', next: '下一張', first: '回到第一張', fsOff: '全螢幕（Esc 退出）', fsOn: '退出全螢幕（Esc）' },
+  en: { prev: 'Previous', next: 'Next', first: 'Back to first', fsOff: 'Full screen (Esc to exit)', fsOn: 'Exit full screen (Esc)' }
+};
+var BLOCK_TAGS = /^(DIV|P|SECTION|TABLE|THEAD|TBODY|TFOOT|TR|TD|TH|UL|OL|LI|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|FIGURE|PRE|ARTICLE|HEADER|FOOTER|NAV|ASIDE|DL|DT|DD)$/;
+
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function normHTML(s) { return String(s).replace(/\s+/g, ' ').trim(); }
+
+function downloadText(text, name, mime) {
+  var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+/* keep one language: drop the other language's spans, unwrap this language's */
+function reduceLang(root, lang) {
+  var other = (lang === 'en') ? 'zh' : 'en';
+  stripNodes(root, '.' + other);
+  var own = root.querySelectorAll('.' + lang);
+  for (var i = own.length - 1; i >= 0; i--) {
+    var s = own[i];
+    while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
+    s.parentNode.removeChild(s);
+  }
+}
+
+function stripNodes(root, sel) {
+  var list = root.querySelectorAll(sel);
+  for (var i = list.length - 1; i >= 0; i--) list[i].parentNode.removeChild(list[i]);
+}
+
+function stripComments(root) {
+  var w = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT), list = [], n;
+  while ((n = w.nextNode())) list.push(n);
+  for (var i = 0; i < list.length; i++) list[i].parentNode.removeChild(list[i]);
+}
+
+/* rename classes through a map; classes not in the map are dropped */
+function remapClasses(root, map) {
+  var els = [root].concat(Array.prototype.slice.call(root.querySelectorAll('[class]')));
+  for (var i = 0; i < els.length; i++) {
+    var out = [], cs = (els[i].getAttribute('class') || '').split(/\s+/);
+    for (var j = 0; j < cs.length; j++) if (cs[j] && map.hasOwnProperty(cs[j])) out.push(map[cs[j]]);
+    if (out.length) els[i].setAttribute('class', out.join(' ')); else els[i].removeAttribute('class');
+  }
+}
+
+/* inline style units: vw <-> cqw (font sizes set by the editor are in vw) */
+function convertUnits(root, from, to) {
+  var re = new RegExp('(\\d*\\.?\\d+)' + from + '(?![a-z])', 'gi');
+  var els = [root].concat(Array.prototype.slice.call(root.querySelectorAll('[style]')));
+  for (var i = 0; i < els.length; i++) {
+    var s = els[i].getAttribute('style');
+    if (s && re.test(s)) els[i].setAttribute('style', s.replace(re, '$1' + to));
+    re.lastIndex = 0;
+  }
+}
+
+/* blocks dragged in layout mode carry px offsets; make them relative to the slide */
+function relPositions(root, w, h) {
+  var els = root.querySelectorAll('[style]');
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    if (el.style.position !== 'absolute') continue;
+    ['left', 'width'].forEach(function (p) {
+      if (/px$/.test(el.style[p])) el.style[p] = (Math.round(parseFloat(el.style[p]) / w * 10000) / 100) + 'cqw';
+    });
+    ['top', 'height'].forEach(function (p) {
+      if (/px$/.test(el.style[p])) el.style[p] = (Math.round(parseFloat(el.style[p]) / h * 10000) / 100) + '%';
+    });
+  }
+}
+
+function guessLang(name, roots) {
+  if (/(^|[^a-z])(en|eng|english)([^a-z]|$)/i.test(name || '')) return 'en';
+  if (/(^|[^a-z])(zh|tw|cht|chi)([^a-z]|$)/i.test(name || '') || /中/.test(name || '')) return 'zh';
+  var txt = '';
+  for (var i = 0; i < roots.length; i++) {
+    var h = roots[i].querySelectorAll('h1, h2, h3, .lead, .dk-lead');
+    for (var j = 0; j < h.length; j++) txt += h[j].textContent;
+  }
+  var cjk = (txt.match(/[㐀-鿿]/g) || []).length;
+  var latin = (txt.match(/[A-Za-z]/g) || []).length;
+  return cjk >= latin ? 'zh' : 'en';
+}
+
+function buildEmbedHTML(lang, hasEn) {
+  var t = EMBED_T[lang] || EMBED_T.zh;
+  var theme = document.documentElement.getAttribute('data-theme') || 'red';
+  var live = screensOf(stage), n = live.length, parts = [], i;
+  for (i = 0; i < n; i++) {
+    var r = live[i].getBoundingClientRect();
+    var sec = stripEditable(live[i].cloneNode(true));
+    if (hasEn) reduceLang(sec, lang);
+    stripNodes(sec, 'style, script');
+    stripComments(sec);
+    var isHero = sec.classList.contains('hero');
+    remapClasses(sec, EMBED_MAP);
+    if (isHero) sec.classList.add('dk-onred');
+    sec.id = 'p' + (i + 1);
+    convertUnits(sec, 'vw', 'cqw');
+    relPositions(sec, Math.max(1, r.width), Math.max(1, r.height));
+    var prev = (i === 0) ? n : i, next = (i === n - 1) ? 1 : i + 2;
+    sec.insertAdjacentHTML('beforeend',
+      '\n<div class="dk-nav"><label class="dk-arrow" for="dk' + prev + '" title="' + t.prev + '">&#8249;</label>' +
+      '<span class="dk-idx">' + pad2(i + 1) + ' / ' + pad2(n) + '</span>' +
+      '<label class="dk-arrow" for="dk' + next + '" title="' + ((i === n - 1) ? t.first : t.next) + '">&#8250;</label></div>\n');
+    parts.push('<!-- ' + pad2(i + 1) + ' -->\n' + sec.outerHTML);
+  }
+  var radios = '';
+  for (i = 1; i <= n; i++) radios += '<input class="dk-radio" type="radio" name="dkslide" id="dk' + i + '"' + (i === 1 ? ' checked' : '') + '>\n';
+  var fab = '<div class="dk-fab"><button type="button" class="dk-fab-btn" data-dir="-1" title="' + t.prev + '" aria-label="' + t.prev + '">&#9650;</button>' +
+    '<span class="dk-fab-idx">1 / ' + n + '</span>' +
+    '<button type="button" class="dk-fab-btn" data-dir="1" title="' + t.next + '" aria-label="' + t.next + '">&#9660;</button></div>\n';
+  var fsBtn = '<button type="button" class="dk-fs" data-t-off="' + t.fsOff + '" data-t-on="' + t.fsOn + '" title="' + t.fsOff + '" aria-label="' + t.fsOff + '">&#9974;</button>\n';
+  var show = [];
+  for (i = 1; i <= n; i++) show.push('.dk-deck #dk' + i + ':checked ~ .dk-stage #p' + i);
+  var css = document.getElementById('embed-css').textContent.split('@@SHOW@@').join(show.join(',\n'));
+  if (theme === 'slate') css = css.replace('--red:#C8102E; --red-deep:#A50D22; --tint:#F5E6E9', '--red:#46637F; --red-deep:#354C63; --tint:#E9EEF4');
+  var js = document.getElementById('embed-js').textContent;
+  return '<meta charset="utf-8">\n<!-- deck-embed ' + VERSION + ' ' + lang + ' -->\n<style>\n' + css + '\n</style>\n' +
+    '<div class="dk-deck">\n' + radios + fab + '<div class="dk-stage">\n' + parts.join('\n') + '\n' + fsBtn + '</div>\n' +
+    '<script>' + js + '<\/script>\n</div>\n';
+}
+
+function exportEmbed() {
+  var wasEditing = editing;
+  if (editing) toggleEdit();
+  selectSet([]);
+  var hasEn = !!stage.querySelector('.en');
+  var title = deriveTitle();
+  var files = hasEn
+    ? [['zh', title + '-ZH.txt'], ['en', title + '-EN.txt']]
+    : [[guessLang('', screensOf(stage)), title + '.txt']];
+  files.forEach(function (f, i) {
+    setTimeout(function () { downloadText(buildEmbedHTML(f[0], hasEn), f[1]); }, i * 400);
+  });
+  toast(hasEn
+    ? '已下載網頁內嵌版：' + files[0][1] + '、' + files[1][1] + '（瀏覽器若詢問「允許多個下載」請按允許）'
+    : '已下載網頁內嵌版：' + files[0][1]);
+  if (wasEditing) toggleEdit();
+}
+
+function readFiles(files, cb) {
+  var out = [], left = files.length;
+  files.forEach(function (f, i) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      out[i] = { name: f.name, text: String(fr.result).replace(/^﻿/, '') };
+      if (!--left) cb(out);
+    };
+    fr.readAsText(f, 'utf-8');
+  });
+}
+
+function onEmbedPicked(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  readFiles(files, importEmbed);
+}
+
+/* returns the slides of an embed file as .screen sections, or null */
+function parseEmbed(text) {
+  var doc;
+  try { doc = new DOMParser().parseFromString(text, 'text/html'); } catch (err) { return null; }
+  var st = doc.querySelector('.dk-stage');
+  if (!st) return null;
+  var out = [];
+  for (var c = st.firstElementChild; c; c = c.nextElementSibling) {
+    if (!c.classList.contains('dk-slide')) continue;
+    var sec = document.importNode(c, true);
+    stripNodes(sec, '.dk-nav, style, script');
+    stripComments(sec);
+    sec.removeAttribute('id');
+    remapClasses(sec, EMBED_RMAP);
+    if (!sec.classList.contains('screen')) sec.classList.add('screen');
+    convertUnits(sec, 'cqw', 'vw');
+    out.push(sec);
+  }
+  return out.length ? out : null;
+}
+
+function sigNodes(el) {
+  var out = [], c = el.childNodes;
+  for (var i = 0; i < c.length; i++) {
+    if (c[i].nodeType === 1 || (c[i].nodeType === 3 && c[i].nodeValue.trim())) out.push(c[i]);
+  }
+  return out;
+}
+
+function hasBlockChild(el) {
+  for (var c = el.firstElementChild; c; c = c.nextElementSibling) if (BLOCK_TAGS.test(c.tagName)) return true;
+  return false;
+}
+
+function sameAttrs(a, b) {
+  if (a.attributes.length !== b.attributes.length) return false;
+  for (var i = 0; i < a.attributes.length; i++) {
+    var n = a.attributes[i].name;
+    if (b.getAttribute(n) !== a.getAttribute(n)) return false;
+  }
+  return true;
+}
+
+function langSpan(lang, html) {
+  var s = document.createElement('span');
+  s.className = lang;
+  s.innerHTML = html;
+  return s;
+}
+
+function wrapPair(z, enHTML) {
+  var zhHTML = z.innerHTML;
+  z.innerHTML = '';
+  z.appendChild(langSpan('zh', zhHTML));
+  z.appendChild(langSpan('en', enHTML));
+}
+
+function pairText(zNode, enText) {
+  var p = zNode.parentNode;
+  p.insertBefore(langSpan('zh', escapeHTML(zNode.nodeValue.trim())), zNode);
+  p.insertBefore(langSpan('en', escapeHTML(String(enText).trim())), zNode);
+  p.removeChild(zNode);
+}
+
+/* merge one zh element with its en twin into zh/en spans, in place on z */
+function mergeNode(z, e, stats) {
+  var zs = sigNodes(z), es = sigNodes(e), i;
+  var structural = zs.length === es.length;
+  for (i = 0; structural && i < zs.length; i++) {
+    if (zs[i].nodeType !== es[i].nodeType) structural = false;
+    else if (zs[i].nodeType === 1 && (zs[i].tagName !== es[i].tagName || !sameAttrs(zs[i], es[i]))) structural = false;
+  }
+  var blocky = hasBlockChild(z) || hasBlockChild(e);
+  var allElems = zs.length > 0;
+  for (i = 0; allElems && i < zs.length; i++) if (zs[i].nodeType !== 1) allElems = false;
+  if (structural && (blocky || allElems)) {
+    for (i = 0; i < zs.length; i++) {
+      if (zs[i].nodeType === 3) {
+        if (zs[i].nodeValue.trim() !== es[i].nodeValue.trim()) pairText(zs[i], es[i].nodeValue);
+      } else mergeNode(zs[i], es[i], stats);
+    }
+    return;
+  }
+  if (normHTML(z.innerHTML) === normHTML(e.innerHTML)) return;
+  if (blocky) stats.mismatch++;
+  wrapPair(z, e.innerHTML);
+}
+
+function mergeBi(zs, es, stats) {
+  var n = Math.min(zs.length, es.length);
+  for (var i = 0; i < n; i++) mergeNode(zs[i], es[i], stats);
+  stats.extra = Math.abs(zs.length - es.length);
+  for (var j = n; j < es.length; j++) zs.push(es[j]);
+}
+
+function importEmbed(list) {
+  var parsed = [], i;
+  for (i = 0; i < list.length; i++) {
+    var sl = parseEmbed(list[i].text);
+    if (!sl) { toast('「' + list[i].name + '」不是網頁內嵌版（找不到 .dk-stage），已拒絕匯入。'); return; }
+    parsed.push({ name: list[i].name, slides: sl, lang: guessLang(list[i].name, sl) });
+  }
+  if (parsed.length > 2) { toast('一次最多匯入兩個檔（中文＋英文）。'); return; }
+  var zh = parsed[0], en = null, stats = { mismatch: 0, extra: 0 };
+  if (parsed.length === 2) {
+    if (parsed[0].lang === parsed[1].lang) {
+      toast('兩個檔判斷為同一種語言（' + (parsed[0].lang === 'en' ? '英文' : '中文') + '），請確認檔名含 ZH／EN 再試。');
+      return;
+    }
+    zh = (parsed[0].lang === 'zh') ? parsed[0] : parsed[1];
+    en = (zh === parsed[0]) ? parsed[1] : parsed[0];
+  }
+  if (dirty && !confirm('目前內容尚未下載，匯入會取代現有內容，確定？')) return;
+  pushUndo();
+  var screens = zh.slides;
+  if (en) mergeBi(screens, en.slides, stats);
+  stage.innerHTML = '';
+  for (i = 0; i < screens.length; i++) stage.appendChild(stripEditable(screens[i]));
+  setLang('zh');
+  selectSet([]);
+  applyEditable();
+  dirty = true;
+  window.scrollTo(0, 0);
+  var msg = '已匯入網頁內嵌版：' + screens.length + ' 頁' +
+    (en ? '（中英合併）' : ('（' + (zh.lang === 'en' ? '英文' : '中文') + '單語）'));
+  if (stats.extra) msg += '；兩檔頁數不同，多出的 ' + stats.extra + ' 頁只有單語';
+  if (stats.mismatch) msg += '；' + stats.mismatch + ' 處中英結構不同，已整段並列';
+  toast(msg + '。做完請按「下載簡報」另存為簡報檔。');
+}
 
 /* ===== draft autosave (localStorage) ===== */
 function saveDraft() {
