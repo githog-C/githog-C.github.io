@@ -1,13 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "unsee — hide sites from search results",
-  "version": "1.0.4",
-  "description": "Hide chosen sites from your own Google, Bing and DuckDuckGo results. Local only: no account, no server, no tracking.",
+  "name": "unsee — hide sites, keep your tags",
+  "version": "1.1.0",
+  "description": "Hide chosen sites from your own Google, Bing and DuckDuckGo results, and keep your usual search snippets one click from the box. Local only: no account, no server, no tracking.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "src/background.js"
   },
   "permissions": [
     "storage"
@@ -26,7 +29,9 @@
       ],
       "js": [
         "src/matcher.js",
-        "src/content.js"
+        "src/snippets.js",
+        "src/content.js",
+        "src/tags.js"
       ],
       "css": [
         "src/styles.css"
@@ -48,7 +53,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "blocklist.txt"
+        "blocklist.txt",
+        "snippets.txt"
       ],
       "matches": [
         "*://*.bing.com/*",

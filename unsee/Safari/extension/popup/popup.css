@@ -119,3 +119,115 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 #defaults-list .problem { color: var(--accent); font-size: 12px; }
 
 footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* ---- the tag section ---- */
+
+#tags { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+#tags h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#tags h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#tags h3 code { color: var(--muted); font-size: 11px; }
+#tags .switch { font-weight: 400; }
+
+#tag-form { display: flex; gap: 6px; margin: 10px 0 6px; }
+
+#tag-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+#tag-input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+
+#tag-form button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+#tag-form button:hover { border-color: var(--accent); }
+
+#tag-list { list-style: none; margin: 10px 0 0; padding: 0; }
+
+#tag-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#tag-list .label { font-weight: 600; }
+#tag-list .text { flex: 1; color: var(--muted); font-size: 12px; word-break: break-all; }
+
+#tag-list button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+#tag-list button:hover { color: var(--accent); }
+
+#tag-defaults-list { list-style: none; margin: 8px 0 0; padding: 0; }
+
+#tag-defaults-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+#tag-defaults-list .label { font-weight: 600; white-space: nowrap; }
+#tag-defaults-list .text { color: var(--muted); font-size: 11px; word-break: break-all; text-align: right; }
+#tag-defaults-list .problem { color: var(--accent); font-size: 12px; }
+
+#tags .keys {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+#tags .keys b { color: var(--text); font-weight: 600; }
+
+#tags .cats { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; line-height: 1.7; }
+#tags .cats .swatch { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: baseline; }

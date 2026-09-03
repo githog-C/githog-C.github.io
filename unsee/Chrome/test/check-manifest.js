@@ -87,6 +87,7 @@ for (const [i, entry] of (manifest.web_accessible_resources || []).entries()) {
 /* Every file the manifest points at should actually exist. */
 const referenced = []
   .concat(Object.values(manifest.icons || {}))
+  .concat((manifest.background || {}).service_worker ? [manifest.background.service_worker] : [])
   .concat(Object.values((manifest.action || {}).default_icon || {}))
   .concat((manifest.action || {}).default_popup ? [manifest.action.default_popup] : [])
   .concat(...(manifest.content_scripts || []).map((s) => (s.js || []).concat(s.css || [])));

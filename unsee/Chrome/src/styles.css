@@ -91,3 +91,166 @@ html[data-unsee-reveal] [data-unsee-hidden] {
 #unsee-bar .unsee-bar-toggle:hover {
   opacity: 1;
 }
+
+/* ---------------------------------------------------------------------------
+   The tag strip: your own snippets, one button each, sitting above the results
+   (and above the "N hidden" bar when there is one).
+
+   visibility is declared here for the same reason it is on the per-result
+   button: this is somebody else's page, and inheriting `hidden` from a wrapper
+   we did not write lays the thing out perfectly and shows it to nobody.
+   --------------------------------------------------------------------------- */
+#unsee-tags {
+  visibility: visible;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 12px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: inherit;
+}
+
+#unsee-tags .unsee-tag {
+  visibility: visible;
+  display: inline-block;
+  max-width: 260px;
+  margin: 0;
+  padding: 3px 11px;
+  border: 1px solid rgba(128, 128, 128, .35);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: .8;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#unsee-tags .unsee-tag:hover,
+#unsee-tags .unsee-tag:focus-visible {
+  opacity: 1;
+  background: rgba(128, 128, 128, .16);
+}
+
+/* A tag whose text is currently in the search box. Clicking it again removes
+   the text, so it has to look like something that is switched on. */
+#unsee-tags .unsee-tag[data-unsee-on] {
+  opacity: 1;
+  border-color: currentColor;
+  background: rgba(128, 128, 128, .24);
+  font-weight: 600;
+}
+
+/* The one built-in tag: it acts on the box rather than putting a term in it,
+   so it is set slightly apart and reads as a control, not as one of your own. */
+#unsee-tags .unsee-tag[data-unsee-builtin] {
+  margin-right: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 1px;
+}
+
+/* ---------------------------------------------------------------------------
+   Rows. One per kind of tag — keywords, site:, filetype:, dates — always in
+   that order, so a tag can be found by where it sits rather than by reading
+   every label. Within a row the file's own order is kept and the tags simply
+   run on; the break between rows is the only thing that means anything.
+   --------------------------------------------------------------------------- */
+#unsee-tags {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#unsee-tags .unsee-tag-row {
+  visibility: visible;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+/* In the header row there is one line and no vertical room, so the rows stop
+   being boxes and let their tags flow straight into the strip. `display:
+   contents` is what makes the same markup do both layouts. */
+#unsee-tags[data-unsee-slot="header"] {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#unsee-tags[data-unsee-slot="header"] .unsee-tag-row {
+  display: contents;
+}
+
+/* Colour says which kind of tag it is. Keywords keep the neutral outline they
+   have always had — they are the common case, and colouring everything colours
+   nothing. The alpha is carried in the colour itself, so these do not take the
+   .8 opacity the neutral tags use, or they would fade twice. */
+#unsee-tags .unsee-tag[data-unsee-cat="url"] {
+  opacity: 1;
+  color: rgba(27, 191, 255, 0.8);
+  border-color: rgba(27, 191, 255, 0.8);
+}
+
+#unsee-tags .unsee-tag[data-unsee-cat="url"]:hover,
+#unsee-tags .unsee-tag[data-unsee-cat="url"]:focus-visible,
+#unsee-tags .unsee-tag[data-unsee-cat="url"][data-unsee-on] {
+  background: rgba(27, 191, 255, 0.18);
+}
+
+#unsee-tags .unsee-tag[data-unsee-cat="filetype"] {
+  opacity: 1;
+  color: rgba(255, 80, 59, 0.8);
+  border-color: rgba(255, 80, 59, 0.8);
+}
+
+#unsee-tags .unsee-tag[data-unsee-cat="filetype"]:hover,
+#unsee-tags .unsee-tag[data-unsee-cat="filetype"]:focus-visible,
+#unsee-tags .unsee-tag[data-unsee-cat="filetype"][data-unsee-on] {
+  background: rgba(255, 80, 59, 0.18);
+}
+
+#unsee-tags .unsee-tag[data-unsee-cat="date"] {
+  opacity: 1;
+  color: rgba(255, 127, 0, 1);
+  border-color: rgba(255, 127, 0, 1);
+}
+
+#unsee-tags .unsee-tag[data-unsee-cat="date"]:hover,
+#unsee-tags .unsee-tag[data-unsee-cat="date"]:focus-visible,
+#unsee-tags .unsee-tag[data-unsee-cat="date"][data-unsee-on] {
+  background: rgba(255, 127, 0, 0.18);
+}
+
+/* The "" tag is a keyword-row member but keeps its own neutral look. */
+#unsee-tags .unsee-tag[data-unsee-builtin] {
+  opacity: .8;
+  color: inherit;
+  border-color: rgba(128, 128, 128, .35);
+}
+
+/* In the right-hand column the tags hug the far edge and grow leftwards. That
+   is not decoration: the suggestion list is much wider than the search box and
+   reaches into this column, so the further right the tags sit, the further they
+   are from the one thing that covers them. tags.js pads the left edge to the
+   measured width of that band, which turns this alignment into a hard limit —
+   rows wrap rather than stray underneath. */
+#unsee-tags[data-unsee-slot="column"],
+#unsee-tags[data-unsee-slot="rhs"] {
+  align-items: flex-end;
+}
+
+#unsee-tags[data-unsee-slot="column"] .unsee-tag-row,
+#unsee-tags[data-unsee-slot="rhs"] .unsee-tag-row {
+  justify-content: flex-end;
+}

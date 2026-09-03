@@ -4,9 +4,9 @@
  * Pure functions only: no DOM, no chrome.* APIs. content.js and the popup both
  * use this, and test/run-tests.js runs it under plain node.
  *
- * A rule is written the way a person says a site out loud — "threads.com" —
+ * A rule is written the way a person says a site out loud — "example.com" —
  * and matches that host and every subdomain of it. Leading "www." is ignored
- * on both sides so "threads.com" catches "www.threads.com".
+ * on both sides so "example.com" catches "www.example.com".
  */
 (function (root, factory) {
   const api = factory();
@@ -29,8 +29,8 @@
 
   /**
    * A rule matches a host when the host IS the rule or ends with "." + rule.
-   * "threads.com" therefore covers www.threads.com and cdn.threads.com, but
-   * never notthreads.com — the dot boundary is what stops that.
+   * "example.com" therefore covers www.example.com and cdn.example.com, but
+   * never notexample.com — the dot boundary is what stops that.
    */
   function hostMatchesRule(host, rule) {
     const h = normalizeHost(host);
@@ -141,7 +141,7 @@
    * One entry per line, in any order. Blank lines and lines starting with #
    * are ignored. Whether a line is a domain or a keyword is worked out from
    * the line itself, so nothing has to be declared: anything that is a valid
-   * hostname is a domain, everything else is a keyword. "threads.com" is a
+   * hostname is a domain, everything else is a keyword. "example.com" is a
    * domain; "限時特價" and "3.5 折" are keywords.
    *
    * When that guess would be wrong — an English keyword that happens to look
