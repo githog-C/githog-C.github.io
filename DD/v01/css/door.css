@@ -1,0 +1,161 @@
+/* ===== 可調整參數（顏色、尺寸、時長）===== */
+:root {
+  /* 時長與動作 */
+  --door-duration: 1.2s;
+  --door-fade-duration: .6s;
+  --door-reduced-duration: .3s;
+  --door-easing: cubic-bezier(.6, .05, .3, 1);
+  --door-open-angle: 100deg;
+  --door-perspective: 1200px;
+  --door-scale-out: 1.4;
+  /* 尺寸 */
+  --door-height-pct: 75;
+  --door-max-width-pct: 80;
+  --door-ratio: 2.1;
+  --door-vh: 1vh;
+  --door-thickness-ratio: .04;
+  --door-jamb-ratio: .07;
+  /* 顏色 */
+  --door-wall: #2a2622;
+  --door-wall-deep: #1c1917;
+  --door-frame-color: #3b2617;
+  --door-frame-edge: #24170d;
+  --door-wood-1: #7b4b2b;
+  --door-wood-2: #9b6337;
+  --door-wood-edge: #563320;
+  --door-back-1: #6a4126;
+  --door-back-2: #83552f;
+  --door-panel-line: rgb(0 0 0 / .32);
+  --door-panel-lit: rgb(255 214 160 / .16);
+  --door-grain-dark: rgb(0 0 0 / .07);
+  --door-grain-light: rgb(255 235 200 / .05);
+  --door-knob-1: #f0d58a;
+  --door-knob-2: #a97a25;
+  --door-light-core: rgb(255 232 165 / 1);
+  --door-light-mid: rgb(255 190 92 / .55);
+  --door-light-out: rgb(255 170 60 / 0);
+  --door-focus: #ffe08a;
+  --door-focus-shadow: rgb(0 0 0 / .75);
+  --door-frame-shadow: rgb(0 0 0 / .45);
+  /* 內容區 */
+  --page-bg: #faf7f2;
+  --page-fg: #2b2622;
+  --page-muted: #6d635a;
+  --page-font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@supports (height: 1dvh) {
+  :root { --door-vh: 1dvh; }
+}
+
+/* ===== 內容區（不依賴 JavaScript）===== */
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--page-bg); }
+body { margin: 0; color: var(--page-fg); background: var(--page-bg); font: 1rem/1.75 var(--page-font); }
+main { max-width: 42rem; min-height: 100vh; min-height: 100dvh; margin: 0 auto; padding: 4rem 1.25rem; }
+main:focus { outline: none; }
+h1 { margin: 0 0 1rem; font-size: 2rem; line-height: 1.3; }
+h2 { margin: 2.5rem 0 .5rem; font-size: 1.35rem; }
+p { margin: 0 0 1rem; }
+.lead { color: var(--page-muted); }
+
+/* ===== 門的場景（只在 .js 之下生效）===== */
+.door-scene {
+  display: none;
+  --door-w: min(calc(var(--door-height-pct) * var(--door-vh) / var(--door-ratio)), calc(var(--door-max-width-pct) * 1vw));
+  --door-thickness: calc(var(--door-w) * var(--door-thickness-ratio));
+  --door-jamb: calc(var(--door-w) * var(--door-jamb-ratio));
+}
+.js:not(.nodoor) .door-scene {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  height: 100vh; height: 100dvh;
+  background: radial-gradient(ellipse at 50% 45%, var(--door-wall) 0%, var(--door-wall-deep) 100%);
+  transition: transform var(--door-fade-duration) ease-in, opacity var(--door-fade-duration) ease-in;
+}
+.js:not(.nodoor) .door-scene[hidden] { display: none; }
+.js:not(.nodoor).door-closed { overflow: hidden; }
+.js:not(.nodoor) .door-scene.is-leaving { transform: scale(var(--door-scale-out)); opacity: 0; pointer-events: none; }
+
+/* 門的尺寸：高約視窗 75%、寬高比 1:2.1、直式手機寬不超過視窗 80% */
+.door-frame {
+  position: relative; z-index: 1;
+  border: var(--door-jamb) solid var(--door-frame-color);
+  box-shadow: 0 0 0 1px var(--door-frame-edge), inset 0 0 0 1px var(--door-frame-edge), 0 .5rem 2rem var(--door-frame-shadow);
+}
+
+/* 門後的光：在門框後方，由門縫逐漸擴大 */
+.door-light {
+  position: absolute; left: 50%; top: 50%; z-index: 0;
+  width: calc(var(--door-w) * 3); height: calc(var(--door-w) * 3.6);
+  background: radial-gradient(closest-side, var(--door-light-core) 0%, var(--door-light-mid) 45%, var(--door-light-out) 100%);
+  opacity: .35; transform: translate(-50%, -50%) scale(.3);
+  transition: transform var(--door-duration) var(--door-easing), opacity var(--door-duration) var(--door-easing);
+  pointer-events: none;
+}
+.is-open .door-light { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* 按鈕：重設預設外觀。3D 由 .door-leaf 負責 */
+.door {
+  display: block; position: relative; padding: 0; margin: 0; border: 0;
+  width: var(--door-w); height: calc(var(--door-w) * var(--door-ratio));
+  background: none; font: inherit; color: inherit; cursor: pointer;
+  -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
+}
+.door:disabled { cursor: default; }
+.door:focus { outline: none; }
+.door:focus-visible { outline: 3px solid var(--door-focus); outline-offset: 5px; box-shadow: 0 0 0 9px var(--door-focus-shadow); }
+.door span { display: block; }
+
+/* 門板：透視以 perspective() 寫在自己的 transform 內，消失點置於門的中心 */
+.door-leaf {
+  position: absolute; inset: 1px;
+  transform-style: preserve-3d; transform-origin: left center;
+  transform: translateX(calc(var(--door-w) / 2)) perspective(var(--door-perspective)) translateX(calc(var(--door-w) / -2)) rotateY(0deg);
+  transition: transform var(--door-duration) var(--door-easing);
+}
+.is-open .door-leaf {
+  transform: translateX(calc(var(--door-w) / 2)) perspective(var(--door-perspective)) translateX(calc(var(--door-w) / -2)) rotateY(var(--door-open-angle));
+}
+.door-face { position: absolute; inset: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.door-front {
+  transform: translateZ(0);
+  background:
+    repeating-linear-gradient(90deg, var(--door-grain-dark) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(90deg, var(--door-grain-light) 0 1px, transparent 1px 14px),
+    linear-gradient(90deg, var(--door-wood-1), var(--door-wood-2) 55%, var(--door-wood-1));
+}
+.door-back {
+  transform: translateZ(calc(var(--door-thickness) * -1)) rotateY(180deg);
+  background:
+    repeating-linear-gradient(90deg, var(--door-grain-dark) 0 2px, transparent 2px 11px),
+    linear-gradient(90deg, var(--door-back-1), var(--door-back-2) 55%, var(--door-back-1));
+}
+/* 凸起的門板線條：上下各一塊 */
+.door-front::before, .door-front::after {
+  content: ""; position: absolute; left: 14%; right: 14%;
+  border: 1px solid var(--door-panel-line); border-radius: 2px;
+  box-shadow: inset 2px 2px 0 var(--door-panel-lit), inset -2px -2px 0 var(--door-panel-line), 1px 1px 0 var(--door-panel-lit);
+}
+.door-front::before { top: 7%; height: 38%; }
+.door-front::after { bottom: 7%; height: 40%; }
+.door-knob {
+  position: absolute; top: 52%; width: 8%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--door-knob-1), var(--door-knob-2));
+  box-shadow: 1px 2px 3px var(--door-panel-line);
+}
+.door-front .door-knob { right: 7%; }
+.door-back .door-knob { left: 7%; }
+/* 門緣：窄條貼在開啟側（右緣），與門面各重疊 1px */
+.door-edge {
+  position: absolute; top: 0; height: 100%;
+  left: calc(100% - var(--door-thickness) / 2 - 1px); width: calc(var(--door-thickness) + 2px);
+  background: linear-gradient(90deg, var(--door-wood-edge), var(--door-frame-edge));
+  transform: translateZ(calc(var(--door-thickness) / -2)) rotateY(90deg);
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+
+/* ===== 減少動態效果：不旋轉，300 ms 內淡出 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .js:not(.nodoor) .door-scene { --door-fade-duration: var(--door-reduced-duration); --door-scale-out: 1; }
+  .door-leaf, .door-light { transition: none; }
+}
