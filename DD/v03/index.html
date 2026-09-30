@@ -1,0 +1,55 @@
+<!doctype html>
+<html class="no-js" lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>首頁</title>
+<meta name="description" content="首頁開門動畫示範">
+<link rel="icon" href="data:,">
+<script>document.documentElement.className='js'+(/[?&]nodoor([=&]|$)/.test(location.search)?' nodoor':'');document.addEventListener('DOMContentLoaded',function(){var r=document.documentElement;if(!r.dataset.door&&!/nodoor/.test(r.className))r.className='no-js'})</script>
+<link rel="stylesheet" href="css/door.css">
+</head>
+<body>
+<div class="door-scene" id="door-scene">
+  <div class="door-light"></div>
+  <div class="door-webgl" aria-hidden="true"></div>
+  <div class="door-frame">
+    <button class="door" type="button" aria-label="開門進入網站">
+      <span class="door-leaf">
+        <span class="door-face door-front"><span class="door-knob"></span></span>
+        <span class="door-face door-back"><span class="door-knob"></span></span>
+        <span class="door-edge"></span>
+      </span>
+    </button>
+  </div>
+</div>
+<main id="content" tabindex="-1">
+  <h1>網站標題</h1>
+  <p class="lead">這裡是首頁的主要內容預留位置。門只是覆蓋在上方的視覺層，內容直接寫在 HTML 中。</p>
+  <section>
+    <h2>內容區塊一</h2>
+    <p>預留給第一個內容區塊的說明文字。此處僅為版面示意，之後可替換為實際內容。</p>
+    <p>第二段示意文字，用來確認開門之後頁面可以正常捲動與閱讀。</p>
+  </section>
+  <section>
+    <h2>內容區塊二</h2>
+    <p>預留給第二個內容區塊的說明文字。此處僅為版面示意，不包含任何實際資訊。</p>
+  </section>
+  <section>
+    <h2>內容區塊三</h2>
+    <p>預留給第三個內容區塊的說明文字。日後可以在此加入其他入口元素。</p>
+  </section>
+  <section>
+    <h2>內容區塊四</h2>
+    <p>預留給第四個內容區塊的說明文字。此處僅為版面示意，用來讓頁面高度超過一個畫面。</p>
+    <p>第二段示意文字，內容為預留位置，之後可替換。</p>
+  </section>
+  <section>
+    <h2>內容區塊五</h2>
+    <p>預留給第五個內容區塊的說明文字。此處僅為版面示意，不包含任何實際資訊。</p>
+    <p>第二段示意文字，內容為預留位置，之後可替換。</p>
+  </section>
+</main>
+<script src="js/door.js" defer></script>
+</body>
+</html>
