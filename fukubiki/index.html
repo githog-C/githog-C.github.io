@@ -35,13 +35,28 @@ h1{font-size:22px;margin:0 0 2px;letter-spacing:.06em;text-wrap:balance}
 .stage{display:flex;flex-direction:column}
 .stage>*{flex:none}
 #machine{display:block;width:100%;height:auto;flex:1 1 auto;min-height:120px;touch-action:manipulation}
-#crank{cursor:pointer}
+#crank,#gameSwitch{cursor:pointer}
+#gameSwitch:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.grp{display:contents}
+.grp[hidden]{display:none}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid;flex:none}
+.dot.gold{background:#e9b83a;border-color:#b9861a}
+.dot.silver{background:#c9ced4;border-color:#8f979f}
+.dot.red{background:#d9534a;border-color:#a3352e}
+.dot.blue{background:#4a86c9;border-color:#2f5f96}
+.dot.green{background:#5fa35a;border-color:#3d7a3a}
+.dot.white{background:#f7f4ea;border-color:#b9b2a0}
+input.pz{width:54px}
 .callout{min-height:92px;margin-top:10px;border:2px dashed var(--line);border-radius:14px;padding:10px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center}
 .callout .kind{font-size:14px;letter-spacing:.2em}
 .callout .name{font-size:30px;font-weight:700;letter-spacing:.08em;overflow-wrap:anywhere}
 .callout .meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .callout.gold{border-color:var(--gold-dark);background:var(--gold-bg)}
 .callout.silver{border-color:var(--silver-dark);background:var(--silver-bg)}
+.callout.red{border-color:#a3352e;background:var(--silver-bg)}
+.callout.blue{border-color:#2f5f96;background:var(--silver-bg)}
+.callout.green{border-color:#3d7a3a;background:var(--silver-bg)}
+.callout.white{border-color:var(--silver-dark);background:var(--silver-bg)}
 .pop{animation:pop .5s ease-out}
 @keyframes pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
 button,input,textarea,select{font:inherit;color:inherit}
@@ -70,6 +85,10 @@ th{background:var(--th);position:sticky;top:0}
 tr:last-child td{border-bottom:none}
 td.k-gold{color:var(--k-gold);font-weight:700}
 td.k-silver{color:var(--k-silver);font-weight:700}
+td.k-red{color:#cf4a40;font-weight:700}
+td.k-blue{color:#4585cc;font-weight:700}
+td.k-green{color:#4f9a4a;font-weight:700}
+td.k-white{color:var(--muted);font-weight:700}
 .empty{padding:18px;text-align:center;color:var(--faint);font-size:14px}
 details{margin-top:10px}
 summary{cursor:pointer;font-size:14px}
@@ -122,7 +141,7 @@ summary{cursor:pointer;font-size:14px}
         <g id="ribs" stroke="#a14935" stroke-width="3"></g>
         <g fill="#7fa56a" transform="translate(230.3 219.7) rotate(209.6) scale(.75) translate(-450 -401)">
           <path d="M452 400 q10 -34 34 -40 q-4 30 -34 40z"/>
-          <path d="M448 402 q-18 -22 -8 -46 q16 20 8 46z"/>
+          <path id="gameSwitch" tabindex="0" role="button" d="M448 402 q-18 -22 -8 -46 q16 20 8 46z"><title id="gameTip"></title></path>
         </g>
         <circle cx="260" cy="190" r="16" fill="#5e4631" stroke="#3b2a20" stroke-width="3"/>
         <g id="crank">
@@ -155,8 +174,18 @@ summary{cursor:pointer;font-size:14px}
       </details>
       <p class="status" id="listInfo"></p>
       <div class="row">
-        <label><span data-t="main"></span> <input id="nMain" type="number" min="1" max="50" value="5"> <span data-t="unit"></span></label>
-        <label><span data-t="reserve"></span> <input id="nReserve" type="number" min="0" max="50" value="3"> <span data-t="unit"></span></label>
+        <span id="drawCounts" class="grp">
+          <label><span data-t="main"></span> <input id="nMain" type="number" min="1" max="50" value="5"> <span data-t="unit"></span></label>
+          <label><span data-t="reserve"></span> <input id="nReserve" type="number" min="0" max="50" value="3"> <span data-t="unit"></span></label>
+        </span>
+        <span id="prizeCounts" class="grp" hidden>
+          <label><i class="dot gold"></i><input id="n_gold" class="pz" type="number" min="0" max="99" value="1" data-tip="p_gold"></label>
+          <label><i class="dot silver"></i><input id="n_silver" class="pz" type="number" min="0" max="99" value="2" data-tip="p_silver"></label>
+          <label><i class="dot red"></i><input id="n_red" class="pz" type="number" min="0" max="99" value="3" data-tip="p_red"></label>
+          <label><i class="dot blue"></i><input id="n_blue" class="pz" type="number" min="0" max="99" value="4" data-tip="p_blue"></label>
+          <label><i class="dot green"></i><input id="n_green" class="pz" type="number" min="0" max="99" value="5" data-tip="p_green"></label>
+          <label><i class="dot white"></i><input id="n_white" class="pz" type="number" min="0" max="99" value="10" data-tip="p_white"></label>
+        </span>
         <label><input id="mask" type="checkbox" checked> <span data-t="mask"></span></label>
         <label><input id="sound" type="checkbox" checked> <span data-t="sound"></span></label>
       </div>
@@ -192,6 +221,12 @@ summary{cursor:pointer;font-size:14px}
   var CX = 260, CY = 190, R = 122;
   var SPOUT_REST = 135;                 // degrees; spout points down-left when the drum rests
   var BALL_R = 12;
+  var PRIZES = ["gold", "silver", "red", "blue", "green", "white"];
+  var BALL_COLORS = {
+    gold: ["#e9b83a", "#b9861a"], silver: ["#c9ced4", "#8f979f"], red: ["#d9534a", "#a3352e"],
+    blue: ["#4a86c9", "#2f5f96"], green: ["#5fa35a", "#3d7a3a"], white: ["#f7f4ea", "#b9b2a0"]
+  };
+  var game = "draw";   // "draw" = winners then reserves; "prize" = six prize colours in random order
 
   var $ = function (id) { return document.getElementById(id); };
   var state = { pool: [], drawn: [], angle: SPOUT_REST, spinning: false, auto: false, armedReset: 0, list: null, note: null, callout: null };
@@ -204,6 +239,57 @@ summary{cursor:pointer;font-size:14px}
       "title": "福引機",
       "sub": "GARA-GARA, PON!",
       "machine": "福引機",
+      "p_gold": "金賞",
+      "p_silver": "銀賞",
+      "p_red": "紅賞",
+      "p_blue": "藍賞",
+      "p_green": "綠賞",
+      "p_white": "白賞",
+      "s_gold": "金",
+      "s_silver": "銀",
+      "s_red": "紅",
+      "s_blue": "藍",
+      "s_green": "綠",
+      "s_white": "白",
+      "tGameOn": "切換番賞模式",
+      "tGameOff": "回到正取備取模式",
+      "readyPrize": "番賞模式　準備好就轉動",
+      "needPrize": "請先設定獎項數量",
+      "spinPrize": "抽出　第 {0}／{1} 顆",
+      "prizeLeft": "剩：{0}",
+      "drawNo": "第 {0} 抽",
+      "donePrize": "共 {0} 顆",
+      "startedGame": "已經開始抽選，要切換模式請先按「重來」。",
+      "prizeHelp": [
+        [
+          "番賞模式",
+          [
+            "先設定六種獎的數量：金、銀、紅、藍、綠、白各幾顆。",
+            "名單可載可不載：有載入名單，每顆球會配一個人，抽出不放回；沒有名單就只抽球，由現場的人輪流轉。",
+            "按綠色按鈕或點桶子的把手，一次抽一顆。出哪一種獎是隨機的，不一定大獎先出。",
+            "抽完後按「複製」貼到試算表，或按「下載 csv」。"
+          ]
+        ],
+        [
+          "其他按鈕",
+          [
+            "連抽：自動抽到獎或名單用完，途中再按一次停下。",
+            "直接結果：不轉桶子，立刻把剩下的全部抽完。",
+            "重來：清除名單與結果，要連按兩次。",
+            "再點一次桶子上左邊那片葉子，回到正取備取模式；已經開始抽就要先按「重來」。"
+          ]
+        ],
+        [
+          "注意",
+          [
+            "每一顆都是從桶裡剩下的獎隨機抽出，使用瀏覽器的密碼學亂數；抽出就少一顆，綠色按鈕下方會顯示各獎還剩幾顆。",
+            "獎的數量在抽的途中可以再加。",
+            "「遮蔽姓名」只影響畫面，複製與下載的內容一律是完整姓名。",
+            "抽選時請讓這個分頁保持在最前面，切到背景動畫會暫停。",
+            "名單只留在這個頁面，不會上傳，關掉頁面就消失。"
+          ]
+        ]
+      ],
       "tHelp": "使用說明",
       "tLang": "Switch to English",
       "tTheme": "切換深色／淺色",
@@ -277,7 +363,8 @@ summary{cursor:pointer;font-size:14px}
             "連抽：自動抽到滿額，途中再按一次停下。",
             "直接結果：不轉桶子，立刻抽完剩下的名額。",
             "加抽備取：名額用完後，再多抽一名備取。",
-            "重來：清除名單與結果，要連按兩次。"
+            "重來：清除名單與結果，要連按兩次。",
+            "點桶子上左邊那片葉子可切換番賞模式：六種顏色的球、各獎數量自訂、出獎順序隨機。"
           ]
         ],
         [
@@ -298,6 +385,57 @@ summary{cursor:pointer;font-size:14px}
       "title": "Revolving Lottery Machine",
       "sub": "GARA-GARA, PON!",
       "machine": "Revolving lottery machine",
+      "p_gold": "Gold",
+      "p_silver": "Silver",
+      "p_red": "Red",
+      "p_blue": "Blue",
+      "p_green": "Green",
+      "p_white": "White",
+      "s_gold": "Gold",
+      "s_silver": "Silver",
+      "s_red": "Red",
+      "s_blue": "Blue",
+      "s_green": "Green",
+      "s_white": "White",
+      "tGameOn": "Switch to prize mode",
+      "tGameOff": "Back to winners and reserves",
+      "readyPrize": "Prize mode. Turn when ready",
+      "needPrize": "Set the prize counts first",
+      "spinPrize": "Draw ball {0} / {1}",
+      "prizeLeft": "Left: {0}",
+      "drawNo": "Draw {0}",
+      "donePrize": "{0} balls drawn",
+      "startedGame": "The draw has started. Press Reset before switching modes.",
+      "prizeHelp": [
+        [
+          "Prize mode",
+          [
+            "Set how many balls each of the six prizes gets: gold, silver, red, blue, green and white.",
+            "A list is optional. With a list, each ball goes to one person, drawn without replacement. Without a list only balls are drawn, for people taking turns at the drum.",
+            "Press the green button or the drum handle to draw one ball. Which prize comes out is random, so the top prize does not come first.",
+            "When finished, press Copy to paste into a spreadsheet, or Download csv."
+          ]
+        ],
+        [
+          "Other buttons",
+          [
+            "Auto: draws until the prizes or the list run out; press again to stop.",
+            "Instant: draws everything that is left at once without turning the drum.",
+            "Reset: clears the list and the results; press twice.",
+            "Click the left leaf on the drum again to go back to winners and reserves; once the draw has started, press Reset first."
+          ]
+        ],
+        [
+          "Notes",
+          [
+            "Every ball is picked at random from the prizes still in the drum, using the browser's cryptographic random numbers. Each prize drawn leaves one fewer, and the line under the green button shows how many of each are left.",
+            "Prize counts can be raised during the draw.",
+            "Mask names affects the screen only. Copied and downloaded results always carry full names.",
+            "Keep this tab in front during the draw; animation pauses in a background tab.",
+            "The list stays on this page, is never uploaded, and is gone when the page closes."
+          ]
+        ]
+      ],
       "tHelp": "Guide",
       "tLang": "切換為中文",
       "tTheme": "Toggle dark / light",
@@ -371,7 +509,8 @@ summary{cursor:pointer;font-size:14px}
             "Auto: draws until every place is filled; press again to stop.",
             "Instant: fills every remaining place at once without turning the drum.",
             "Extra reserve: once all places are filled, draws one more reserve.",
-            "Reset: clears the list and the results; press twice."
+            "Reset: clears the list and the results; press twice.",
+            "Click the left leaf on the drum to switch to prize mode: six ball colours, your own count for each prize, drawn in random order."
           ]
         ],
         [
@@ -406,12 +545,15 @@ summary{cursor:pointer;font-size:14px}
     each("[data-tip]", function (n) {
       var tip = t(n.getAttribute("data-tip"));
       n.title = tip;
-      if (n.className.indexOf("ib") !== -1) n.setAttribute("aria-label", tip);
+      if (n.className.indexOf("ib") !== -1 || n.tagName === "INPUT") n.setAttribute("aria-label", tip);
     });
     $("lang").textContent = lang === "zh" ? "EN" : "中";
     var doc = $("doc");
     while (doc.firstChild) doc.removeChild(doc.firstChild);
-    T[lang].help.forEach(function (group) {
+    var leafTip = t(game === "prize" ? "tGameOff" : "tGameOn");
+    $("gameTip").textContent = leafTip;
+    $("gameSwitch").setAttribute("aria-label", leafTip);
+    (game === "prize" ? T[lang].prizeHelp : T[lang].help).forEach(function (group) {
       var h = document.createElement("h3"), ul = document.createElement("ul");
       h.textContent = group[0];
       group[1].forEach(function (line) { var li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
@@ -455,8 +597,8 @@ summary{cursor:pointer;font-size:14px}
   }
   function ball(x, y, r, kind, opacity) {
     var g = el("g", { transform: "translate(" + x + " " + y + ")", opacity: opacity == null ? 1 : opacity });
-    var gold = kind === "gold";
-    g.appendChild(el("circle", { r: r, fill: gold ? "#e9b83a" : "#c9ced4", stroke: gold ? "#b9861a" : "#8f979f", "stroke-width": 2 }));
+    var colors = BALL_COLORS[kind] || BALL_COLORS.silver;
+    g.appendChild(el("circle", { r: r, fill: colors[0], stroke: colors[1], "stroke-width": 2 }));
     g.appendChild(el("circle", { cx: -r * 0.35, cy: -r * 0.35, r: r * 0.28, fill: "#fff", opacity: 0.75 }));
     return g;
   }
@@ -665,12 +807,42 @@ summary{cursor:pointer;font-size:14px}
     var g = $("tray"); while (g.firstChild) g.removeChild(g.firstChild);
   }
 
+  // ---------- person fields ----------
+  function nameOf(p) { return p.name; }
+  function metaOf() { return ""; }
+  function blankPerson() { return { name: "" }; }
+  function rowCells(d, label) { return [String(d.order), label, shown(nameOf(d.person)), d.time]; }
+
   // ---------- draw logic ----------
+  function prizeCounts() {
+    return PRIZES.map(function (k) { var v = parseInt($("n_" + k).value, 10); return Math.max(0, Math.min(99, isNaN(v) ? 0 : v)); });
+  }
   function limits() {
+    if (game === "prize") return { main: 0, total: prizeCounts().reduce(function (a, b) { return a + b; }, 0) };
     var m = Math.max(1, Math.min(50, parseInt($("nMain").value, 10) || 5));
     var r = Math.max(0, Math.min(50, parseInt($("nReserve").value, 10) || 0));
     return { main: m, total: m + r };
   }
+  // prize mode: what is still in the drum, one entry per ball
+  function prizesLeft() {
+    var used = {}, counts = prizeCounts(), left = [];
+    state.drawn.forEach(function (d) { used[d.kind] = (used[d.kind] || 0) + 1; });
+    PRIZES.forEach(function (k, i) { for (var c = counts[i] - (used[k] || 0); c > 0; c--) left.push(k); });
+    return left;
+  }
+  function hasList() { return !!(state.list && state.list.count); }
+  function canDraw() {
+    // prize mode also runs without a list: then only balls are drawn
+    if (game === "prize") return prizesLeft().length > 0 && (!hasList() || state.pool.length > 0);
+    return state.pool.length > 0 && state.drawn.length < limits().total;
+  }
+  function nextKind(order, lim) {
+    if (game !== "prize") return order <= lim.main ? "gold" : "silver";
+    var left = prizesLeft();
+    return left[randomIndex(left.length)];
+  }
+  function takePerson() { return state.pool.length ? state.pool.splice(randomIndex(state.pool.length), 1)[0] : blankPerson(); }
+  function kindLabel(kind) { return game === "prize" ? t("p_" + kind) : t(kind === "gold" ? "kMain" : "kReserve"); }
   function maskName(name) {
     var chars = Array.from(name);
     if (chars.length <= 1) return name;
@@ -682,7 +854,6 @@ summary{cursor:pointer;font-size:14px}
     function p(n) { return ("0" + n).slice(-2); }
     return d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
   }
-  function canDraw() { return state.pool.length > 0 && state.drawn.length < limits().total; }
   function drawAll() {
     if (state.auto) { state.auto = false; refresh(); return; }   // second press stops after the current ball
     if (state.spinning || !canDraw()) return;
@@ -693,14 +864,14 @@ summary{cursor:pointer;font-size:14px}
     if (state.spinning || state.auto || !canDraw()) return;
     var lim = limits(), kinds = [], time = stamp(new Date());
     while (canDraw()) {
-      var order = state.drawn.length + 1, kind = order <= lim.main ? "gold" : "silver";
-      state.drawn.push({ order: order, kind: kind, person: state.pool.splice(randomIndex(state.pool.length), 1)[0], time: time });
+      var order = state.drawn.length + 1, kind = nextKind(order, lim);
+      state.drawn.push({ order: order, kind: kind, person: takePerson(), time: time });
       kinds.push(kind);
     }
     var total = state.drawn.length, gold = Math.min(total, lim.main);
     pourBalls(kinds);
     bell(true);
-    setCallout("gold", function () { return [t("finished"), t("doneName", gold, total - gold), t("doneMeta")]; });
+    setCallout("gold", function () { return [t("finished"), game === "prize" ? t("donePrize", total) : t("doneName", gold, total - gold), t("doneMeta")]; });
     refresh();
   }
   function spin(chained) {
@@ -709,8 +880,7 @@ summary{cursor:pointer;font-size:14px}
     if (state.spinning || !canDraw()) { state.auto = false; return; }
     state.spinning = true;
     refresh();
-    var order = state.drawn.length + 1, kind = order <= lim.main ? "gold" : "silver";
-    var picked = state.pool.splice(randomIndex(state.pool.length), 1)[0];
+    var order = state.drawn.length + 1, kind = nextKind(order, lim), picked = takePerson();
     var entry = { order: order, kind: kind, person: picked, time: stamp(new Date()) };
     setCallout("", function () { return [t("spinning"), "", ""]; });
     spinDrum(state.auto, function () {
@@ -721,14 +891,22 @@ summary{cursor:pointer;font-size:14px}
         else state.auto = false;
         bell(kind === "gold");
         setCallout(kind, function () {
-          return [kind === "gold" ? t("callGold", order) : t("callSilver", order - lim.main), shown(picked.name), ""];
+          if (game === "prize") return [t("p_" + kind), nameOf(picked) ? shown(nameOf(picked)) : t("drawNo", order), metaOf(picked)];
+          return [kind === "gold" ? t("callGold", order) : t("callSilver", order - lim.main), shown(nameOf(picked)), metaOf(picked)];
         });
         refresh();
       });
     });
   }
+  function toggleGame() {
+    if (state.drawn.length || state.spinning || state.auto) { setNote("startedGame"); return; }
+    game = game === "prize" ? "draw" : "prize";
+    setNote(null);
+    setCallout("", readyCallout);
+    applyLang();   // the guide, the leaf tip and the buttons all depend on the game
+  }
   // the callout keeps a function, not a string, so it can be redrawn in the other language or with names unmasked
-  function readyCallout() { return [t("ready"), "", ""]; }
+  function readyCallout() { return [t(game === "prize" ? "readyPrize" : "ready"), "", ""]; }
   function setCallout(kind, render) { state.callout = { kind: kind, render: render }; renderCallout(true); }
   function renderCallout(pop) {
     var c = state.callout, parts = c.render();
@@ -738,42 +916,50 @@ summary{cursor:pointer;font-size:14px}
     $("coMeta").textContent = parts[2];
   }
   function refresh() {
-    var lim = limits(), n = state.drawn.length, body = $("rows");
+    var lim = limits(), n = state.drawn.length, body = $("rows"), prize = game === "prize";
     while (body.firstChild) body.removeChild(body.firstChild);
     state.drawn.forEach(function (d) {
-      var tr = document.createElement("tr"), isGold = d.kind === "gold";
-      [String(d.order), isGold ? t("kMain") : t("kReserve"), shown(d.person.name), d.time].forEach(function (v, i) {
+      var tr = document.createElement("tr");
+      rowCells(d, kindLabel(d.kind)).forEach(function (v, i) {
         var td = document.createElement("td");
         td.textContent = v;
-        if (i === 1) td.className = isGold ? "k-gold" : "k-silver";
+        if (i === 1) td.className = "k-" + d.kind;
         tr.appendChild(td);
       });
       body.appendChild(tr);
     });
     $("empty").style.display = n ? "none" : "block";
-    var ready = state.pool.length > 0, finished = n >= lim.total || (n > 0 && !ready);
-    var btn = $("spin"), busy = state.spinning || state.auto;
-    btn.disabled = busy || !ready || n >= lim.total;
-    if (!ready && !n) btn.textContent = t("needList");
-    else if (finished) btn.textContent = t("finished");
+    var can = canDraw(), ready = state.pool.length > 0, busy = state.spinning || state.auto, btn = $("spin");
+    btn.disabled = busy || !can;
+    if (n > 0 && !can) btn.textContent = t("finished");
+    else if (!can) btn.textContent = t(prize && !lim.total ? "needPrize" : "needList");
+    else if (prize) btn.textContent = t("spinPrize", n + 1, hasList() ? Math.min(lim.total, n + state.pool.length) : lim.total);
     else if (n < lim.main) btn.textContent = t("spinMain", n + 1, lim.main);
     else btn.textContent = t("spinReserve", n - lim.main + 1, lim.total - lim.main);
-    $("progress").textContent = ready || n ? t("progress", state.pool.length, n) : "";
+    if (prize) {
+      var left = {};
+      prizesLeft().forEach(function (k) { left[k] = (left[k] || 0) + 1; });
+      $("progress").textContent = t("prizeLeft", PRIZES.map(function (k) { return t("s_" + k) + " " + (left[k] || 0); }).join("　"));
+    } else $("progress").textContent = ready || n ? t("progress", state.pool.length, n) : "";
     $("copy").disabled = $("save").disabled = $("reset").disabled = !n || busy;
+    $("more").hidden = prize;
     $("more").disabled = busy || !n || n < lim.total || !ready;
-    $("all").disabled = !state.auto && (state.spinning || !ready || n >= lim.total);
+    $("all").disabled = !state.auto && (state.spinning || !can);
     $("all").textContent = state.auto ? t("stop") : t("all");
-    $("now").disabled = busy || !ready || n >= lim.total;
+    $("now").disabled = busy || !can;
     $("reset").textContent = Date.now() - state.armedReset <= 4000 ? t("resetConfirm") : t("reset");
+    $("drawCounts").hidden = prize;
+    $("prizeCounts").hidden = !prize;
     $("nMain").disabled = n > 0 || busy;
     $("nReserve").disabled = busy;
+    PRIZES.forEach(function (k) { $("n_" + k).disabled = busy; });
     $("file").disabled = $("demo").disabled = $("usePaste").disabled = n > 0 || busy;
   }
 
   // ---------- export: always full names ----------
   function resultRows() {
     return [[t("thOrder"), t("thKind"), t("thName"), t("thTime")]].concat(state.drawn.map(function (d) {
-      return [String(d.order), d.kind === "gold" ? t("kMain") : t("kReserve"), d.person.name, d.time];
+      return [String(d.order), kindLabel(d.kind), nameOf(d.person), d.time];
     }));
   }
   function setNote(key) { state.note = key ? Array.prototype.slice.call(arguments) : null; renderNote(); }
@@ -850,6 +1036,9 @@ summary{cursor:pointer;font-size:14px}
   $("all").addEventListener("click", drawAll);
   $("now").addEventListener("click", drawNow);
   ["nMain", "nReserve", "mask"].forEach(function (id) { $(id).addEventListener("change", function () { refresh(); renderCallout(false); }); });
+  PRIZES.forEach(function (k) { $("n_" + k).addEventListener("change", refresh); });
+  $("gameSwitch").addEventListener("click", toggleGame);
+  $("gameSwitch").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleGame(); } });
   $("help").addEventListener("click", function () { toggleHelp(); });
   $("helpClose").addEventListener("click", function () { toggleHelp(false); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") toggleHelp(false); });
