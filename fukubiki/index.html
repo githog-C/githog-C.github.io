@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>福引機</title>
+<style>
+:root{
+  --paper:#f6f1e4; --ink:#4a4034; --muted:#7a6e5d; --faint:#9a8f7c; --line:#d9cfb8; --card:#fffdf6;
+  --field:#fff; --hover:#f3ecd9; --th:#efe7d2; --shadow:#e6dcc3;
+  --gold-dark:#b9861a; --gold-bg:#fdf5d8; --silver-dark:#8f979f; --silver-bg:#f1f3f5; --k-gold:#b9861a; --k-silver:#6f7780;
+  --accent:#5d8a4d; --accent-line:#3f6534; --accent-hover:#4f7a41; --warn:#8e3d2c;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#1d1a16; --ink:#ece3d2; --muted:#b0a48f; --faint:#8c8170; --line:#4b4237; --card:#28231e;
+  --field:#332d26; --hover:#40382f; --th:#3a332a; --shadow:#35302a;
+  --gold-bg:#3b3215; --silver-bg:#30353a; --k-gold:#e9b83a; --k-silver:#c0c7ce;
+  --accent-line:#7fa56a; --accent-hover:#6b9a5a; --warn:#e59a84;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif}
+body{height:100vh;padding:14px 16px;display:flex;flex-direction:column}
+.top{flex:none;width:100%;max-width:1120px;margin:0 auto 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{font-size:22px;margin:0 0 2px;letter-spacing:.06em;text-wrap:balance}
+.sub{margin:0;font-size:14px;color:var(--muted)}
+.tools{flex:none;display:flex;gap:8px}
+.wrap{flex:1;min-height:0;width:100%;max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(300px,520px) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:20px;align-items:start}
+.wrap>*{min-width:0;max-height:100%}
+.side{display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.side>.panel{flex:none}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px}
+.stage{display:flex;flex-direction:column}
+.stage>*{flex:none}
+#machine{display:block;width:100%;height:auto;flex:1 1 auto;min-height:120px;touch-action:manipulation}
+#crank{cursor:pointer}
+.callout{min-height:92px;margin-top:10px;border:2px dashed var(--line);border-radius:14px;padding:10px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+.callout .kind{font-size:14px;letter-spacing:.2em}
+.callout .name{font-size:30px;font-weight:700;letter-spacing:.08em;overflow-wrap:anywhere}
+.callout .meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.callout.gold{border-color:var(--gold-dark);background:var(--gold-bg)}
+.callout.silver{border-color:var(--silver-dark);background:var(--silver-bg)}
+.pop{animation:pop .5s ease-out}
+@keyframes pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
+button,input,textarea,select{font:inherit;color:inherit}
+button{border:2px solid var(--ink);background:var(--field);border-radius:999px;padding:6px 16px;cursor:pointer}
+button:hover:not(:disabled){background:var(--hover)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent-line);color:#fff;font-size:18px;padding:12px 26px;width:100%;margin-top:12px}
+button.primary:hover:not(:disabled){background:var(--accent-hover)}
+button.warn{border-color:var(--warn);color:var(--warn)}
+button.ib{width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+button.ib svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+.row:last-child{margin-bottom:0}
+.row label{font-size:14px;display:flex;align-items:center;gap:6px}
+input[type=number]{width:64px;padding:4px 8px;border:2px solid var(--line);border-radius:8px;background:var(--field)}
+input[type=file]{max-width:100%;font-size:14px}
+textarea{width:100%;height:92px;border:2px solid var(--line);border-radius:10px;padding:8px;background:var(--field);resize:vertical}
+h2{font-size:16px;margin:0 0 8px;letter-spacing:.08em}
+.status{font-size:13px;color:var(--muted);margin:6px 0 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.status:empty{display:none}
+/* header row plus five result rows, then the list scrolls inside its own box */
+.tablebox{overflow:auto;max-height:202px;border:2px solid var(--line);border-radius:12px;background:var(--field)}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 10px;line-height:20px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:var(--th);position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+td.k-gold{color:var(--k-gold);font-weight:700}
+td.k-silver{color:var(--k-silver);font-weight:700}
+.empty{padding:18px;text-align:center;color:var(--faint);font-size:14px}
+details{margin-top:10px}
+summary{cursor:pointer;font-size:14px}
+.helpwin{position:fixed;top:62px;right:16px;z-index:20;width:400px;max-width:calc(100vw - 32px);max-height:calc(100vh - 78px);display:flex;flex-direction:column;background:var(--card);border:2px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.helpwin[hidden]{display:none}
+.helph{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 8px 8px 16px;border-bottom:2px solid var(--line);font-weight:700;letter-spacing:.08em}
+.helph .ib{width:30px;height:30px;border-width:0}
+.doc{flex:1;min-height:0;overflow:auto;padding:4px 16px 14px;font-size:14px;line-height:1.7}
+.doc h3{font-size:14px;margin:12px 0 2px}
+.doc ul{margin:0;padding-left:1.3em;color:var(--muted)}
+@media (max-width:860px){
+  body{height:auto;min-height:100vh}
+  .wrap{grid-template-columns:minmax(0,1fr);grid-template-rows:auto}
+  .wrap>*{max-height:none}
+  .side{overflow-y:visible}
+}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1 id="title" data-t="title"></h1>
+    <p class="sub" data-t="sub"></p>
+  </div>
+  <div class="tools">
+    <button id="help" class="ib" type="button" data-tip="tHelp" aria-expanded="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.2 1-1.2 1.9"/><path d="M12 17h.01"/></svg></button>
+    <button id="lang" class="ib" type="button" data-tip="tLang">EN</button>
+    <button id="theme" class="ib" type="button" data-tip="tTheme"><svg id="sunIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg id="moonIcon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+  </div>
+</header>
+<aside id="helpwin" class="helpwin" hidden>
+  <div class="helph"><span data-t="hHelp"></span><button id="helpClose" class="ib" type="button" data-tip="tClose"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div id="doc" class="doc"></div>
+</aside>
+
+<div class="wrap">
+  <section class="panel stage">
+    <svg id="machine" viewBox="0 0 520 440" role="img">
+      <ellipse cx="260" cy="418" rx="210" ry="14" fill="var(--shadow)"/>
+      <path d="M150 410 L236 196 L252 196 L182 410 Z" fill="#8a6a48"/>
+      <path d="M370 410 L284 196 L268 196 L338 410 Z" fill="#8a6a48"/>
+      <rect x="130" y="404" width="260" height="12" rx="6" fill="#6f5338"/>
+      <path d="M95 372 Q95 398 121 398 L411 398 Q425 398 425 386 L425 380 L107 380 Z" fill="#e2c9a0" stroke="#b79a6a" stroke-width="3"/>
+      <g id="tray"></g>
+      <g id="drum" transform="rotate(135 260 190)">
+        <circle cx="356" cy="190" r="13" fill="#3b2a20"/>
+        <polygon id="shell" fill="#b9573f" stroke="#8e3d2c" stroke-width="6" stroke-linejoin="round"/>
+        <polygon id="inner" fill="#c46249"/>
+        <g id="ribs" stroke="#a14935" stroke-width="3"></g>
+        <g fill="#7fa56a" transform="translate(230.3 219.7) rotate(209.6) scale(.75) translate(-450 -401)">
+          <path d="M452 400 q10 -34 34 -40 q-4 30 -34 40z"/>
+          <path d="M448 402 q-18 -22 -8 -46 q16 20 8 46z"/>
+        </g>
+        <circle cx="260" cy="190" r="16" fill="#5e4631" stroke="#3b2a20" stroke-width="3"/>
+        <g id="crank">
+          <rect x="254" y="118" width="12" height="76" rx="6" fill="#5e4631"/>
+          <circle cx="260" cy="116" r="15" fill="#f3ead4" stroke="#5e4631" stroke-width="4"/>
+          <circle cx="260" cy="116" r="30" fill="transparent"/>
+        </g>
+      </g>
+    </svg>
+    <div id="callout" class="callout" aria-live="polite">
+      <div class="kind" id="coKind"></div>
+      <div class="name" id="coName"></div>
+      <div class="meta" id="coMeta"></div>
+    </div>
+    <button id="spin" class="primary" type="button"></button>
+    <p class="status" id="progress"></p>
+  </section>
+
+  <section class="side">
+    <div class="panel">
+      <h2 data-t="hList"></h2>
+      <div class="row">
+        <input id="file" type="file" accept=".csv,text/csv,text/plain">
+        <button id="demo" type="button" data-t="demo" data-tip="tDemo"></button>
+      </div>
+      <details>
+        <summary data-t="pasteSummary"></summary>
+        <textarea id="paste" spellcheck="false"></textarea>
+        <div class="row"><button id="usePaste" type="button" data-t="usePaste"></button></div>
+      </details>
+      <p class="status" id="listInfo"></p>
+      <div class="row">
+        <label><span data-t="main"></span> <input id="nMain" type="number" min="1" max="50" value="5"> <span data-t="unit"></span></label>
+        <label><span data-t="reserve"></span> <input id="nReserve" type="number" min="0" max="50" value="3"> <span data-t="unit"></span></label>
+        <label><input id="mask" type="checkbox" checked> <span data-t="mask"></span></label>
+        <label><input id="sound" type="checkbox" checked> <span data-t="sound"></span></label>
+      </div>
+      <div class="row">
+        <button id="all" type="button" data-tip="tAll" disabled></button>
+        <button id="now" type="button" data-t="now" data-tip="tNow" disabled></button>
+        <button id="more" type="button" data-t="more" data-tip="tMore" disabled></button>
+        <button id="reset" type="button" class="warn" data-tip="tReset" disabled></button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2 data-t="hResult"></h2>
+      <div class="tablebox">
+        <table>
+          <thead><tr><th data-t="thOrder"></th><th data-t="thKind"></th><th data-t="thName"></th><th data-t="thTime"></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" data-t="empty"></div>
+      </div>
+      <div class="row">
+        <button id="copy" type="button" data-t="copy" data-tip="tCopy" disabled></button>
+        <button id="save" type="button" data-t="save" data-tip="tSave" disabled></button>
+      </div>
+      <p class="status" id="note"></p>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var CX = 260, CY = 190, R = 122;
+  var SPOUT_REST = 135;                 // degrees; spout points down-left when the drum rests
+  var BALL_R = 12;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { pool: [], drawn: [], angle: SPOUT_REST, spinning: false, auto: false, armedReset: 0, list: null, note: null, callout: null };
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------- text, language, theme ----------
+  var T = {
+    "zh": {
+      "docTitle": "福引機",
+      "title": "福引機",
+      "sub": "GARA-GARA, PON!",
+      "machine": "福引機",
+      "tHelp": "使用說明",
+      "tLang": "Switch to English",
+      "tTheme": "切換深色／淺色",
+      "tClose": "關閉",
+      "hHelp": "使用說明",
+      "hList": "名單",
+      "demo": "示範名單",
+      "tDemo": "載入 40 人的示範名單，用來試跑",
+      "pasteSummary": "或直接貼上（一列一人）",
+      "usePaste": "套用",
+      "main": "正取",
+      "reserve": "備取",
+      "unit": "名",
+      "mask": "遮蔽姓名",
+      "sound": "音效",
+      "all": "連抽",
+      "stop": "停止",
+      "tAll": "自動一顆接一顆抽到滿額；抽的途中再按一次會停下",
+      "now": "直接結果",
+      "tNow": "不轉桶子，立刻抽完剩下的名額",
+      "more": "加抽備取",
+      "tMore": "備取名額加一並再抽一顆",
+      "reset": "重來",
+      "resetConfirm": "再按確認",
+      "tReset": "清除名單與結果，要連按兩次",
+      "hResult": "抽選結果",
+      "thOrder": "順位",
+      "thKind": "類別",
+      "thName": "姓名",
+      "thTime": "抽出時間",
+      "empty": "還沒有抽出任何人。",
+      "kMain": "正取",
+      "kReserve": "備取",
+      "copy": "複製",
+      "tCopy": "複製完整結果，貼到試算表",
+      "save": "下載 csv",
+      "tSave": "下載完整結果的 csv 檔",
+      "ready": "準備好就轉動",
+      "spinning": "轉動中",
+      "needList": "請先載入名單",
+      "finished": "抽選完成",
+      "spinMain": "抽出　正取 {0}／{1}",
+      "spinReserve": "抽出　備取 {0}／{1}",
+      "progress": "剩 {0} 人未抽，已抽 {1} 人。",
+      "callGold": "金球　正取第 {0} 名",
+      "callSilver": "銀球　備取第 {0} 名",
+      "doneName": "正取 {0} 名、備取 {1} 名",
+      "doneMeta": "名單見「抽選結果」",
+      "noList": "尚未載入名單。",
+      "listLoaded": "已載入 {0} 人。",
+      "listBad": "讀不到名單：內容是空的。",
+      "readFail": "檔案讀取失敗。",
+      "started": "已經開始抽選，要換名單請先按「重來」。",
+      "copied": "已複製，可貼到試算表。",
+      "copyFail": "複製失敗，請改用「下載 csv」。",
+      "saved": "已下載結果檔。",
+      "cleared": "已清除，請重新載入名單。",
+      "help": [
+        [
+          "步驟",
+          [
+            "載入名單：選文字檔或 csv 檔，或展開「直接貼上」，一列一人，貼入後按「套用」。",
+            "設定正取與備取名額。",
+            "按綠色按鈕或點桶子的把手，一次抽一顆；金球是正取，銀球是備取。",
+            "抽完後按「複製」貼到試算表，或按「下載 csv」。"
+          ]
+        ],
+        [
+          "其他按鈕",
+          [
+            "連抽：自動抽到滿額，途中再按一次停下。",
+            "直接結果：不轉桶子，立刻抽完剩下的名額。",
+            "加抽備取：名額用完後，再多抽一名備取。",
+            "重來：清除名單與結果，要連按兩次。"
+          ]
+        ],
+        [
+          "注意",
+          [
+            "抽選使用瀏覽器的密碼學亂數，抽出不放回，同一列不會重複抽中。",
+            "「遮蔽姓名」只影響畫面，複製與下載的內容一律是完整姓名。",
+            "csv 檔有多欄時，取標題為「姓名」或 name 的那一欄；沒有標題列就取第一欄。",
+            "抽選時請讓這個分頁保持在最前面，切到背景動畫會暫停。",
+            "名單只留在這個頁面，不會上傳，關掉頁面就消失。",
+            "下載檔名的最後一段是名單指紋：同一份名單算出的指紋相同，可用來核對名單沒有被換過。"
+          ]
+        ]
+      ]
+    },
+    "en": {
+      "docTitle": "Revolving Lottery Machine",
+      "title": "Revolving Lottery Machine",
+      "sub": "GARA-GARA, PON!",
+      "machine": "Revolving lottery machine",
+      "tHelp": "Guide",
+      "tLang": "切換為中文",
+      "tTheme": "Toggle dark / light",
+      "tClose": "Close",
+      "hHelp": "Guide",
+      "hList": "List",
+      "demo": "Demo list",
+      "tDemo": "Load a 40-person demo list for a trial run",
+      "pasteSummary": "Or paste it here (one person per line)",
+      "usePaste": "Apply",
+      "main": "Winners",
+      "reserve": "Reserves",
+      "unit": "",
+      "mask": "Mask names",
+      "sound": "Sound",
+      "all": "Auto",
+      "stop": "Stop",
+      "tAll": "Draw one ball after another until every place is filled; press again to stop",
+      "now": "Instant",
+      "tNow": "Fill every remaining place at once without turning the drum",
+      "more": "Extra reserve",
+      "tMore": "Add one reserve place and draw it",
+      "reset": "Reset",
+      "resetConfirm": "Press again",
+      "tReset": "Clear the list and the results; press twice",
+      "hResult": "Results",
+      "thOrder": "No.",
+      "thKind": "Type",
+      "thName": "Name",
+      "thTime": "Drawn at",
+      "empty": "Nobody has been drawn yet.",
+      "kMain": "Winner",
+      "kReserve": "Reserve",
+      "copy": "Copy",
+      "tCopy": "Copy the full results for pasting into a spreadsheet",
+      "save": "Download csv",
+      "tSave": "Download the full results as a csv file",
+      "ready": "Turn when ready",
+      "spinning": "Turning",
+      "needList": "Load a list first",
+      "finished": "Draw complete",
+      "spinMain": "Draw winner {0} / {1}",
+      "spinReserve": "Draw reserve {0} / {1}",
+      "progress": "{0} not drawn, {1} drawn.",
+      "callGold": "Gold ball, winner {0}",
+      "callSilver": "Silver ball, reserve {0}",
+      "doneName": "{0} winners, {1} reserves",
+      "doneMeta": "See the results table",
+      "noList": "No list loaded.",
+      "listLoaded": "Loaded {0} people.",
+      "listBad": "Could not read the list: it is empty.",
+      "readFail": "Could not read the file.",
+      "started": "The draw has started. Press Reset before changing the list.",
+      "copied": "Copied. Paste it into a spreadsheet.",
+      "copyFail": "Copy failed. Use Download csv instead.",
+      "saved": "Results file downloaded.",
+      "cleared": "Cleared. Load a list again.",
+      "help": [
+        [
+          "Steps",
+          [
+            "Load the list: choose a text or csv file, or open the paste box, paste one person per line, and press Apply.",
+            "Set the number of winners and reserves.",
+            "Press the green button or the drum handle to draw one ball; gold is a winner, silver is a reserve.",
+            "When finished, press Copy to paste into a spreadsheet, or Download csv."
+          ]
+        ],
+        [
+          "Other buttons",
+          [
+            "Auto: draws until every place is filled; press again to stop.",
+            "Instant: fills every remaining place at once without turning the drum.",
+            "Extra reserve: once all places are filled, draws one more reserve.",
+            "Reset: clears the list and the results; press twice."
+          ]
+        ],
+        [
+          "Notes",
+          [
+            "The draw uses the browser's cryptographic random numbers, without replacement, so no line is drawn twice.",
+            "Mask names affects the screen only. Copied and downloaded results always carry full names.",
+            "For a csv with several columns, the column headed 姓名 or name is used; without a header row, the first column is used.",
+            "Keep this tab in front during the draw; animation pauses in a background tab.",
+            "The list stays on this page, is never uploaded, and is gone when the page closes.",
+            "The last part of the download file name is the list fingerprint: the same list always gives the same fingerprint, so it shows the list was not swapped."
+          ]
+        ]
+      ]
+    }
+  };
+  function pref(key, allowed, fallback) {
+    try { var v = localStorage.getItem(key); return allowed.indexOf(v) !== -1 ? v : fallback; } catch (e) { return fallback; }
+  }
+  function keep(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* preference just is not remembered */ } }
+  var lang = pref("draw-lang", ["zh", "en"], "zh"), theme = pref("draw-theme", ["light", "dark"], "dark");
+  function t(key) {
+    var args = arguments;
+    return T[lang][key].replace(/\{(\d)\}/g, function (m, i) { return args[+i + 1]; });
+  }
+  function each(selector, fn) { Array.prototype.forEach.call(document.querySelectorAll(selector), fn); }
+  function applyLang() {
+    document.documentElement.lang = lang === "zh" ? "zh-Hant" : "en";
+    document.title = t("docTitle");
+    $("machine").setAttribute("aria-label", t("machine"));
+    each("[data-t]", function (n) { n.textContent = t(n.getAttribute("data-t")); });
+    each("[data-tip]", function (n) {
+      var tip = t(n.getAttribute("data-tip"));
+      n.title = tip;
+      if (n.className.indexOf("ib") !== -1) n.setAttribute("aria-label", tip);
+    });
+    $("lang").textContent = lang === "zh" ? "EN" : "中";
+    var doc = $("doc");
+    while (doc.firstChild) doc.removeChild(doc.firstChild);
+    T[lang].help.forEach(function (group) {
+      var h = document.createElement("h3"), ul = document.createElement("ul");
+      h.textContent = group[0];
+      group[1].forEach(function (line) { var li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
+      doc.appendChild(h); doc.appendChild(ul);
+    });
+    renderListInfo(); renderNote(); renderCallout(false); refresh();
+  }
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", theme);
+    $("sunIcon").style.display = theme === "dark" ? "" : "none";
+    $("moonIcon").style.display = theme === "dark" ? "none" : "";
+  }
+  function toggleHelp(open) {
+    var win = $("helpwin");
+    win.hidden = open == null ? !win.hidden : !open;
+    $("help").setAttribute("aria-expanded", String(!win.hidden));
+  }
+
+  // ---------- drawing the drum ----------
+  function polygonPoints(radius) {
+    var pts = [];
+    for (var i = 0; i < 8; i++) {
+      var a = (Math.PI / 4) * i + Math.PI / 8;
+      pts.push((CX + radius * Math.cos(a)).toFixed(1) + "," + (CY + radius * Math.sin(a)).toFixed(1));
+    }
+    return pts.join(" ");
+  }
+  function el(name, attrs) {
+    var node = document.createElementNS(NS, name);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) node.setAttribute(k, attrs[k]); }
+    return node;
+  }
+  function buildDrum() {
+    $("shell").setAttribute("points", polygonPoints(R));
+    $("inner").setAttribute("points", polygonPoints(R - 26));
+    var ribs = $("ribs");
+    for (var i = 0; i < 8; i++) {
+      var a = (Math.PI / 4) * i + Math.PI / 8;
+      ribs.appendChild(el("line", { x1: CX + 22 * Math.cos(a), y1: CY + 22 * Math.sin(a), x2: CX + R * Math.cos(a), y2: CY + R * Math.sin(a) }));
+    }
+  }
+  function ball(x, y, r, kind, opacity) {
+    var g = el("g", { transform: "translate(" + x + " " + y + ")", opacity: opacity == null ? 1 : opacity });
+    var gold = kind === "gold";
+    g.appendChild(el("circle", { r: r, fill: gold ? "#e9b83a" : "#c9ced4", stroke: gold ? "#b9861a" : "#8f979f", "stroke-width": 2 }));
+    g.appendChild(el("circle", { cx: -r * 0.35, cy: -r * 0.35, r: r * 0.28, fill: "#fff", opacity: 0.75 }));
+    return g;
+  }
+
+  // ---------- randomness: unbiased pick without replacement ----------
+  function randomIndex(n) {
+    var limit = Math.floor(4294967296 / n) * n, buf = new Uint32Array(1);
+    do { window.crypto.getRandomValues(buf); } while (buf[0] >= limit);
+    return buf[0] % n;
+  }
+
+  // ---------- list loading ----------
+  function parseCsvLine(line) {
+    var out = [], cur = "", q = false;
+    for (var i = 0; i < line.length; i++) {
+      var c = line[i];
+      if (q) {
+        if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else { q = false; } }
+        else cur += c;
+      } else if (c === '"') q = true;
+      else if (c === "," || c === "\t") { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out.map(function (s) { return s.trim(); });
+  }
+  function parseList(text) {
+    var lines = text.replace(/^\ufeff/, "").split(/\r?\n/).filter(function (l) { return l.trim() !== ""; });
+    if (!lines.length) return [];
+    // a header cell called name (or its Chinese equivalents) picks the column; otherwise the first column is the name
+    var head = parseCsvLine(lines[0]), col = -1;
+    head.forEach(function (h, i) { if (col === -1 && /^(name|姓名|名字|名稱)$/i.test(h)) col = i; });
+    if (col !== -1) lines.shift(); else col = 0;
+    var people = [];
+    lines.forEach(function (line) {
+      var name = parseCsvLine(line)[col] || "";
+      if (name) people.push({ name: name });
+    });
+    return people;
+  }
+  function useList(people) {
+    if (state.drawn.length) { setNote("started"); return; }
+    state.pool = people;
+    state.list = { count: people.length, finger: "" };
+    renderListInfo();
+    fingerprint(people, state.list);
+    refresh();
+  }
+  function renderListInfo() {
+    var l = state.list, text;
+    if (!l) text = t("noList");
+    else if (l.failed) text = t("readFail");
+    else if (!l.count) text = t("listBad");
+    else text = t("listLoaded", l.count);
+    $("listInfo").textContent = text;
+  }
+  function fingerprint(people, list) {
+    if (!people.length || !window.crypto || !window.crypto.subtle) return;
+    var text = people.map(function (p) { return p.name; }).join("\n");
+    window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)).then(function (buf) {
+      var hex = Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+      list.finger = hex.slice(0, 12);   // goes into the download file name
+    }).catch(function () {});
+  }
+
+  // ---------- sound ----------
+  var audio = null;
+  function tone(freq, start, dur, type, gain) {
+    if (!$("sound").checked) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      var o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + start;
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t); o.stop(t + dur);
+    } catch (e) { /* sound is optional */ }
+  }
+  function rattleSound(ms) { for (var t = 0; t < ms; t += 110) tone(520 + (t % 330), t / 1000, 0.04, "square", 0.03); }
+  function bell(gold) {
+    var notes = gold ? [1319, 1760, 2093, 1760, 2093] : [988, 1319];
+    notes.forEach(function (f, i) { tone(f, i * 0.16, 0.5, "sine", 0.16); });
+  }
+
+  // ---------- animation ----------
+  function setDrum(angle) { $("drum").setAttribute("transform", "rotate(" + angle.toFixed(2) + " " + CX + " " + CY + ")"); }
+  function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function spinDrum(fast, done) {
+    var quick = reduceMotion || fast;
+    var from = state.angle, turns = quick ? 360 : 1080, dur = reduceMotion ? 500 : fast ? 900 : 2600, t0 = null;
+    rattleSound(dur - 300);
+    function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur);
+      setDrum(from + turns * easeInOut(k));
+      if (k < 1) requestAnimationFrame(frame);
+      else { state.angle = from + turns; setDrum(SPOUT_REST); state.angle = SPOUT_REST; done(); }
+    }
+    requestAnimationFrame(frame);
+  }
+  // ---------- balls: a small physics world so they land, bump and spill on their own ----------
+  var balls = [], queue = [], simOn = false, simLast = null, simAcc = 0, calm = 0, quiet = 0, pour = 0;
+  var STEP = 1 / 120, GRAVITY = 1500, GROUND = 418, WIDTH = 520;
+  var TRAY = { x0: 95, x1: 425, y0: 380, y1: 400 }, LIP = { x: 95, y: 373 };   // the raised left corner of the tray
+  function addBall(kind, onLand) {
+    var a = SPOUT_REST * Math.PI / 180, x = CX + (R - 16) * Math.cos(a), y = CY + (R - 16) * Math.sin(a);
+    // Math.random only varies how the ball tumbles out; who gets drawn is decided by randomIndex
+    var b = { x: x + (Math.random() - 0.5) * 6, y: y, vx: -15 + (Math.random() - 0.5) * 20, vy: 60, turn: 0, node: ball(x, y, BALL_R, kind), onLand: onLand || null };
+    $("tray").appendChild(b.node);
+    balls.push(b);
+    return b;
+  }
+  function touched(b) { if (b.onLand) { var f = b.onLand; b.onLand = null; f(); } }
+  function hitStatic(b, nx, ny, depth) {
+    b.x += nx * depth; b.y += ny * depth;
+    var vn = b.vx * nx + b.vy * ny;
+    if (vn < 0) {
+      var tx = -ny, ty = nx, vt = (b.vx * tx + b.vy * ty) * 0.985, bounce = vn < -120 ? 0.35 : 0;
+      if (Math.abs(vt) < 4) vt = 0;
+      if (vn < -250) tone(700, 0, 0.05, "triangle", 0.05);
+      vn = -vn * bounce;
+      b.vx = nx * vn + tx * vt; b.vy = ny * vn + ty * vt;
+    }
+    touched(b);
+  }
+  function stepWorld() {
+    var i, j, it, b, c, dx, dy, d, d2, nx, ny, push, rvn, imp, r = BALL_R;
+    for (i = 0; i < balls.length; i++) {
+      b = balls[i];
+      b.vy += GRAVITY * STEP; b.vx *= 0.999;
+      b.x += b.vx * STEP; b.y += b.vy * STEP;
+      if (Math.abs(b.vx) > 8) b.turn += b.vx * STEP / r * 180 / Math.PI;
+    }
+    for (it = 0; it < 4; it++) {
+      for (i = 0; i < balls.length; i++) {
+        b = balls[i];
+        if (b.y + r > GROUND) hitStatic(b, 0, -1, b.y + r - GROUND);
+        if (b.x - r < 0) hitStatic(b, 1, 0, r - b.x);
+        if (b.x + r > WIDTH) hitStatic(b, -1, 0, b.x + r - WIDTH);
+        dx = b.x - Math.max(TRAY.x0, Math.min(TRAY.x1, b.x));
+        dy = b.y - Math.max(TRAY.y0, Math.min(TRAY.y1, b.y));
+        d2 = dx * dx + dy * dy;
+        if (d2 < r * r) {
+          if (d2 > 1e-6) { d = Math.sqrt(d2); hitStatic(b, dx / d, dy / d, r - d); }
+          else hitStatic(b, 0, -1, b.y - TRAY.y0 + r);
+        }
+        dx = b.x - LIP.x; dy = b.y - LIP.y; d2 = dx * dx + dy * dy;
+        if (d2 < r * r && d2 > 1e-6) { d = Math.sqrt(d2); hitStatic(b, dx / d, dy / d, r - d); }
+      }
+      for (i = 0; i < balls.length; i++) {
+        for (j = i + 1; j < balls.length; j++) {
+          b = balls[i]; c = balls[j];
+          dx = c.x - b.x; dy = c.y - b.y; d2 = dx * dx + dy * dy;
+          if (d2 >= 4 * r * r) continue;
+          d = Math.sqrt(d2) || 0.01; nx = dx / d; ny = dy / d; push = (2 * r - d) / 2;
+          b.x -= nx * push; b.y -= ny * push; c.x += nx * push; c.y += ny * push;
+          rvn = (c.vx - b.vx) * nx + (c.vy - b.vy) * ny;
+          if (rvn < 0) {
+            imp = -(1 + (rvn < -120 ? 0.3 : 0)) * rvn / 2;
+            b.vx -= imp * nx; b.vy -= imp * ny; c.vx += imp * nx; c.vy += imp * ny;
+          }
+          imp = ((c.vx - b.vx) * -ny + (c.vy - b.vy) * nx) * 0.05;   // a little grip between balls so heaps hold and settle
+          b.vx += imp * -ny; b.vy += imp * nx; c.vx -= imp * -ny; c.vy -= imp * nx;
+          touched(b); touched(c);
+        }
+      }
+    }
+  }
+  function renderBalls() {
+    balls.forEach(function (b) {
+      b.node.setAttribute("transform", "translate(" + b.x.toFixed(1) + " " + b.y.toFixed(1) + ") rotate(" + b.turn.toFixed(1) + ")");
+    });
+  }
+  function settleNow(steps) { for (var i = 0; i < steps; i++) stepWorld(); renderBalls(); }
+  function wake() {
+    calm = 0; quiet = 0;
+    if (simOn) return;
+    simOn = true; simLast = null; simAcc = 0;
+    requestAnimationFrame(simFrame);
+  }
+  function simFrame(ts) {
+    if (simLast === null) simLast = ts;
+    var dt = Math.min(0.05, (ts - simLast) / 1000), fastest = 0;
+    simLast = ts; simAcc += dt; pour += dt; quiet += dt;
+    if (queue.length && pour >= 0.18) { pour = 0; quiet = 0; addBall(queue.shift()); }
+    while (simAcc >= STEP) { stepWorld(); simAcc -= STEP; }
+    renderBalls();
+    balls.forEach(function (b) { fastest = Math.max(fastest, Math.abs(b.vx), Math.abs(b.vy)); });
+    calm = fastest < 15 && !queue.length ? calm + dt : 0;
+    // a big heap never goes fully still, so freeze it a while after the last ball
+    if (calm > 0.6 || quiet > 6 || (!balls.length && !queue.length)) { simOn = false; return; }
+    requestAnimationFrame(simFrame);
+  }
+  function dropBall(kind, done) {
+    var b = addBall(kind, done);
+    if (reduceMotion) { settleNow(300); touched(b); } else wake();
+  }
+  function pourBalls(kinds) {
+    if (reduceMotion) { kinds.forEach(function (k) { addBall(k); settleNow(40); }); settleNow(400); return; }
+    Array.prototype.push.apply(queue, kinds);
+    wake();
+  }
+  function clearBalls() {
+    balls.length = 0; queue.length = 0;
+    var g = $("tray"); while (g.firstChild) g.removeChild(g.firstChild);
+  }
+
+  // ---------- draw logic ----------
+  function limits() {
+    var m = Math.max(1, Math.min(50, parseInt($("nMain").value, 10) || 5));
+    var r = Math.max(0, Math.min(50, parseInt($("nReserve").value, 10) || 0));
+    return { main: m, total: m + r };
+  }
+  function maskName(name) {
+    var chars = Array.from(name);
+    if (chars.length <= 1) return name;
+    if (chars.length === 2) return chars[0] + "○";
+    return chars[0] + new Array(chars.length - 1).join("○") + chars[chars.length - 1];
+  }
+  function shown(name) { return $("mask").checked ? maskName(name) : name; }
+  function stamp(d) {
+    function p(n) { return ("0" + n).slice(-2); }
+    return d.getFullYear() + "/" + p(d.getMonth() + 1) + "/" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+  function canDraw() { return state.pool.length > 0 && state.drawn.length < limits().total; }
+  function drawAll() {
+    if (state.auto) { state.auto = false; refresh(); return; }   // second press stops after the current ball
+    if (state.spinning || !canDraw()) return;
+    state.auto = true;
+    spin(true);
+  }
+  function drawNow() {
+    if (state.spinning || state.auto || !canDraw()) return;
+    var lim = limits(), kinds = [], time = stamp(new Date());
+    while (canDraw()) {
+      var order = state.drawn.length + 1, kind = order <= lim.main ? "gold" : "silver";
+      state.drawn.push({ order: order, kind: kind, person: state.pool.splice(randomIndex(state.pool.length), 1)[0], time: time });
+      kinds.push(kind);
+    }
+    var total = state.drawn.length, gold = Math.min(total, lim.main);
+    pourBalls(kinds);
+    bell(true);
+    setCallout("gold", function () { return [t("finished"), t("doneName", gold, total - gold), t("doneMeta")]; });
+    refresh();
+  }
+  function spin(chained) {
+    var lim = limits();
+    if (state.auto && chained !== true) return;
+    if (state.spinning || !canDraw()) { state.auto = false; return; }
+    state.spinning = true;
+    refresh();
+    var order = state.drawn.length + 1, kind = order <= lim.main ? "gold" : "silver";
+    var picked = state.pool.splice(randomIndex(state.pool.length), 1)[0];
+    var entry = { order: order, kind: kind, person: picked, time: stamp(new Date()) };
+    setCallout("", function () { return [t("spinning"), "", ""]; });
+    spinDrum(state.auto, function () {
+      dropBall(kind, function () {
+        state.drawn.push(entry);
+        state.spinning = false;
+        if (state.auto && canDraw()) setTimeout(function () { if (state.auto) spin(true); }, 350);
+        else state.auto = false;
+        bell(kind === "gold");
+        setCallout(kind, function () {
+          return [kind === "gold" ? t("callGold", order) : t("callSilver", order - lim.main), shown(picked.name), ""];
+        });
+        refresh();
+      });
+    });
+  }
+  // the callout keeps a function, not a string, so it can be redrawn in the other language or with names unmasked
+  function readyCallout() { return [t("ready"), "", ""]; }
+  function setCallout(kind, render) { state.callout = { kind: kind, render: render }; renderCallout(true); }
+  function renderCallout(pop) {
+    var c = state.callout, parts = c.render();
+    $("callout").className = "callout" + (c.kind ? " " + c.kind + (pop ? " pop" : "") : "");
+    $("coKind").textContent = parts[0];
+    $("coName").textContent = parts[1];
+    $("coMeta").textContent = parts[2];
+  }
+  function refresh() {
+    var lim = limits(), n = state.drawn.length, body = $("rows");
+    while (body.firstChild) body.removeChild(body.firstChild);
+    state.drawn.forEach(function (d) {
+      var tr = document.createElement("tr"), isGold = d.kind === "gold";
+      [String(d.order), isGold ? t("kMain") : t("kReserve"), shown(d.person.name), d.time].forEach(function (v, i) {
+        var td = document.createElement("td");
+        td.textContent = v;
+        if (i === 1) td.className = isGold ? "k-gold" : "k-silver";
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    $("empty").style.display = n ? "none" : "block";
+    var ready = state.pool.length > 0, finished = n >= lim.total || (n > 0 && !ready);
+    var btn = $("spin"), busy = state.spinning || state.auto;
+    btn.disabled = busy || !ready || n >= lim.total;
+    if (!ready && !n) btn.textContent = t("needList");
+    else if (finished) btn.textContent = t("finished");
+    else if (n < lim.main) btn.textContent = t("spinMain", n + 1, lim.main);
+    else btn.textContent = t("spinReserve", n - lim.main + 1, lim.total - lim.main);
+    $("progress").textContent = ready || n ? t("progress", state.pool.length, n) : "";
+    $("copy").disabled = $("save").disabled = $("reset").disabled = !n || busy;
+    $("more").disabled = busy || !n || n < lim.total || !ready;
+    $("all").disabled = !state.auto && (state.spinning || !ready || n >= lim.total);
+    $("all").textContent = state.auto ? t("stop") : t("all");
+    $("now").disabled = busy || !ready || n >= lim.total;
+    $("reset").textContent = Date.now() - state.armedReset <= 4000 ? t("resetConfirm") : t("reset");
+    $("nMain").disabled = n > 0 || busy;
+    $("nReserve").disabled = busy;
+    $("file").disabled = $("demo").disabled = $("usePaste").disabled = n > 0 || busy;
+  }
+
+  // ---------- export: always full names ----------
+  function resultRows() {
+    return [[t("thOrder"), t("thKind"), t("thName"), t("thTime")]].concat(state.drawn.map(function (d) {
+      return [String(d.order), d.kind === "gold" ? t("kMain") : t("kReserve"), d.person.name, d.time];
+    }));
+  }
+  function setNote(key) { state.note = key ? Array.prototype.slice.call(arguments) : null; renderNote(); }
+  function renderNote() { $("note").textContent = state.note ? t.apply(null, state.note) : ""; }
+  function copyResult() {
+    var text = resultRows().map(function (r) { return r.join("\t"); }).join("\n");
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      setNote(ok ? "copied" : "copyFail");
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { setNote("copied"); }, fallback);
+    } else fallback();
+  }
+  function saveResult() {
+    var csv = "﻿" + resultRows().map(function (r) {
+      return r.map(function (c) { return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(",");
+    }).join("\r\n");
+    var a = document.createElement("a"), d = new Date();
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    var finger = state.list && state.list.finger;
+    a.download = "fukubiki_pon_" + stamp(d).replace(/[\/: ]/g, "").slice(0, 8) + (finger ? "_" + finger : "") + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    setNote("saved");
+  }
+  function reset() {
+    var now = Date.now();
+    if (now - state.armedReset > 4000) {
+      state.armedReset = now;
+      refresh();
+      setTimeout(refresh, 4100);
+      return;
+    }
+    state.pool = []; state.drawn = []; state.armedReset = 0; state.list = null;
+    clearBalls();
+    $("file").value = "";
+    renderListInfo();
+    setCallout("", readyCallout);
+    setNote("cleared");
+    refresh();
+  }
+
+  // ---------- wiring ----------
+  buildDrum();
+  setDrum(SPOUT_REST);
+  state.callout = { kind: "", render: readyCallout };
+  applyTheme();
+  applyLang();
+  $("spin").addEventListener("click", spin);
+  $("crank").addEventListener("click", spin);
+  $("file").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () { useList(parseList(String(reader.result))); };
+    reader.onerror = function () { state.list = { failed: true }; renderListInfo(); };
+    reader.readAsText(f, "utf-8");
+  });
+  $("usePaste").addEventListener("click", function () { useList(parseList($("paste").value)); });
+  $("demo").addEventListener("click", function () {
+    var demo = [];
+    for (var i = 1; i <= 40; i++) demo.push({ name: "Demo " + ("00" + i).slice(-3) });
+    useList(demo);
+  });
+  $("copy").addEventListener("click", copyResult);
+  $("save").addEventListener("click", saveResult);
+  $("reset").addEventListener("click", reset);
+  $("more").addEventListener("click", function () { $("nReserve").value = String((parseInt($("nReserve").value, 10) || 0) + 1); refresh(); spin(); });
+  $("all").addEventListener("click", drawAll);
+  $("now").addEventListener("click", drawNow);
+  ["nMain", "nReserve", "mask"].forEach(function (id) { $(id).addEventListener("change", function () { refresh(); renderCallout(false); }); });
+  $("help").addEventListener("click", function () { toggleHelp(); });
+  $("helpClose").addEventListener("click", function () { toggleHelp(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") toggleHelp(false); });
+  $("lang").addEventListener("click", function () { lang = lang === "zh" ? "en" : "zh"; keep("draw-lang", lang); applyLang(); });
+  $("theme").addEventListener("click", function () { theme = theme === "dark" ? "light" : "dark"; keep("draw-theme", theme); applyTheme(); });
+  window.addEventListener("beforeunload", function (e) {
+    if (state.drawn.length) { e.preventDefault(); e.returnValue = ""; }
+  });
+})();
+</script>
+</body>
+</html>
