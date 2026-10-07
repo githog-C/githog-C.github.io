@@ -22,14 +22,13 @@ Live page: <https://githog-c.github.io/fukubiki/index.html>
 
 ## Prize mode
 
-Click the left leaf on the drum to switch. Instead of winners and reserves,
-the drum holds six prizes: gold, silver, red, blue, green and white. Set how
-many balls each prize gets, and every draw picks one at random from what is
-still in the drum, so the top prize does not come first.
-
-A list is optional here. With a list, each ball goes to one person. Without
-one, only balls are drawn, for people taking turns at the drum. Click the leaf
-again to go back; once a draw has started, press Reset first.
+Click the left leaf on the drum to switch to prize mode, and click it again to
+go back. Prize mode has six ball colours (gold, silver, red, blue, green and
+white). Set how many balls each prize gets; every draw then picks at random
+from what is still in the drum, so the top prize does not come first. A list
+is optional: with one, each ball goes to one person; without one, only balls
+are drawn, for people taking turns at the drum. Once a draw has started, press
+Reset before switching modes.
 
 For a csv with several columns, the column headed `name` is used; without a
 header row, the first column is used.
