@@ -3,6 +3,7 @@ I don't own anything here. Huge thx to C&amp;CC&amp;CD&amp;CW! xxx
 　├─ [fukubiki](https://githog-c.github.io/fukubiki/index.html)  
 　├─ [lyrics](https://githog-c.github.io/lyrics/index.html)  
 　├─ [plurk-backup-search](https://githog-c.github.io/plurk-backup-search/index.html)  
+　├─ [qrcode](https://githog-c.github.io/qrcode/index.html)  
 　├─ [repo](https://githog-c.github.io/repo/index.html)  
 　├─ [speak](https://githog-c.github.io/speak/index.html)  
 　├─ [sub-NF](https://githog-c.github.io/sub-NF/index.html)  
