@@ -458,7 +458,7 @@ input[type=number], input[type=text] { font-family: inherit; font-size: inherit;
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-2.63-6.36L21 9.5"/></svg>
     </button>
     <div class="sep"></div>
-    <button class="tb-btn" id="btn-snap">
+    <button class="tb-btn active" id="btn-snap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
       <span id="snap-label"></span>
     </button>
@@ -713,7 +713,7 @@ const state = {
   selectedIds: [],
   tool: 'select',
   zoom: 1,
-  snapToGrid: false,
+  snapToGrid: true,   // 2026-11-13 user: grid snap on by default
   darkMode: false,
   lang: 'zh-TW',
   defaultFill: '#6366f1',
@@ -2284,6 +2284,525 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.__cmReady) { appInit(); }
   else { document.addEventListener('cmready', appInit); }
 });
+</script>
+<!-- ═════ Pixel brush (2026-11-13) ═════
+     A pixel layer is one more shape type in this editor ("pixels"): it shows in the Layers
+     panel like any shape, and the pixel brush (B) paints its cells on the normal canvas.
+     Every pixel layer has an asset name (several layers with the same asset = one picture)
+     and a theme (both / light only / dark only), so one project can carry the light and dark
+     versions of an icon. "深色影響像素" decides whether the dark-mode switch also turns the
+     canvas dark and shows the dark-only layers; the status bar then warns about colors whose
+     contrast with that background is under 3:1 (WCAG 1.4.11 for graphics).
+     Exchange with tools: 存像素專案 / 開像素專案 (.pixel.json, format pixel-project/1),
+     read by _tools/pixelkit/pixelkit.py, which turns an asset into an exact SVG / PNG / ICO. -->
+<style>
+#pixel-props { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+#pixel-props .prop-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+#pixel-props select, #pixel-props input { flex: 1; min-width: 0; }
+#status-contrast { margin-left: 12px; }
+#status-contrast.warn { color: #dc2626; font-weight: 600; }
+.tb-btn.on-px { background: var(--accent); color: #fff; }
+</style>
+<input type="file" id="px-file" accept=".json,application/json" hidden>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const DARK_BG = "#1F2228", LIGHT_BG = "#FFFFFF";
+  state.pixelCell = 20;
+  state.pixelThemeLink = false;
+  state.counts.pixels = state.counts.pixels || 0;
+  if (LANG["zh-TW"]) {
+    LANG["zh-TW"].shapeNames.pixels = "像素圖層";
+    LANG["zh-TW"].hint.pixel = "像素筆：點或拖曳畫格子（顏色＝填色）· Alt 拖曳＝擦掉 · Shift 點＝吸色 · 先選一個像素圖層就畫在它上面";
+  }
+  if (LANG.en) {
+    LANG.en.shapeNames.pixels = "Pixels";
+    LANG.en.hint.pixel = "Pixel brush: click or drag to paint cells (color = fill) · Alt-drag erases · Shift-click picks";
+  }
+
+  // ── header buttons and toolbox tool
+  const lang = $("btn-lang");
+  const mk = (id, text, title) => { const b = document.createElement("button"); b.className = "tb-btn"; b.id = id;
+    b.textContent = text; b.title = title; lang.parentNode.insertBefore(b, lang); return b; };
+  const bLink = mk("btn-px-theme", "深色影響像素", "開：深色切換也讓畫布變深、只顯示深色用的像素圖層，並檢查對比");
+  const bOpen = mk("btn-px-open", "開像素專案", "讀 .pixel.json，每個圖層變成一個像素圖層");
+  const bSave = mk("btn-px-save", "存像素專案", "把像素圖層依素材名稱存成 .pixel.json（工具讀這個）");
+  const pathBtn = $("tool-path");
+  const tb = document.createElement("button");
+  tb.className = "tool-btn"; tb.dataset.tool = "pixel"; tb.id = "tool-pixel"; tb.title = "像素筆 (B)";
+  tb.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="6" height="6"/><rect x="9" y="9" width="6" height="6"/><rect x="15" y="15" width="6" height="6"/><rect x="15" y="3" width="6" height="6" opacity=".35"/><rect x="3" y="15" width="6" height="6" opacity=".35"/></svg><span class="tool-key">B</span>';
+  pathBtn.parentNode.insertBefore(tb, pathBtn.nextSibling);
+  tb.addEventListener("click", () => setTool("pixel"));
+  const sc = document.createElement("span"); sc.id = "status-contrast";
+  $("status-xy").parentNode.appendChild(sc);
+
+  // ── pixel shape helpers
+  const isPx = (sh) => sh && sh.type === "pixels";
+  const runsOf = (sh) => {           // [x, y, n, color] per horizontal run, in cells
+    const rows = {};
+    for (const [k, c] of Object.entries(sh.px)) { const [x, y] = k.split(",").map(Number); (rows[y] = rows[y] || []).push([x, c]); }
+    const out = [];
+    for (const [y, cells] of Object.entries(rows)) {
+      cells.sort((a, b) => a[0] - b[0]);
+      let i = 0;
+      while (i < cells.length) { let n = 1;
+        while (i + n < cells.length && cells[i + n][0] === cells[i][0] + n && cells[i + n][1] === cells[i][1]) n++;
+        out.push([cells[i][0], +y, n, cells[i][1]]); i += n; }
+    }
+    return out;
+  };
+  const previewTheme = () => (state.pixelThemeLink && state.darkMode ? "dark" : "light");
+  const themeShown = (sh) => !sh.theme || sh.theme === previewTheme();
+  function newPixelShape(base) {
+    const cell = base ? base.cell : state.pixelCell;
+    const sh = { id: genId(), type: "pixels", name: `${t("shapeNames").pixels} ${++state.counts.pixels}`,
+      visible: true, locked: false, fill: base ? base.fill : (state.defaultFill || "#2B2F36"), stroke: "none", strokeWidth: 0, opacity: 1,
+      x: base ? base.x : 0, y: base ? base.y : 0, cell, cols: base ? base.cols : Math.floor(CANVAS_W / cell),
+      rows: base ? base.rows : Math.floor(CANVAS_H / cell), asset: base ? base.asset : "logo", theme: "", px: {} };
+    state.shapes.push(sh); state.selectedIds = [sh.id];
+    return sh;
+  }
+
+  // ── wrap the editor's shape functions
+  const _toLine = shapeToSVGLine;
+  shapeToSVGLine = function (sh) {
+    if (!isPx(sh)) return _toLine(sh);
+    const meta = [sh.asset, sh.theme || "both", sh.cell, sh.cols, sh.rows, sh.x, sh.y].join("|");
+    const rects = runsOf(sh).map(([x, y, n, c]) =>
+      `<rect x="${sh.x + x * sh.cell}" y="${sh.y + y * sh.cell}" width="${n * sh.cell}" height="${sh.cell}" fill="${c}"/>`).join("");
+    return `<g data-pixels="${meta}" data-name="${sh.name}" shape-rendering="crispEdges"${sh.opacity < 1 ? ` opacity="${r2(sh.opacity)}"` : ""}>${rects}</g>`;
+  };
+  const _make = makeShapeEl;
+  makeShapeEl = function (sh) {
+    if (!isPx(sh)) return _make(sh);
+    const g = svgEl("g", { "data-id": sh.id, "shape-rendering": "crispEdges" });
+    g.style.cursor = "crosshair"; applyShapeToEl(g, sh); return g;
+  };
+  const _apply = applyShapeToEl;
+  applyShapeToEl = function (el, sh) {
+    if (!isPx(sh)) return _apply(el, sh);
+    el.setAttribute("opacity", sh.opacity);
+    el.textContent = "";
+    el.appendChild(svgEl("rect", { x: sh.x, y: sh.y, width: sh.cols * sh.cell, height: sh.rows * sh.cell, fill: "transparent" }));
+    for (const [x, y, n, c] of runsOf(sh))
+      el.appendChild(svgEl("rect", { x: sh.x + x * sh.cell, y: sh.y + y * sh.cell, width: n * sh.cell, height: sh.cell, fill: c }));
+  };
+  const _bbox = getShapeBBox;
+  getShapeBBox = (sh) => isPx(sh) ? { x: sh.x, y: sh.y, w: sh.cols * sh.cell, h: sh.rows * sh.cell } : _bbox(sh);
+  const _move = moveShape;
+  moveShape = function (sh, dx, dy) { if (isPx(sh)) { sh.x += dx; sh.y += dy; } else _move(sh, dx, dy); };
+  const _icon = layerIcon;
+  layerIcon = (type) => type === "pixels"
+    ? '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="4" height="4"/><rect x="6" y="6" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/></svg>'
+    : _icon(type);
+  const _hit = hitTestShapes;
+  hitTestShapes = function (x, y) {
+    for (let i = state.shapes.length - 1; i >= 0; i--) {
+      const sh = state.shapes[i];
+      if (!isPx(sh) || !sh.visible || sh.locked || !themeShown(sh)) continue;
+      const cx = Math.floor((x - sh.x) / sh.cell), cy = Math.floor((y - sh.y) / sh.cell);
+      if (sh.px[cx + "," + cy]) return sh.id;
+    }
+    return _hit(x, y);
+  };
+  const _fromDom = domElToShape;
+  domElToShape = function (el) {
+    const meta = el.getAttribute && el.getAttribute("data-pixels");
+    if (!meta) return _fromDom(el);
+    const [asset, theme, cell, cols, rows, ox, oy] = meta.split("|");
+    const sh = { id: genId(), type: "pixels", name: el.getAttribute("data-name") || `${t("shapeNames").pixels} ${++state.counts.pixels}`,
+      visible: true, locked: false, fill: "#2B2F36", stroke: "none", strokeWidth: 0, opacity: parseFloat(el.getAttribute("opacity") || "1"),
+      x: +ox, y: +oy, cell: +cell, cols: +cols, rows: +rows, asset, theme: theme === "both" ? "" : theme, px: {} };
+    for (const r of el.querySelectorAll("rect")) {
+      const c = r.getAttribute("fill"); if (!c || c === "transparent") continue;
+      const x0 = Math.round((+r.getAttribute("x") - sh.x) / sh.cell), y0 = Math.round((+r.getAttribute("y") - sh.y) / sh.cell);
+      const n = Math.round(+r.getAttribute("width") / sh.cell);
+      for (let i = 0; i < n; i++) sh.px[(x0 + i) + "," + y0] = c.toUpperCase();
+    }
+    return sh;
+  };
+  const _renderCanvas = renderCanvas;
+  renderCanvas = function () {
+    _renderCanvas();
+    for (const sh of state.shapes) {
+      if (!isPx(sh)) continue;
+      const el = document.querySelector(`#shapes-layer [data-id="${sh.id}"]`);
+      if (el) el.style.display = sh.visible && themeShown(sh) ? "" : "none";
+    }
+    $("canvas-bg").setAttribute("fill", previewTheme() === "dark" ? DARK_BG : "white");
+    checkContrast();
+  };
+
+  // ── accessibility: contrast of every visible pixel color against the preview background
+  function lum(hex) {
+    const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  function checkContrast() {
+    const bg = previewTheme() === "dark" ? DARK_BG : LIGHT_BG;
+    const colors = new Set();
+    state.shapes.forEach((sh) => { if (isPx(sh) && sh.visible && themeShown(sh)) Object.values(sh.px).forEach((c) => colors.add(c)); });
+    if (!colors.size) { sc.textContent = ""; sc.className = ""; return; }
+    const low = [...colors].map((c) => [c, ratio(c, bg)]).filter(([, r]) => r < 3).sort((a, b) => a[1] - b[1]);
+    sc.className = low.length ? "warn" : "";
+    sc.textContent = low.length
+      ? `對比不足（${previewTheme() === "dark" ? "深色" : "淺色"}背景，要 3:1）：` + low.slice(0, 4).map(([c, r]) => `${c} ${r.toFixed(1)}:1`).join("、") + (low.length > 4 ? ` 等 ${low.length} 色` : "")
+      : `對比 OK（${previewTheme() === "dark" ? "深色" : "淺色"}背景，全部 ≥ 3:1）`;
+  }
+
+  // ── properties of a pixel layer
+  const box = document.createElement("div");
+  box.id = "pixel-props";
+  box.innerHTML = `
+    <div class="prop-row"><span class="prop-name">素材</span><input id="px-asset" type="text" title="同一個素材名稱的像素圖層合成一張圖；工具用這個名稱取用"></div>
+    <div class="prop-row"><span class="prop-name">顯示於</span><select id="px-theme">
+      <option value="">深淺色都顯示</option><option value="light">只在淺色</option><option value="dark">只在深色</option></select></div>
+    <div class="prop-row"><span class="prop-name">格數</span><input id="px-cols" type="number" min="1" max="256" title="寬幾格">×<input id="px-rows" type="number" min="1" max="256" title="高幾格"></div>
+    <div class="prop-row"><span class="prop-name">格大小</span><input id="px-cell" type="number" min="1" max="200" title="畫布上一格幾個單位"></div>
+    <div class="prop-row"><button class="tb-btn" id="px-new-layer" title="同素材、同位置、同格子再開一層">＋ 同素材新圖層</button></div>`;
+  $("props-form").appendChild(box);
+  const _props = renderProperties;
+  renderProperties = function () {
+    _props();
+    const sh = getSelected()[0];
+    box.style.display = isPx(sh) ? "" : "none";
+    if (!isPx(sh)) return;
+    $("px-asset").value = sh.asset; $("px-theme").value = sh.theme || "";
+    $("px-cols").value = sh.cols; $("px-rows").value = sh.rows; $("px-cell").value = sh.cell;
+  };
+  const edit = (fn) => () => { const sh = getSelected()[0]; if (!isPx(sh)) return; fn(sh); pushHistory(); renderAll(); };
+  $("px-asset").addEventListener("change", edit((sh) => { sh.asset = $("px-asset").value.trim() || "logo"; }));
+  $("px-theme").addEventListener("change", edit((sh) => { sh.theme = $("px-theme").value; }));
+  $("px-cols").addEventListener("change", edit((sh) => { sh.cols = Math.max(1, +$("px-cols").value | 0); }));
+  $("px-rows").addEventListener("change", edit((sh) => { sh.rows = Math.max(1, +$("px-rows").value | 0); }));
+  $("px-cell").addEventListener("change", edit((sh) => { sh.cell = Math.max(1, +$("px-cell").value); state.pixelCell = sh.cell; }));
+  $("px-new-layer").addEventListener("click", () => { const sh = getSelected()[0]; if (!isPx(sh)) return; newPixelShape(sh); pushHistory(); renderAll(); });
+
+  // ── the brush
+  let paint = null;
+  function cellAt(sh, pt) { return [Math.floor((pt.x - sh.x) / sh.cell), Math.floor((pt.y - sh.y) / sh.cell)]; }
+  function put(sh, x0, y0, c) {           // a brush of state.pixelBrush x state.pixelBrush cells
+    const n = state.pixelBrush || 1;
+    for (let x = x0; x < x0 + n; x++) for (let y = y0; y < y0 + n; y++) {
+      if (x < 0 || y < 0 || x >= sh.cols || y >= sh.rows) continue;
+      if (c) sh.px[x + "," + y] = c.toUpperCase(); else delete sh.px[x + "," + y];
+    }
+  }
+  function line(x0, y0, x1, y1, f) { const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy; for (;;) { f(x0, y0); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } } }
+  const _dispatch = dispatch;
+  dispatch = function (event, e, pt) {
+    if (state.tool !== "pixel") return _dispatch(event, e, pt);
+    pt = getSVGPt(e);
+    let sh = getSelected()[0];
+    if (!isPx(sh) || sh.locked) {
+      sh = state.shapes.slice().reverse().find((s) => isPx(s) && s.visible && !s.locked && themeShown(s)) || newPixelShape(null);
+      state.selectedIds = [sh.id];
+    }
+    const [x, y] = cellAt(sh, pt);
+    if (e.shiftKey) { const c = sh.px[x + "," + y]; if (c) { sh.fill = c; renderProperties(); } return; }
+    paint = { sh, x, y, c: e.altKey ? "" : (sh.fill === "none" ? "#2B2F36" : sh.fill) };
+    put(sh, x, y, paint.c); renderCanvas();
+  };
+  window.addEventListener("mousemove", (e) => {
+    if (!paint) return;
+    const [x, y] = cellAt(paint.sh, getSVGPt(e));
+    if (x === paint.x && y === paint.y) return;
+    line(paint.x, paint.y, x, y, (i, j) => put(paint.sh, i, j, paint.c));
+    paint.x = x; paint.y = y; renderCanvas();
+  });
+  window.addEventListener("mouseup", () => { if (!paint) return; paint = null; pushHistory(); renderAll(); });
+  window.addEventListener("keydown", (e) => {
+    const tag = document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.ctrlKey || e.metaKey) return;
+    if (e.key.toLowerCase() === "b") setTool("pixel");
+  });
+
+  // ── dark-mode link
+  bLink.addEventListener("click", () => { state.pixelThemeLink = !state.pixelThemeLink;
+    bLink.classList.toggle("on-px", state.pixelThemeLink); renderAll(); });
+  $("btn-dark").addEventListener("click", () => setTimeout(renderCanvas, 0));
+
+  // ── pixel project files (.pixel.json) for the tools
+  function download(name, data, type) { const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+  bSave.addEventListener("click", () => {
+    const layers = state.shapes.filter(isPx);
+    if (!layers.length) { alert("還沒有像素圖層：用像素筆 (B) 畫一筆就會有"); return; }
+    const assets = [];
+    for (const sh of layers) {
+      let a = assets.find((x) => x.name === sh.asset);
+      if (!a) { a = { name: sh.asset, w: sh.cols, h: sh.rows, ox: sh.x, oy: sh.y, cell: sh.cell, layers: [] }; assets.push(a); }
+      const off = [Math.round((sh.x - a.ox) / a.cell), Math.round((sh.y - a.oy) / a.cell)];
+      const pixels = Array.from({ length: a.h }, () => Array(a.w).fill(""));
+      for (const [k, c] of Object.entries(sh.px)) { const [x, y] = k.split(",").map(Number);
+        const X = x + off[0], Y = y + off[1]; if (X >= 0 && Y >= 0 && X < a.w && Y < a.h) pixels[Y][X] = c; }
+      a.layers.push({ name: sh.name, visible: sh.visible, locked: sh.locked, theme: sh.theme || "", pixels });
+    }
+    const name = prompt("專案名稱（檔名）", "project") || "project";
+    const out = { format: "pixel-project/1", name, assets: assets.map(({ name, w, h, layers }) => ({ name, w, h, layers })) };
+    download(name + ".pixel.json", JSON.stringify(out, null, 1), "application/json");
+  });
+  bOpen.addEventListener("click", () => $("px-file").click());
+  $("px-file").addEventListener("change", (e) => {
+    const f = e.target.files[0]; if (!f) return; const rd = new FileReader();
+    rd.onload = () => {
+      let p; try { p = JSON.parse(rd.result); } catch (err) { alert("讀不懂這個檔"); return; }
+      if (!p || p.format !== "pixel-project/1") { alert("不是像素專案（format 要是 pixel-project/1）"); return; }
+      let ox = 0;
+      const add = [];
+      for (const a of p.assets) {
+        const cell = Math.max(1, Math.min(40, Math.floor(Math.min(560 / a.w, 560 / a.h))));
+        for (const l of a.layers) {
+          const sh = { id: genId(), type: "pixels", name: l.name, visible: l.visible !== false, locked: !!l.locked,
+            fill: "#2B2F36", stroke: "none", strokeWidth: 0, opacity: 1, x: ox, y: 0, cell, cols: a.w, rows: a.h,
+            asset: a.name, theme: l.theme || "", px: {} };
+          (l.pixels || []).forEach((r, y) => r.forEach((c, x) => { if (c) sh.px[x + "," + y] = c.toUpperCase(); }));
+          add.push(sh);
+        }
+        ox += a.w * cell + 20;
+      }
+      state.shapes = state.shapes.filter((s) => !isPx(s)).concat(add);
+      state.selectedIds = add.length ? [add[0].id] : [];
+      pushHistory(); renderAll();
+    };
+    rd.readAsText(f); e.target.value = "";
+  });
+})();
+</script>
+<!-- ═════ Tool variants (2026-11-13) ═════
+     Pressing a tool key again cycles its variants; the right panel's 工具設定 shows and sets them:
+       B  pixel brush: 1×1 → 2×2 → 3×3 cells
+       E  eraser: pixel (one cell of a pixel layer, brush-sized) → object (the clicked shape only)
+       R  block: rectangle → ellipse → triangle
+       L  line: solid → dashed → Morse code (typed letters) → dotted
+       P  pen: stroke only → fill only → neither → both
+     Fill on/off, stroke on/off, colors and width apply to new shapes (and the selected one). -->
+<style>
+#tool-opts { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+#tool-opts .prop-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+#tool-opts .prop-name { min-width: 56px; }
+#tool-opts select, #tool-opts input[type=text] { flex: 1; min-width: 0; }
+#tool-opts input[type=number] { width: 60px; }
+#tool-opts .t-title { font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+</style>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const V = {
+    brush: [1, 2, 3], erase: ["pixel", "object"], block: ["rect", "ellipse", "tri"],
+    line: ["solid", "dashed", "morse", "dotted"], pen: ["stroke", "fill", "none", "both"],
+  };
+  const NAME = {
+    brush: { 1: "1×1", 2: "2×2", 3: "3×3" }, erase: { pixel: "像素（一格）", object: "物件（整個圖層物件）" },
+    block: { rect: "方形", ellipse: "圓形", tri: "三角形" },
+    line: { solid: "實線", dashed: "虛線", morse: "摩斯電碼", dotted: "點線" },
+    pen: { stroke: "只有線", fill: "只有範圍", none: "都無", both: "都有" },
+  };
+  const opt = state.toolOpts = { brush: 1, erase: "pixel", block: "rect", line: "solid", pen: "stroke",
+    fillOn: true, fillColor: state.defaultFill === "none" ? "#6366f1" : state.defaultFill,
+    strokeOn: false, strokeColor: "#1f2937", width: state.defaultStrokeWidth || 1, morse: "SOS", morseApply: true };
+
+  // ── panel
+  const box = document.createElement("div");
+  box.id = "tool-opts";
+  const sel = (id, key) => `<select id="${id}">` + V[key].map((v) => `<option value="${v}">${NAME[key][v]}</option>`).join("") + "</select>";
+  box.innerHTML = `<div class="t-title">工具設定（再按一次同一個鍵可切換）</div>
+    <div class="prop-row"><span class="prop-name">填色</span><input type="checkbox" id="to-fill-on"><input type="color" id="to-fill"></div>
+    <div class="prop-row"><span class="prop-name">外框</span><input type="checkbox" id="to-stroke-on"><input type="color" id="to-stroke"><input type="number" id="to-width" min="0" max="100" step="0.5" title="粗細"></div>
+    <div class="prop-row"><span class="prop-name">像素筆 B</span>${sel("to-brush", "brush")}</div>
+    <div class="prop-row"><span class="prop-name">橡皮擦 E</span>${sel("to-erase", "erase")}</div>
+    <div class="prop-row"><span class="prop-name">塊狀 R</span>${sel("to-block", "block")}</div>
+    <div class="prop-row"><span class="prop-name">線條 L</span>${sel("to-line", "line")}</div>
+    <div class="prop-row" id="to-morse-row"><span class="prop-name">摩斯</span><input type="text" id="to-morse" title="英文字母與數字"><label title="改字後套用到選取的線"><input type="checkbox" id="to-morse-apply">套用</label></div>
+    <div class="prop-row"><span class="prop-name">鋼筆 P</span>${sel("to-pen", "pen")}</div>`;
+  const tab = $("tab-properties");
+  tab.insertBefore(box, tab.firstChild);
+
+  function syncPanel() {
+    $("to-fill-on").checked = opt.fillOn; $("to-fill").value = opt.fillColor;
+    $("to-stroke-on").checked = opt.strokeOn; $("to-stroke").value = opt.strokeColor; $("to-width").value = opt.width;
+    $("to-brush").value = opt.brush; $("to-erase").value = opt.erase; $("to-block").value = opt.block;
+    $("to-line").value = opt.line; $("to-morse").value = opt.morse; $("to-morse-apply").checked = opt.morseApply;
+    $("to-pen").value = opt.pen; $("to-morse-row").style.display = opt.line === "morse" ? "" : "none";
+    state.defaultFill = opt.fillOn ? opt.fillColor : "none";
+    state.defaultStroke = opt.strokeOn ? opt.strokeColor : "none";
+    state.defaultStrokeWidth = opt.width;
+    state.pixelBrush = opt.brush;
+  }
+  function applyToSelection(fn) {
+    const s = getSelected(); if (!s.length) return;
+    s.forEach(fn); pushHistory(); renderAll();
+  }
+  $("to-fill-on").onchange = (e) => { opt.fillOn = e.target.checked; syncPanel(); applyToSelection((sh) => { if (sh.type !== "line" && sh.type !== "pixels") sh.fill = state.defaultFill; }); };
+  $("to-fill").oninput = (e) => { opt.fillColor = e.target.value; syncPanel(); };
+  $("to-fill").onchange = () => applyToSelection((sh) => { if (sh.type !== "line") sh.fill = opt.fillColor; });
+  $("to-stroke-on").onchange = (e) => { opt.strokeOn = e.target.checked; syncPanel(); applyToSelection((sh) => { if (sh.type !== "pixels") sh.stroke = state.defaultStroke === "none" && sh.type === "line" ? opt.strokeColor : state.defaultStroke; }); };
+  $("to-stroke").oninput = (e) => { opt.strokeColor = e.target.value; syncPanel(); };
+  $("to-stroke").onchange = () => applyToSelection((sh) => { if (sh.type !== "pixels" && sh.stroke !== "none") sh.stroke = opt.strokeColor; });
+  $("to-width").onchange = (e) => { opt.width = Math.max(0, +e.target.value || 0); syncPanel(); applyToSelection((sh) => { if (sh.type !== "pixels") sh.strokeWidth = opt.width; }); };
+  $("to-brush").onchange = (e) => { opt.brush = +e.target.value; syncPanel(); setTool("pixel"); };
+  $("to-erase").onchange = (e) => { opt.erase = e.target.value; syncPanel(); setTool("erase"); };
+  $("to-block").onchange = (e) => { opt.block = e.target.value; syncPanel(); setTool(blockTool()); };
+  $("to-line").onchange = (e) => { opt.line = e.target.value; syncPanel(); setTool("line"); applyToSelection((sh) => { if (sh.type === "line") sh.dash = opt.line; }); };
+  $("to-morse").onchange = (e) => { opt.morse = e.target.value.toUpperCase(); syncPanel();
+    if (opt.morseApply) applyToSelection((sh) => { if (sh.type === "line") { sh.dash = "morse"; sh.morse = opt.morse; } }); };
+  $("to-morse-apply").onchange = (e) => { opt.morseApply = e.target.checked; };
+  $("to-pen").onchange = (e) => { opt.pen = e.target.value; syncPanel(); setTool("path"); };
+  syncPanel();
+
+  // ── dash patterns, Morse included
+  const MORSE = { A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
+    K: "-.-", L: ".-..", M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-", U: "..-", V: "...-",
+    W: ".--", X: "-..-", Y: "-.--", Z: "--..", 0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-", 5: ".....",
+    6: "-....", 7: "--...", 8: "---..", 9: "----." };
+  function dashArray(sh) {
+    const u = Math.max(1, sh.strokeWidth || 1);
+    if (!sh.dash || sh.dash === "solid") return "";
+    if (sh.dash === "dashed") return `${4 * u} ${3 * u}`;
+    if (sh.dash === "dotted") return `${u} ${2 * u}`;
+    // Morse: dot 1, dash 3, gap in a letter 1, between letters 3, between words 7 (units)
+    const out = [];
+    for (const word of (sh.morse || "SOS").toUpperCase().split(/\s+/).filter(Boolean)) {
+      for (const ch of word) { const code = MORSE[ch]; if (!code) continue;
+        for (const s of code) out.push(s === "." ? u : 3 * u, u);
+        out[out.length - 1] = 3 * u; }
+      if (out.length) out[out.length - 1] = 7 * u;
+    }
+    return out.join(" ");
+  }
+  const _toLine2 = shapeToSVGLine;
+  shapeToSVGLine = function (sh) {
+    const s = _toLine2(sh), d = sh.type === "line" ? dashArray(sh) : "";
+    return d ? s.replace(/\/>$/, ` stroke-dasharray="${d}"/>`) : s;
+  };
+  const _apply2 = applyShapeToEl;
+  applyShapeToEl = function (el, sh) {
+    _apply2(el, sh);
+    if (sh.type === "line") { const d = dashArray(sh); if (d) el.setAttribute("stroke-dasharray", d); else el.removeAttribute("stroke-dasharray"); }
+  };
+
+  // ── new shapes take the tool settings (line style, pen fill/stroke)
+  const known = new Set(state.shapes.map((s) => s.id));
+  const _push = pushHistory;
+  pushHistory = function () {
+    for (const sh of state.shapes) {
+      if (known.has(sh.id)) continue;
+      known.add(sh.id);
+      if (sh.type === "line" && sh.dash === undefined) { sh.dash = opt.line; sh.morse = opt.morse; sh.strokeWidth = opt.width || 1;
+        if (opt.strokeOn) sh.stroke = opt.strokeColor; }
+      if (sh.type === "path" && !sh.tri && sh.pen === undefined) {
+        sh.pen = opt.pen;
+        sh.fill = opt.pen === "fill" || opt.pen === "both" ? opt.fillColor : "none";
+        sh.stroke = opt.pen === "stroke" || opt.pen === "both" ? opt.strokeColor : "none";
+        sh.strokeWidth = opt.width || 1;
+      }
+    }
+    _push();
+  };
+
+  // ── tool switching and key cycling
+  const blockTool = () => (opt.block === "rect" ? "rect" : opt.block === "ellipse" ? "ellipse" : "tri");
+  const hints = () => ({
+    pixel: `像素筆 ${NAME.brush[opt.brush]}：拖曳畫格子 · Alt 拖曳擦 · Shift 點吸色 · 再按 B 換大小`,
+    erase: `橡皮擦：${NAME.erase[opt.erase]} · 再按 E 切換`,
+    rect: "塊狀：方形 · 再按 R 換圓形、三角形", ellipse: "塊狀：圓形 · 再按 R 換三角形、方形",
+    tri: "塊狀：三角形（拖曳畫出外框範圍）· 再按 R 換方形",
+    line: `線條：${NAME.line[opt.line]}${opt.line === "morse" ? "（" + opt.morse + "）" : ""} · 點兩下定兩端 · 再按 L 切換`,
+    path: `鋼筆：${NAME.pen[opt.pen]} · 再按 P 切換`,
+  });
+  const _setTool = setTool;
+  setTool = function (tool) {
+    _setTool(tool);
+    const h = hints()[tool]; if (h) $("status-hint").textContent = h;
+    document.querySelectorAll(".tool-btn").forEach((b) => b.classList.toggle("active",
+      b.dataset.tool === tool || (tool === "tri" && b.dataset.tool === "rect")));
+  };
+  const next = (key) => { const list = V[key], i = list.indexOf(opt[key]); opt[key] = list[(i + 1) % list.length]; syncPanel(); };
+  window.addEventListener("keydown", (e) => {
+    const tag = document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    const cur = state.tool;
+    let handled = true;
+    if (k === "b") { if (cur === "pixel") next("brush"); setTool("pixel"); }
+    else if (k === "e") { if (cur === "erase") next("erase"); setTool("erase"); }
+    else if (k === "r") { if (["rect", "ellipse", "tri"].includes(cur)) next("block"); setTool(blockTool()); }
+    else if (k === "l") { if (cur === "line") next("line"); setTool("line"); }
+    else if (k === "p") { if (cur === "path") next("pen"); setTool("path"); }
+    else handled = false;
+    if (handled) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+
+  // toolbox: eraser and triangle buttons
+  const del = $("tool-delete");
+  const eb = document.createElement("button");
+  eb.className = "tool-btn"; eb.dataset.tool = "erase"; eb.id = "tool-erase"; eb.title = "橡皮擦 (E)：像素／物件";
+  eb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3l5 5-11 11H5l-2-2L16 3z"/><path d="M12 7l5 5"/></svg><span class="tool-key">E</span>';
+  del.parentNode.insertBefore(eb, del.previousElementSibling);
+  eb.addEventListener("click", () => setTool("erase"));
+  const rb = $("tool-rect");
+  rb.addEventListener("click", () => { opt.block = "rect"; syncPanel(); });
+  $("tool-ellipse").addEventListener("click", () => { opt.block = "ellipse"; syncPanel(); });
+
+  // ── triangle and eraser on the canvas
+  let drag = null;
+  const _dispatch2 = dispatch;
+  dispatch = function (event, e, pt) {
+    if (state.tool === "tri") { drag = { kind: "tri", x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y }; return; }
+    if (state.tool === "erase") {
+      const p = getSVGPt(e);
+      if (opt.erase === "object") {
+        const id = hitTestShapes(p.x, p.y); if (!id) return;
+        state.shapes = state.shapes.filter((s) => s.id !== id);      // only that shape, not its group
+        state.selectedIds = state.selectedIds.filter((s) => s !== id);
+        pushHistory(); renderAll(); return;
+      }
+      drag = { kind: "erase" }; eraseAt(p); return;
+    }
+    return _dispatch2(event, e, pt);
+  };
+  function eraseAt(p) {
+    const n = opt.brush;
+    for (let i = state.shapes.length - 1; i >= 0; i--) {
+      const sh = state.shapes[i];
+      if (sh.type !== "pixels" || !sh.visible || sh.locked) continue;
+      const cx = Math.floor((p.x - sh.x) / sh.cell), cy = Math.floor((p.y - sh.y) / sh.cell);
+      if (cx < 0 || cy < 0 || cx >= sh.cols || cy >= sh.rows) continue;
+      for (let dx = 0; dx < n; dx++) for (let dy = 0; dy < n; dy++) delete sh.px[(cx + dx) + "," + (cy + dy)];
+      renderCanvas(); return;
+    }
+  }
+  function triPreview() {
+    const pl = $("preview-layer"); pl.textContent = "";
+    if (!drag || drag.kind !== "tri") return;
+    const { x0, y0, x1, y1 } = drag;
+    pl.appendChild(svgEl("polygon", { points: `${(x0 + x1) / 2},${Math.min(y0, y1)} ${Math.max(x0, x1)},${Math.max(y0, y1)} ${Math.min(x0, x1)},${Math.max(y0, y1)}`,
+      fill: "rgba(99,102,241,.15)", stroke: "#6366f1", "stroke-dasharray": "4 3", "stroke-width": 1 / state.zoom }));
+  }
+  window.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    if (drag.kind === "erase") { eraseAt(getSVGPt(e)); return; }
+    const p = getSnapSVGPt(e); drag.x1 = p.x; drag.y1 = p.y; triPreview();
+  });
+  window.addEventListener("mouseup", () => {
+    if (!drag) return;
+    const d = drag; drag = null; $("preview-layer").textContent = "";
+    if (d.kind === "erase") { pushHistory(); renderAll(); return; }
+    const x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1), y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
+    if (x1 - x0 < 2 && y1 - y0 < 2) return;
+    state.counts.path = (state.counts.path || 0) + 1;
+    const sh = { id: genId(), type: "path", name: `三角形 ${state.counts.path}`, visible: true, locked: false, tri: true,
+      fill: state.defaultFill, stroke: state.defaultStroke, strokeWidth: state.defaultStrokeWidth, opacity: 1,
+      nodes: [{ x: (x0 + x1) / 2, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], closed: true };
+    state.shapes.push(sh); state.selectedIds = [sh.id]; pushHistory(); renderAll();
+  });
+})();
 </script>
 </body>
 </html>
